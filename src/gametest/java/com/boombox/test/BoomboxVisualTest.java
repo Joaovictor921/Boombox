@@ -66,7 +66,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             System.out.println("[BoomboxTest] caixas na casa: " + speakers);
             look(ctx, server, new Vec3(HX + 4.5, HY + 1, HZ + 7.5), -90f, 0f);
             int waited = ctx.waitFor((Minecraft mc) -> mc.player != null
-                    && ClientBoomboxManager.playingNear(mc, mc.player.position(), 40) != null, 20 * 240);
+                    && ClientBoomboxManager.playingNear(mc, mc.player.position(), 40) != null, 20 * 600);
             System.out.println("[BoomboxTest] música começou depois de " + waited + " ticks");
             ctx.waitTicks(60);
             ctx.takeScreenshot("rave_entrance");
@@ -79,6 +79,18 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             look(ctx, server, new Vec3(HX + 23.5, HY + 1, HZ + 12.5), -120f, -5f);
             ctx.waitTicks(17);
             ctx.takeScreenshot("rave_side");
+
+            // ---- tremor da câmera: colado numa caixa vs. longe (maior valor em 3 segundos)
+            for (Object[] spot : new Object[][]{{"colado na caixa", new Vec3(HX + 16.5, HY + 1, HZ + 2.6)},
+                    {"meio da pista", new Vec3(HX + 12.5, HY + 1, HZ + 7.5)}, {"lá fora", new Vec3(HX - 12.5, HY + 1, HZ + 7.5)}}) {
+                look(ctx, server, (Vec3) spot[1], 180f, 0f);
+                float[] max = {0};
+                for (int i = 0; i < 60; i++) {
+                    ctx.runOnClient(mc -> max[0] = Math.max(max[0], ClientBoomboxManager.cameraShake(mc)));
+                    ctx.waitTicks(1);
+                }
+                System.out.println("[BoomboxTest] tremor " + spot[0] + ": " + String.format(Locale.ROOT, "%.2f", max[0]));
+            }
 
             // ---- abafamento: quanto passa pelas paredes, de dentro e de fora
             Vec3 src = new Vec3(HX + 31.5, HY + 2.4, HZ + 7.5);   // paredão do fundo

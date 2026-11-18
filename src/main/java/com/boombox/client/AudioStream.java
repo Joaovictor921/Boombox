@@ -151,9 +151,9 @@ public final class AudioStream {
         cmd.addAll(List.of("-i", input, "-vn"));
         if (blown) {
             // grave lá em cima, agudo abafado e volume passando do limite: o som "estoura" (clipa)
-            // grave forte, mas sem saturar tanto (2.2: menos estourada; o volume sobe pelo ganho da caixa)
-            cmd.addAll(List.of("-af", "bass=g=15:f=60:w=0.7,bass=g=6:f=120:w=1,treble=g=-3,volume=1.9,"
-                    + "asoftclip=type=tanh:threshold=0.95,volume=1.2"));
+            // 2.3: grave um pouco menor e quase sem saturar (o volume vem do ganho da caixa, não do "estouro")
+            cmd.addAll(List.of("-af", "bass=g=11:f=60:w=0.7,bass=g=4:f=120:w=1,treble=g=-1.5,volume=1.3,"
+                    + "asoftclip=type=tanh:threshold=0.98"));
         }
         cmd.addAll(List.of("-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", "s16le", "pipe:1"));
 

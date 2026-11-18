@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-2.2.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-2.3.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,16 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 2.3
+- **Câmera treme no grave**: colado numa caixa alta (2 a 5 blocos, mais longe para caixas mais fortes, como as do
+  DJ Leo) e sem parede no meio, a imagem vibra quando o grave bate forte, como uma câmera encostada numa caixa de
+  som no talo. Longe das caixas ou atrás de uma parede não treme. Segue a opção **Efeitos de tela** do jogo
+  (Acessibilidade): em 0% o tremor desliga.
+- **Grave um pouco menor** e **caixas do DJ Leo menos estouradas** (quase sem saturação). O volume delas continua alto.
+- **Lasers na frente do telão**: o feixe agora é desenhado depois de tudo, então um laser que passa na frente do
+  telão aparece na frente (antes o telão cobria o laser, principalmente de longe).
+- Prévia: [docs/preview-2.3.png](docs/preview-2.3.png).
 
 ## Novidades da 2.2
 - **Telão** (bloco novo): mostra o **clipe da música** que está tocando na caixa mais perto (até 48 blocos), sincronizado

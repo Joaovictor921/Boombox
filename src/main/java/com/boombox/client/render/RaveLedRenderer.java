@@ -38,6 +38,8 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
     /** Luz que soma na cena e não grava profundidade (não mancha telões desenhados depois). */
     private static final RenderType BEAM = BeamRenderType.BEAM;
     private static final int BEAMS = 5;
+    /** Ordem de desenho dos feixes (maior = depois). */
+    private static final int BEAM_ORDER = 1000;
     private static final double MAX_LENGTH = 22;
 
     public static class State extends BlockEntityRenderState {
@@ -194,7 +196,8 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
         if (s.intensity <= 0.01f) return;
         // ---- feixes e fumaça (em coordenadas do mundo, a partir do canto do bloco)
         Quaternionf camRot = camera.orientation == null ? new Quaternionf() : new Quaternionf(camera.orientation);
-        collector.submitCustomGeometry(ps, BEAM, (pose, vc) -> {
+        // camada de desenho depois de tudo (telões, caixas, entidades): o laser na frente aparece na frente
+        collector.order(BEAM_ORDER).submitCustomGeometry(ps, BEAM, (pose, vc) -> {
             Light l = new Light(pose, vc);
             float ox = s.origin[0], oy = s.origin[1], oz = s.origin[2];
             Vector3f right = camRot.transform(new Vector3f(1, 0, 0));

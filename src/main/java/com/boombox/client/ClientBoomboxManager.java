@@ -96,6 +96,9 @@ public final class ClientBoomboxManager {
     private static int occlusionTick;
     /** Última vez que algum cliente pesquisou músicas para o DJ Leo (uma pesquisa por vez). */
     private static long lastLeoSearch;
+    /** Caixa que soa mais alto para você agora (para a câmera tremer no grave) e o quanto ela soa. */
+    private static String loudestKey;
+    private static double loudestGain;
     /** relógio do servidor - relógio local */
     private static long clockOffset;
     private static boolean clockKnown;
@@ -224,6 +227,8 @@ public final class ClientBoomboxManager {
         UNIT_OF.clear();
 
         tickLeo(mc, dim);
+        loudestKey = null;
+        loudestGain = 0;
         boolean measure = occlusionTick++ % 4 == 0;
 
         Map<String, List<State>> units = new LinkedHashMap<>();
@@ -299,6 +304,20 @@ public final class ClientBoomboxManager {
             UNIT_OCCLUSION.put(uk, occ);
             double open = gainAt(rep, repDist);
             float gain = (float) (master * open * occlusionGain(occ));
+            if (master > 0.05f && !stream.isLoading()) {
+                // tremor: só colado numa caixa (2 a 5 blocos, mais para caixas mais altas) e sem parede no meio
+                for (State st : members) {
+                    Vec3 src = sourcePosition(mc, st);
+                    if (src == null || !st.dim.equals(dim) || OCCLUSION.getOrDefault(st.key, 9f) > 0.3f) continue;
+                    float loud = st.type.loudness * (st.settings.blown() ? BLOWN_LOUDNESS : 1f);
+                    double reach = 2.0 + 0.6 * Math.min(5f, loud);
+                    double near = 1.0 - Math.sqrt(ear.distanceToSqr(src)) / reach;
+                    if (near > loudestGain) {
+                        loudestGain = near;
+                        loudestKey = st.key;
+                    }
+                }
+            }
             // Várias caixas juntas: o som sai do centro delas, "espalhado" pelo tamanho do grupo. Dentro da
             // rave você fica dentro desse raio e ouve dos dois lados; de fora, o som vem da direção da casa.
             // Antes saía só da caixa mais alta: se ela estivesse do seu lado, um lado do fone ficava mudo.
@@ -364,8 +383,21 @@ public final class ClientBoomboxManager {
         return st.type.hearDistance * (st.settings.blown() ? BLOWN_RANGE : 1.0);
     }
 
+    /**
+     * Quanto a câmera deve tremer agora (0 a 1): só bem perto de uma caixa alta e quando o grave bate forte,
+     * como uma câmera encostada numa caixa de som no talo. Respeita a opção "Efeitos de tela" do jogo.
+     */
+    public static float cameraShake(Minecraft mc) {
+        if (loudestKey == null) return 0f;
+        float[] lv = new float[2];
+        levels(loudestKey, lv);
+        float near = (float) Math.max(0, Math.min(1, loudestGain * 1.6));                // 0 longe, 1 colado
+        float kick = Math.max(0f, Math.min(1f, (lv[0] - 0.5f) / 0.35f));               // só no grave forte
+        return near * kick * mc.options.screenEffectScale().get().floatValue();
+    }
+
     /** Caixa estourada: quanto mais alta e até onde vai. */
-    private static final float BLOWN_LOUDNESS = 4.4f;
+    private static final float BLOWN_LOUDNESS = 5.0f;
 
     /**
      * Quanto de parede tem entre a caixa e o ouvido: anda pela linha reta em passos de 1/4 de bloco
