@@ -3,6 +3,7 @@ package com.boombox.net;
 import com.boombox.BoomboxMod;
 import com.boombox.QueueItem;
 import com.boombox.SongData;
+import com.boombox.SpeakerSettings;
 import com.boombox.Target;
 import io.netty.buffer.ByteBuf;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -48,6 +49,8 @@ public final class Payloads {
                 QUEUE_REMOVE = 6, QUEUE_CLEAR = 7, QUEUE_PLAY_INDEX = 8;
         /** Sincroniza todas as caixas num raio de 8x8 chunks com esta / desfaz a sincronização. */
         public static final int SYNC = 9, UNSYNC = 10;
+        /** Modo de luz (value = modo), cor fixa (value = índice da cor), Modo DJ (value 1 = travar). */
+        public static final int LIGHT_MODE = 11, LIGHT_COLOR = 12, DJ_LOCK = 13;
         public static final Type<Control> TYPE = new Type<>(BoomboxMod.id("control"));
         public static final StreamCodec<ByteBuf, Control> CODEC = StreamCodec.composite(
                 Target.STREAM_CODEC, Control::target,
@@ -131,7 +134,7 @@ public final class Payloads {
      * sincronizadas com esta (0 = nenhuma).
      */
     public record BoomboxState(String key, String dim, BlockPos pos, UUID holder, SongData song, long serverNowMs,
-                               int speakerType, int group)
+                               int speakerType, int group, SpeakerSettings settings)
             implements CustomPacketPayload {
         public static final Type<BoomboxState> TYPE = new Type<>(BoomboxMod.id("state"));
         private static final UUID NONE = new UUID(0, 0);
@@ -146,6 +149,7 @@ public final class Payloads {
                 ByteBufCodecs.VAR_LONG, BoomboxState::serverNowMs,
                 ByteBufCodecs.VAR_INT, BoomboxState::speakerType,
                 ByteBufCodecs.VAR_INT, BoomboxState::group,
+                SpeakerSettings.STREAM_CODEC, BoomboxState::settings,
                 BoomboxState::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

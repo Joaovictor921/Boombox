@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-1.7.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-2.0.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,33 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 2.0
+- **Modos de luz** (botão **✦ Luz** no menu das caixas de festa): arco-íris (como antes), **cor fixa** (botão
+  **■ Cor** escolhe entre 12 cores), **na batida** (fica apagada e acende só no grave) ou **desligada**.
+- **Cor da caixa**: clique com qualquer **corante** numa caixa de festa no chão para pintar o gabinete
+  (branca, vermelha, azul…). A cor fica no item quando você quebra a caixa e aparece também na mão.
+- **Modo DJ** (botão **⚑ Modo DJ**): quem colocou a caixa trava o menu. Os outros jogadores veem o que está tocando,
+  mas não conseguem tocar, pular, pausar, mudar o volume, a luz ou a cor, nem puxar a caixa para uma sincronização.
+  Caixas colocadas antes da 2.0 não têm dono: quem ligar o Modo DJ primeiro vira o dono.
+- **Bichos dançando**: papagaios (até 6 blocos) e allays (até 8 blocos) dançam perto de uma caixa tocando, igual
+  fazem com a jukebox (vale também para a caixa na mão de alguém).
+- **LED de Rave** (bloco novo): painel de luzes para parede, teto ou chão. As cores passam sozinhas e, perto de uma
+  caixa tocando (até 24 blocos), pulsam no grave seguindo o modo de luz da caixa. Emite luz.
+  Receita (dá 4): corante vermelho, verde-limão e azul em cima; painel de vidro, pó de pedra luminosa e painel de
+  vidro no meio; redstone embaixo.
+- **DJ Leo**: um morador novo, com skin própria, que aparece em **todas as vilas** (planície, deserto, savana, neve
+  e taiga), numa casa só dele: uma rave de baixa renda, com paredes remendadas, janela quebrada, pista de dança
+  xadrez, LEDs de rave e mesa de DJ.
+  - Ele fica dentro de casa, dança quando tem música tocando e fala com quem clica nele.
+  - A casa vem com uma **caixa de festa de tamanho sorteado**, **estourada**: toca bem mais alto (2,3x) e mais longe
+    (1,4x) que o normal, com o grave exagerado e o som saturando.
+  - A caixa dele **toca sozinha** quando alguém chega perto (pesquisa funk/rave no YouTube) e está no Modo DJ do
+    DJ Leo: ninguém troca a música dele. Se você quebrar e levar a caixa, ela continua estourada, mas passa a ser
+    sua (sai do Modo DJ e não toca mais sozinha).
+  - Para chamar o DJ Leo em qualquer lugar existe o **Ovo Gerador de DJ Leo** na aba do mod.
+  - A casa só aparece em vilas geradas depois de instalar a 2.0 (em chunks novos).
+- Prévia: [docs/preview-2.0.png](docs/preview-2.0.png).
 
 ## Novidades da 1.7
 - **Todas as caixas de festa tocam na mão**, cada uma com a sua animação (clique com o botão direito no ar para abrir o menu):
@@ -113,6 +140,7 @@ Precisa de JDK 25+:
 ## Versões
 | Versão | Minecraft | Download |
 |---|---|---|
+| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
 | 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
 | 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
 | 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |

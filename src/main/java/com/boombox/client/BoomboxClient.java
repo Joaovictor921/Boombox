@@ -27,6 +27,9 @@ public class BoomboxClient implements ClientModInitializer {
 
         // modelo 3D animado: bloco, item e boombox na mão
         BlockEntityRendererRegistry.register(ModBlocks.BOOMBOX_BE, BoomboxBlockRenderer::new);
+        BlockEntityRendererRegistry.register(ModBlocks.RAVE_LED_BE, com.boombox.client.render.RaveLedRenderer::new);
+        net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+                com.boombox.entity.ModEntities.DJ_LEO, com.boombox.client.render.DjLeoRenderer::new);
         SpecialModelRenderersAccessor.boombox$idMapper().put(BoomboxMod.id("boombox"), BoomboxItemRenderer.Unbaked.MAP_CODEC);
         LivingEntityRenderLayerRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {
             if (renderer instanceof AvatarRenderer<?> avatar) {

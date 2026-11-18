@@ -67,7 +67,15 @@ public final class AudioStream {
     private float bassSmooth, trebleSmooth;
     private long lastLevelNanos;
 
+    /** Caixa estourada (DJ Leo): grave exagerado e som distorcido, saturando. */
+    private final boolean blown;
+
     public AudioStream(String url, String name, LongSupplier elapsedMs) {
+        this(url, name, elapsedMs, false);
+    }
+
+    public AudioStream(String url, String name, LongSupplier elapsedMs, boolean blown) {
+        this.blown = blown;
         this.url = url;
         this.name = name;
         this.elapsedMs = elapsedMs;
@@ -80,6 +88,7 @@ public final class AudioStream {
     }
 
     public boolean isFinished() { return finished; }
+    public boolean blown() { return blown; }
     public String error() { return error; }
     public boolean isLoading() { return source == 0 && !finished; }
     /** Já decodificou e está só esperando o horário de começar. */
@@ -139,7 +148,13 @@ public final class AudioStream {
             if (userAgent != null) cmd.addAll(List.of("-user_agent", userAgent));
         }
         if (seek > 0) cmd.addAll(List.of("-ss", String.format(java.util.Locale.ROOT, "%.3f", seek / 1000.0)));
-        cmd.addAll(List.of("-i", input, "-vn", "-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", "s16le", "pipe:1"));
+        cmd.addAll(List.of("-i", input, "-vn"));
+        if (blown) {
+            // grave lá em cima, agudo abafado e volume passando do limite: o som "estoura" (clipa)
+            cmd.addAll(List.of("-af", "bass=g=14:f=80:w=0.8,treble=g=-5,volume=3.2,"
+                    + "asoftclip=type=hard:threshold=0.6,volume=1.4"));
+        }
+        cmd.addAll(List.of("-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", "s16le", "pipe:1"));
 
         seekMs = seek;
         Process p = new ProcessBuilder(cmd).redirectError(ProcessBuilder.Redirect.DISCARD).start();
@@ -229,7 +244,7 @@ public final class AudioStream {
                 source = AL10.alGenSources();
                 AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
                 AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0f); // a atenuação é feita aqui no código
-                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 4f); // caixas grandes passam do volume "normal"
+                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 8f); // caixas grandes passam do volume "normal"
                 AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
             }
             // eco/abafamento do Sound Physics Remastered (se instalado), recalculado 2x por segundo

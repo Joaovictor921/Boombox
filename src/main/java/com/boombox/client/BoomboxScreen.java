@@ -2,7 +2,12 @@ package com.boombox.client;
 
 import com.boombox.ModBlocks;
 import com.boombox.QueueItem;
+import com.boombox.BoomboxBlockEntity;
+import com.boombox.BoomboxItem;
 import com.boombox.SongData;
+import com.boombox.SpeakerSettings;
+import com.boombox.SpeakerType;
+import net.minecraft.client.gui.components.AbstractWidget;
 import com.boombox.Target;
 import com.boombox.net.Payloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -39,7 +44,7 @@ public class BoomboxScreen extends Screen {
     private record Tool(String label, int width, Runnable action) {}
 
     private static final int W = 320;
-    private static final int LIST_TOP = 124;
+    private static final int LIST_TOP = 146;
 
     /** Playlist escolhida por último (para o botão "+PL" dos resultados). */
     private static String lastPlaylist;
@@ -48,6 +53,11 @@ public class BoomboxScreen extends Screen {
     private EditBox input;
     private Button syncButton;
     private Button pauseButton;
+    private Button lightButton;
+    private Button colorButton;
+    private Button djButton;
+    /** Estava travada para mim (Modo DJ de outra pessoa) quando a tela foi montada. */
+    private boolean builtLocked;
     private String text = "";
     private Mode mode = Mode.NONE;
     private List<YouTube.Result> searchResults = List.of();
@@ -82,6 +92,30 @@ public class BoomboxScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (target.isHeld()) return mc.player == null ? null : ClientBoomboxManager.getHeld(mc.player.getUUID());
         return ClientBoomboxManager.getBlock(mc, target.pos());
+    }
+
+    /** Luz, cor, dono e Modo DJ desta caixa. */
+    private SpeakerSettings settings() {
+        Minecraft mc = Minecraft.getInstance();
+        if (target.isHeld()) {
+            return mc.player == null ? SpeakerSettings.DEFAULT
+                    : mc.player.getItemInHand(target.hand()).getOrDefault(ModBlocks.SETTINGS, SpeakerSettings.DEFAULT);
+        }
+        if (mc.level != null && mc.level.getBlockEntity(target.pos()) instanceof BoomboxBlockEntity be) return be.settings();
+        return SpeakerSettings.DEFAULT;
+    }
+
+    private SpeakerType speakerType() {
+        Minecraft mc = Minecraft.getInstance();
+        if (target.isHeld()) return mc.player == null ? SpeakerType.BOOMBOX : BoomboxItem.type(mc.player.getItemInHand(target.hand()));
+        if (mc.level != null && mc.level.getBlockState(target.pos()).getBlock() instanceof com.boombox.BoomboxBlock b) return b.type();
+        return SpeakerType.BOOMBOX;
+    }
+
+    /** Modo DJ de outra pessoa: não posso mexer. */
+    private boolean lockedForMe() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.player != null && !target.isHeld() && !settings().canControl(mc.player.getUUID());
     }
 
     private SongData song() {
@@ -144,13 +178,32 @@ public class BoomboxScreen extends Screen {
         button(tab(Mode.PLAYLISTS, "Playlists"), tx0 + tw + 4, y, tw, () -> setMode(Mode.PLAYLISTS));
         button(tab(Mode.LOCAL, "Músicas"), tx0 + 2 * (tw + 4), y, left + W - (tx0 + 2 * (tw + 4)), () -> setMode(Mode.LOCAL));
 
+        // linha 3: luzes / cor / Modo DJ
+        y = 98;
+        SpeakerSettings st = settings();
+        SpeakerType type = speakerType();
+        boolean party = type != null && type.isParty();
+        lightButton = button(lightLabel(st), left, y, 120, this::cycleLight);
+        lightButton.setTooltip(Tooltip.create(Component.literal(party
+                ? "Efeito dos LEDs: arco-íris, uma cor fixa, piscar só na batida ou desligado."
+                : "Só as caixas de festa têm LEDs.")));
+        lightButton.active = party;
+        colorButton = button("", left + 124, y, 90, this::cycleColor);
+        colorButton.setMessage(colorLabel(st));
+        colorButton.setTooltip(Tooltip.create(Component.literal("Cor dos LEDs no modo \"Cor fixa\".")));
+        colorButton.active = party && st.light() == SpeakerSettings.LIGHT_FIXED;
+        djButton = button(djLabel(st), left + 218, y, W - 218, this::toggleDj);
+        djButton.setTooltip(Tooltip.create(Component.literal(
+                "Modo DJ: trava o menu desta caixa para só você trocar a música. "
+                        + "Ninguém mais consegue pular, pausar ou mudar o volume.")));
+
         // barra de ferramentas da aba atual (alinhada à direita)
         List<Tool> tools = tools();
         int tx = left + W;
         for (int i = tools.size() - 1; i >= 0; i--) {
             Tool t = tools.get(i);
             tx -= t.width();
-            button(t.label(), tx, 100, t.width(), t.action());
+            button(t.label(), tx, 122, t.width(), t.action());
             tx -= 3;
         }
 
@@ -179,6 +232,43 @@ public class BoomboxScreen extends Screen {
             prev.active = page > 0;
             next.active = page < pages - 1;
         }
+
+        // Modo DJ de outra pessoa: dá para ver o que toca, mas não mexer
+        builtLocked = lockedForMe();
+        if (builtLocked) {
+            for (var child : children()) {
+                if (child instanceof AbstractWidget w) w.active = false;
+            }
+        }
+    }
+
+    private String lightLabel(SpeakerSettings st) {
+        return "✦ Luz: " + SpeakerSettings.LIGHT_NAMES[st.light()];
+    }
+
+    private Component colorLabel(SpeakerSettings st) {
+        return Component.literal("■ ").withColor(st.colorRgb())
+                .append(Component.literal(SpeakerSettings.COLOR_NAMES[st.color()]));
+    }
+
+    private String djLabel(SpeakerSettings st) {
+        return st.djLock() ? "§b⚑ Modo DJ: ligado" : "⚑ Modo DJ: desligado";
+    }
+
+    private void cycleLight() {
+        int next = (settings().light() + 1) % 4;
+        control(Payloads.Control.LIGHT_MODE, next);
+        setStatus("Luz: " + SpeakerSettings.LIGHT_NAMES[next]);
+    }
+
+    private void cycleColor() {
+        int next = (settings().color() + 1) % SpeakerSettings.COLORS.length;
+        control(Payloads.Control.LIGHT_COLOR, next);
+        setStatus("Cor dos LEDs: " + SpeakerSettings.COLOR_NAMES[next]);
+    }
+
+    private void toggleDj() {
+        control(Payloads.Control.DJ_LOCK, settings().djLock() ? 0 : 1);
     }
 
     private int syncedCount() {
@@ -593,6 +683,7 @@ public class BoomboxScreen extends Screen {
         if (mode == Mode.QUEUE && (h != lastQueueHash || s.autoplay() != lastAuto)) refresh();
         lastQueueHash = h;
         lastAuto = s.autoplay();
+        if (lockedForMe() != builtLocked) refresh(); // alguém ligou/desligou o Modo DJ
     }
 
     @Override
@@ -603,6 +694,15 @@ public class BoomboxScreen extends Screen {
             pauseButton.setMessage(Component.literal(paused ? "▶ Continuar" : "❚❚ Pausar"));
             pauseButton.active = st != null;
         }
+
+        SpeakerSettings set = settings();
+        if (lightButton != null) lightButton.setMessage(Component.literal(lightLabel(set)));
+        if (colorButton != null) {
+            colorButton.setMessage(colorLabel(set));
+            SpeakerType ty = speakerType();
+            colorButton.active = !builtLocked && ty != null && ty.isParty() && set.light() == SpeakerSettings.LIGHT_FIXED;
+        }
+        if (djButton != null) djButton.setMessage(Component.literal(djLabel(set)));
 
         if (syncButton != null && !target.isHeld()) {
             int n = syncedCount();
@@ -633,9 +733,12 @@ public class BoomboxScreen extends Screen {
         int toolsW = 0;
         for (Tool t : tools()) toolsW += t.width() + 3;
         int avail = W - toolsW - 4;
-        if (!lt.isEmpty() && avail > 24) g.text(font, fit(lt, avail), left, 106, 0xFFAAAAAA);
+        if (!lt.isEmpty() && avail > 24) g.text(font, fit(lt, avail), left, 128, 0xFFAAAAAA);
 
-        if (!status.isEmpty()) {
+        if (builtLocked) {
+            int sy = LIST_TOP + rowsPerPage * 21 + 6;
+            g.centeredText(font, "§c⚑ Modo DJ: só " + set.lockedBy() + " pode mexer nesta caixa", cx, sy, 0xFFFFFFFF);
+        } else if (!status.isEmpty()) {
             int sy = LIST_TOP + rowsPerPage * 21 + 6;
             g.centeredText(font, fit(status, W - 60), cx, sy, 0xFFFFFF55);
         } else if (mode == Mode.NONE) {

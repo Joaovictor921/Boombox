@@ -19,7 +19,15 @@ final class Geo {
     /** Cor ARGB multiplicada na textura (-1 = sem tingir). */
     int color = -1;
 
+    /** Quantas linhas de regiões a textura tem (4 colunas sempre). */
+    final int rows;
+
     Geo(PoseStack.Pose pose, VertexConsumer vc, int light, int overlay) {
+        this(pose, vc, light, overlay, 4);
+    }
+
+    Geo(PoseStack.Pose pose, VertexConsumer vc, int light, int overlay, int rows) {
+        this.rows = rows;
         this.pose = pose;
         this.vc = vc;
         this.baseLight = light;
@@ -101,8 +109,9 @@ final class Geo {
     void quad(int region, float nx, float ny, float nz,
               float ax, float ay, float az, float bx, float by, float bz,
               float cx, float cy, float cz, float dx, float dy, float dz, boolean frontFace) {
-        float u0 = (region % 4) * 0.25f + 0.25f / 32, v0 = (region / 4) * 0.25f + 0.25f / 32;
-        float u1 = u0 + 0.25f - 0.25f / 16, v1 = v0 + 0.25f - 0.25f / 16;
+        float rh = 1f / rows;
+        float u0 = (region % 4) * 0.25f + 0.25f / 32, v0 = (region / 4) * rh + rh / 32;
+        float u1 = u0 + 0.25f - 0.25f / 16, v1 = v0 + rh - rh / 16;
         if (frontFace) {
             vertex(ax, ay, az, u1, v1, nx, ny, nz);
             vertex(bx, by, bz, u1, v0, nx, ny, nz);

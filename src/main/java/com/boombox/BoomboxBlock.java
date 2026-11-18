@@ -2,7 +2,16 @@ package com.boombox;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -58,6 +67,48 @@ public class BoomboxBlock extends Block implements EntityBlock {
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
         Direction d = state.getValue(FACING);
         return (d == Direction.NORTH || d == Direction.SOUTH) ? shapeNS : shapeEW;
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    /** Quem coloca a caixa vira o dono (para o Modo DJ). */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide() && placer instanceof Player p && level.getBlockEntity(pos) instanceof BoomboxBlockEntity be) {
+            be.setSettings(be.settings().withOwner(p.getUUID(), p.getName().getString()));
+        }
+    }
+
+    /** Corante na caixa de festa: pinta o gabinete (como as caixas coloridas de verdade). */
+    @Override
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                          InteractionHand hand, BlockHitResult hit) {
+        if (!type.isParty() || !(stack.getItem() instanceof DyeItem)) {
+            return super.useItemOn(stack, state, level, pos, player, hand, hit);
+        }
+        if (!(level.getBlockEntity(pos) instanceof BoomboxBlockEntity be)) return InteractionResult.PASS;
+        var dye = stack.get(net.minecraft.core.component.DataComponents.DYE);
+        if (dye == null) return super.useItemOn(stack, state, level, pos, player, hand, hit);
+        if (be.settings().dye() == dye.getId()) return InteractionResult.PASS;
+        if (!level.isClientSide()) {
+            if (!be.settings().canControl(player.getUUID())) {
+                player.sendOverlayMessage(Component.literal("§cModo DJ: só " + be.settings().lockedBy() + " pode mexer nesta caixa"));
+                return InteractionResult.FAIL;
+            }
+            be.setSettings(be.settings().withDye(dye.getId()));
+            stack.consume(1, player);
+            level.playSound(null, pos, SoundEvents.DYE_USE, SoundSource.BLOCKS, 1f, 1f);
+        }
+        return InteractionResult.SUCCESS;
     }
 
     @Override

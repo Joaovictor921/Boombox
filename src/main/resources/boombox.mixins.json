@@ -6,9 +6,16 @@
   "client": [
     "client.ArmedEntityRenderStateMixin",
     "client.HumanoidModelMixin",
-    "client.SpecialModelRenderersAccessor"
+    "client.SpecialModelRenderersAccessor",
+    "client.ParrotMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "mixins": [
+    "AllayMixin",
+    "StructureTemplatePoolMixin",
+    "JigsawPlacerMixin",
+    "PoolElementStructurePieceMixin"
+  ]
 }

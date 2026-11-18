@@ -3,6 +3,7 @@ package com.boombox.client;
 import com.boombox.SpeakerType;
 
 import com.boombox.SongData;
+import com.boombox.SpeakerSettings;
 import com.boombox.net.Payloads;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -38,6 +39,8 @@ public final class ClientBoomboxManager {
         public final int group;
         public final UUID holder;
         public final SongData song;
+        /** Luz, Modo DJ, estourada... */
+        public final SpeakerSettings settings;
         boolean finished;
         String error;
         boolean reportedEnd;
@@ -52,6 +55,7 @@ public final class ClientBoomboxManager {
             this.song = p.song();
             this.type = SpeakerType.byOrdinal(p.speakerType());
             this.group = p.group();
+            this.settings = p.settings();
         }
 
         public String error() { return error; }
@@ -77,6 +81,14 @@ public final class ClientBoomboxManager {
      * uma única fonte de som (na caixa mais perto de você), para não ouvir a voz duas vezes.
      */
     private static final Map<String, String> UNIT_OF = new HashMap<>();
+    /** Caixas do DJ Leo paradas: alguém perto pesquisa músicas de rave para elas. */
+    private static final Map<String, Payloads.BoomboxState> LEO_IDLE = new HashMap<>();
+    /** Quando cada caixa do DJ Leo pediu músicas pela última vez (para não pedir sem parar). */
+    private static final Map<String, Long> LEO_ASKED = new HashMap<>();
+    /** O que o DJ Leo gosta de tocar (sorteia uma pesquisa). */
+    private static final String[] LEO_SEARCHES = {
+            "eletrofunk rave", "funk rave mix", "automotivo rave funk", "brega funk 2025",
+            "rave brasileira mix", "funk mandelão", "rave funk remix", "aquecimento rave funk"};
     /** relógio do servidor - relógio local */
     private static long clockOffset;
     private static boolean clockKnown;
@@ -97,6 +109,8 @@ public final class ClientBoomboxManager {
         }
         String k = p.key();
         State old = STATES.get(k);
+        if (p.settings().leo() && !p.song().hasSong() && p.holder() == null) LEO_IDLE.put(k, p);
+        else LEO_IDLE.remove(k);
         if (!p.song().hasSong()) {
             STATES.remove(k);
             closeStream(k);
@@ -202,6 +216,8 @@ public final class ClientBoomboxManager {
         HELD_BY_ENTITY.clear();
         UNIT_OF.clear();
 
+        tickLeo(mc, dim);
+
         Map<String, List<State>> units = new LinkedHashMap<>();
         for (State st : STATES.values()) {
             String uk = unitKey(st);
@@ -217,6 +233,10 @@ public final class ClientBoomboxManager {
             String uk = unit.getKey();
             List<State> members = unit.getValue();
             AudioStream stream = STREAMS.get(uk);
+            if (stream != null && stream.blown() != members.get(0).settings.blown()) {
+                closeStream(uk); // a caixa foi estourada / trocada: reabre com o som certo
+                stream = null;
+            }
 
             // de qual caixa o som sai: a que soaria mais alto para você (normalmente a mais perto)
             State rep = null;
@@ -242,7 +262,7 @@ public final class ClientBoomboxManager {
 
             if (shouldPlay && stream == null) {
                 SongData song = rep.song;
-                stream = new AudioStream(song.url(), uk, () -> song.positionMs(serverNow()));
+                stream = new AudioStream(song.url(), uk, () -> song.positionMs(serverNow()), rep.settings.blown());
                 stream.start();
                 STREAMS.put(uk, stream);
             } else if (!shouldPlay && stream != null) {
@@ -294,12 +314,83 @@ public final class ClientBoomboxManager {
         double full = FULL_VOLUME_DISTANCE * hear / HEAR_DISTANCE; // caixas maiores enchem mais o ambiente
         double att = dist <= full ? 1.0 : Math.max(0.0, 1.0 - (dist - full) / (hear - full));
         float loud = st.type.loudness; // caixas maiores tocam mais alto (também na mão)
+        if (st.settings.blown()) loud *= BLOWN_LOUDNESS; // caixa estourada do DJ Leo: exagerada
         return (st.song.volume() / 100.0) * att * att * loud;
     }
 
     /** Até onde o som chega: quanto maior a caixa, mais longe (o servidor informa o tipo). */
     private static double hearDistance(Minecraft mc, State st) {
-        return st.type.hearDistance;
+        return st.type.hearDistance * (st.settings.blown() ? BLOWN_RANGE : 1.0);
+    }
+
+    /** Caixa estourada: quanto mais alta e até onde vai. */
+    private static final float BLOWN_LOUDNESS = 2.3f;
+    private static final double BLOWN_RANGE = 1.4;
+
+    /**
+     * Caixas do DJ Leo paradas e perto de você: pesquisa músicas de rave e manda para o servidor
+     * (ele aceita só se a caixa ainda estiver parada). Tenta de novo a cada 40 s.
+     */
+    private static void tickLeo(Minecraft mc, String dim) {
+        if (LEO_IDLE.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        Vec3 me = mc.player.position();
+        for (Payloads.BoomboxState p : LEO_IDLE.values()) {
+            if (!p.dim().equals(dim) || me.distanceToSqr(Vec3.atCenterOf(p.pos())) > 40 * 40) continue;
+            Long last = LEO_ASKED.get(p.key());
+            if (last != null && now - last < 40_000) continue;
+            LEO_ASKED.put(p.key(), now);
+            String key = p.key();
+            String query = LEO_SEARCHES[(int) (Math.random() * LEO_SEARCHES.length)];
+            long delay = (long) (Math.random() * 1500);
+            Tools.EXEC.submit(() -> {
+                try {
+                    Thread.sleep(delay);
+                    Tools.ensureReady().get();
+                    List<YouTube.Result> found = new ArrayList<>(YouTube.search(query, 12));
+                    java.util.Collections.shuffle(found);
+                    List<QueueItem> items = found.stream()
+                            .filter(r -> r.durationSec() <= 0 || r.durationSec() < 15 * 60) // sem mixes de horas
+                            .map(r -> new QueueItem(r.url(), r.title(), r.durationSec()))
+                            .limit(8).toList();
+                    if (items.isEmpty()) return;
+                    mc.execute(() -> {
+                        if (LEO_IDLE.containsKey(key)) ClientPlayNetworking.send(new Payloads.AutoSuggest(key, "", items));
+                    });
+                } catch (Exception e) {
+                    com.boombox.BoomboxMod.LOGGER.info("Boombox: DJ Leo não achou músicas: {}", e.getMessage());
+                }
+            });
+        }
+    }
+
+    /**
+     * A caixa tocando mais perto desse ponto (até radius blocos), ou null. Usada pelos papagaios,
+     * pelos LEDs de rave e pelo DJ Leo para dançar.
+     */
+    public static State playingNear(Minecraft mc, Vec3 at, double radius) {
+        if (mc.level == null) return null;
+        String dim = mc.level.dimension().identifier().toString();
+        State best = null;
+        double bestD = radius * radius;
+        for (State st : STATES.values()) {
+            if (!st.dim.equals(dim) || st.song.paused() || st.finished) continue;
+            AudioStream s = STREAMS.get(UNIT_OF.getOrDefault(st.key, st.key));
+            if (s == null || s.isLoading()) continue;
+            Vec3 src = sourcePosition(mc, st);
+            if (src == null) continue;
+            double d = src.distanceToSqr(at);
+            if (d <= bestD) {
+                bestD = d;
+                best = st;
+            }
+        }
+        return best;
+    }
+
+    /** Grave/agudo de uma caixa (0–1). */
+    public static void levelsOf(State st, float[] out) {
+        levels(st == null ? null : st.key, out);
     }
 
     /**
@@ -381,6 +472,8 @@ public final class ClientBoomboxManager {
         stopAll();
         STATES.clear();
         IDLE.clear();
+        LEO_IDLE.clear();
+        LEO_ASKED.clear();
         HELD_BY_ENTITY.clear();
         UNIT_OF.clear();
         clockKnown = false;

@@ -12,7 +12,8 @@
               "function": "minecraft:copy_components",
               "source": "block_entity",
               "include": [
-                "boombox:song"
+                "boombox:song",
+                "boombox:settings"
               ]
             }
           ]

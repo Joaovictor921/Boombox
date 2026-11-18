@@ -1,7 +1,10 @@
 package com.boombox.client.render;
 
 import com.boombox.BoomboxItem;
+import com.boombox.ModBlocks;
+import com.boombox.SpeakerSettings;
 import com.boombox.SpeakerType;
+import net.minecraft.world.item.ItemStack;
 import com.boombox.client.ClientBoomboxManager;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -60,12 +63,16 @@ public class HeldBoomboxLayer extends RenderLayer<AvatarRenderState, PlayerModel
 
         ClientBoomboxManager.levelsForEntity(state.id, levels);
         float bass = levels[0], treble = levels[1];
-        if (right != null) draw(poseStack, collector, light, state, right, -1, bass, treble);
-        if (left != null) draw(poseStack, collector, light, state, left, 1, bass, treble);
+        if (right != null) draw(poseStack, collector, light, state, right, -1, bass, treble, settings(state.rightHandItemStack));
+        if (left != null) draw(poseStack, collector, light, state, left, 1, bass, treble, settings(state.leftHandItemStack));
+    }
+
+    private static SpeakerSettings settings(ItemStack stack) {
+        return stack == null ? SpeakerSettings.DEFAULT : stack.getOrDefault(ModBlocks.SETTINGS, SpeakerSettings.DEFAULT);
     }
 
     private void draw(PoseStack ps, SubmitNodeCollector collector, int light, AvatarRenderState state,
-                      SpeakerType type, int side, float bass, float treble) {
+                      SpeakerType type, int side, float bass, float treble, SpeakerSettings settings) {
         PlayerModel model = getParentModel();
         ModelPart arm = side < 0 ? model.rightArm : model.leftArm;
         float wheelAngle = 0f;
@@ -114,7 +121,7 @@ public class HeldBoomboxLayer extends RenderLayer<AvatarRenderState, PlayerModel
                 wheelAngle = -state.walkAnimationPos * 1.1f;      // rodinhas girando enquanto anda
             }
         }
-        SpeakerRendering.submit(type, ps, collector, light, OverlayTexture.NO_OVERLAY, bass, treble, wheelAngle);
+        SpeakerRendering.submit(type, ps, collector, light, OverlayTexture.NO_OVERLAY, bass, treble, wheelAngle, settings);
         ps.popPose();
     }
 

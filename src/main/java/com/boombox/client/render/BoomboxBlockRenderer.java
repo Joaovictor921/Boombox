@@ -2,6 +2,7 @@ package com.boombox.client.render;
 
 import com.boombox.BoomboxBlock;
 import com.boombox.BoomboxBlockEntity;
+import com.boombox.SpeakerSettings;
 import com.boombox.SpeakerType;
 import com.boombox.client.ClientBoomboxManager;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -23,6 +24,7 @@ public class BoomboxBlockRenderer implements BlockEntityRenderer<BoomboxBlockEnt
         public SpeakerType type = SpeakerType.BOOMBOX;
         public float bass;
         public float treble;
+        public SpeakerSettings settings = SpeakerSettings.DEFAULT;
     }
 
     private final float[] levels = new float[2];
@@ -47,6 +49,7 @@ public class BoomboxBlockRenderer implements BlockEntityRenderer<BoomboxBlockEnt
         var bs = be.getBlockState();
         state.facing = bs.hasProperty(BoomboxBlock.FACING) ? bs.getValue(BoomboxBlock.FACING) : Direction.NORTH;
         state.type = bs.getBlock() instanceof BoomboxBlock b ? b.type() : SpeakerType.BOOMBOX;
+        state.settings = be.settings();
         if (be.getLevel() != null) {
             ClientBoomboxManager.levelsForBlock(be.getLevel().dimension().identifier().toString(), be.getBlockPos(), levels);
             state.bass = levels[0];
@@ -61,7 +64,7 @@ public class BoomboxBlockRenderer implements BlockEntityRenderer<BoomboxBlockEnt
         poseStack.rotateDegrees(Axis.YP, 180f - state.facing.toYRot());
         poseStack.translate(-0.5f, 0f, -0.5f);
         SpeakerRendering.submit(state.type, poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY,
-                state.bass, state.treble);
+                state.bass, state.treble, state.settings);
         poseStack.popPose();
     }
 }

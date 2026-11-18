@@ -27,6 +27,15 @@ public final class ModBlocks {
                     .ignoreSwapAnimation()
                     .build());
 
+    /** Luz, cor, dono e Modo DJ guardados no item / bloco. */
+    public static final DataComponentType<SpeakerSettings> SETTINGS = Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+            BoomboxMod.id("settings"),
+            DataComponentType.<SpeakerSettings>builder()
+                    .persistent(SpeakerSettings.CODEC)
+                    .networkSynchronized(SpeakerSettings.STREAM_CODEC)
+                    .ignoreSwapAnimation()
+                    .build());
+
     public static final Map<SpeakerType, Block> BLOCKS = new EnumMap<>(SpeakerType.class);
     public static final Map<SpeakerType, Item> ITEMS = new EnumMap<>(SpeakerType.class);
     /** Todos os itens do mod, na ordem da aba do criativo. */
@@ -57,6 +66,28 @@ public final class ModBlocks {
     public static final BlockEntityType<BoomboxBlockEntity> BOOMBOX_BE = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE, BoomboxMod.id("boombox"),
             new BlockEntityType<>(BoomboxBlockEntity::new, new HashSet<>(BLOCKS.values())));
+
+    // ---- LED de rave
+    private static final ResourceKey<Block> RAVE_LED_KEY = ResourceKey.create(Registries.BLOCK, BoomboxMod.id("rave_led"));
+    public static final Block RAVE_LED = Registry.register(BuiltInRegistries.BLOCK, RAVE_LED_KEY,
+            new RaveLedBlock(BlockBehaviour.Properties.of()
+                    .setId(RAVE_LED_KEY)
+                    .strength(0.3f)
+                    .sound(SoundType.GLASS)
+                    .lightLevel(s -> 12)
+                    .noCollision()
+                    .noOcclusion()));
+    public static final Item RAVE_LED_ITEM = Registry.register(BuiltInRegistries.ITEM,
+            ResourceKey.create(Registries.ITEM, BoomboxMod.id("rave_led")),
+            new net.minecraft.world.item.BlockItem(RAVE_LED, new Item.Properties()
+                    .setId(ResourceKey.create(Registries.ITEM, BoomboxMod.id("rave_led"))).useBlockDescriptionPrefix()));
+    public static final BlockEntityType<RaveLedBlockEntity> RAVE_LED_BE = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE, BoomboxMod.id("rave_led"),
+            new BlockEntityType<>(RaveLedBlockEntity::new, java.util.Set.of(RAVE_LED)));
+
+    static {
+        ALL_ITEMS.add(RAVE_LED_ITEM);
+    }
 
     private ModBlocks() {}
 

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "RGB",
+    "PSP",
+    " D "
+  ],
+  "key": {
+    "R": "minecraft:red_dye",
+    "G": "minecraft:lime_dye",
+    "B": "minecraft:blue_dye",
+    "P": "minecraft:glass_pane",
+    "S": "minecraft:glowstone_dust",
+    "D": "minecraft:redstone"
+  },
+  "result": {
+    "id": "boombox:rave_led",
+    "count": 4
+  }
+}
