@@ -238,7 +238,7 @@ public final class ServerBoomboxManager {
             SongData s = h.get();
             if (payload.forUrl().isEmpty()) {
                 // a caixa do DJ Leo está parada: um cliente pesquisou músicas de rave para ela
-                if (!h.settings().leo() || s.hasSong()) return;
+                if (!h.settings().autoPlays() || s.hasSong()) return;
                 List<QueueItem> rave = payload.items().stream()
                         .filter(i -> validUrl(i.url()) && !i.url().startsWith("local:"))
                         .limit(MAX_AUTO_ITEMS).toList();
@@ -251,7 +251,8 @@ public final class ServerBoomboxManager {
             if (!s.autoplay() || !s.queue().isEmpty() || !s.url().equals(payload.forUrl())) return;
             List<QueueItem> items = payload.items().stream()
                     .filter(i -> validUrl(i.url()) && !i.url().startsWith("local:"))
-                    .filter(i -> !s.history().contains(i.url()) && !i.url().equals(s.url()))
+                    .filter(i -> !i.url().equals(s.url()))
+                    .filter(i -> h.settings().ze() || !s.history().contains(i.url())) // o bar repete as músicas da playlist
                     .limit(MAX_AUTO_ITEMS)
                     .toList();
             if (items.isEmpty()) return;

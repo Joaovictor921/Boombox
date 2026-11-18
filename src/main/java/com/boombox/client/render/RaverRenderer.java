@@ -24,6 +24,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         public boolean dancing;
         public float bass;
         public float seed;
+        public boolean bar;
     }
 
     private final float[] levels = new float[2];
@@ -31,6 +32,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
     public RaverRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new Model(ctx.bakeLayer(ModelLayers.VILLAGER)), 0.5f);
         addLayer(new Clothes(this));
+        addLayer(new Beer(this)); // cerveja na mão (no bar)
     }
 
     @Override
@@ -43,8 +45,10 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         super.extractRenderState(e, s, partialTick);
         s.look = e.look();
         s.seed = (e.getId() * 0.618f) % 1f;
+        s.bar = e.atBar();
+        net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
-        s.dancing = playing != null;
+        s.dancing = playing != null && !s.bar;
         if (playing != null) {
             ClientBoomboxManager.levelsOf(playing, levels);
             s.bass = levels[0];
@@ -79,6 +83,26 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         }
     }
 
+    /** Item segurado nos braços cruzados (como os aldeões normais seguram as coisas). */
+    private static class Beer extends RenderLayer<State, Model> {
+        Beer(RenderLayerParent<State, Model> parent) {
+            super(parent);
+        }
+
+        @Override
+        public void submit(PoseStack ps, SubmitNodeCollector collector, int light, State s, float yRot, float xRot) {
+            if (s.heldItem.isEmpty()) return;
+            ps.pushPose();
+            getParentModel().translateToArms(s, ps);
+            ps.rotate(com.mojang.math.Axis.XP, 0.75f);
+            ps.scale(1.07f, 1.07f, 1.07f);
+            ps.translate(0f, 0.13f, -0.34f);
+            ps.rotate(com.mojang.math.Axis.XP, (float) Math.PI);
+            s.heldItem.submit(ps, collector, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, s.outlineColor);
+            ps.popPose();
+        }
+    }
+
     /** Modelo de aldeão com a dança: cabeça balançando, braços para cima e corpo gingando. */
     public static class Model extends VillagerModel {
         private final ModelPart head, arms, body, rightLeg, leftLeg;
@@ -95,6 +119,16 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         @Override
         public void setupAnim(VillagerRenderState state) {
             super.setupAnim(state);
+            if (state instanceof State b && b.bar) {
+                // gole: de tempos em tempos levanta a cabeça e os braços com a cerveja
+                float cycle = (b.ageInTicks + b.seed * 300f) % 220f;
+                if (cycle < 30f) {
+                    float k = (float) Math.sin(cycle / 30f * Math.PI);
+                    head.xRot -= 0.7f * k;
+                    arms.xRot -= 0.9f * k;
+                }
+                return;
+            }
             if (!(state instanceof State s) || !s.dancing) return;
             float t = s.ageInTicks + s.seed * 40f;
             float beat = (float) Math.sin(t * 0.65f);

@@ -31,6 +31,8 @@ import net.minecraft.world.level.storage.ValueOutput;
 public class Raver extends PathfinderMob {
     /** Roupa: tipo de bioma * 16 + profissão (15 = sem profissão). -1 = ainda não sorteada. */
     private static final EntityDataAccessor<Integer> LOOK = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
+    /** Freguês do bar do Seu Zé: não dança, fica com a cerveja na mão. */
+    private static final EntityDataAccessor<Boolean> BAR = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
     public static final String[] TYPES = {"plains", "desert", "savanna", "snow", "taiga", "jungle", "swamp"};
     public static final String[] PROFESSIONS = {"farmer", "librarian", "cleric", "butcher", "shepherd", "fisherman",
             "fletcher", "leatherworker", "mason", "cartographer", "toolsmith", "weaponsmith", "armorer", "nitwit"};
@@ -50,6 +52,11 @@ public class Raver extends PathfinderMob {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(LOOK, -1);
+        builder.define(BAR, false);
+    }
+
+    public boolean atBar() {
+        return entityData.get(BAR);
     }
 
     public int look() {
@@ -74,7 +81,14 @@ public class Raver extends PathfinderMob {
             int prof = getRandom().nextInt(4) == 0 ? 15 : getRandom().nextInt(PROFESSIONS.length);
             entityData.set(LOOK, type * 16 + prof);
         }
-        if (!hasHome()) setHomeTo(blockPosition(), 6);
+        if (!hasHome()) setHomeTo(blockPosition(), atBar() ? 3 : 6);
+        if (atBar()) {
+            // no bar: cerveja na mão (garrafa de mel) e um gole de vez em quando
+            if (getMainHandItem().isEmpty()) setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.HONEY_BOTTLE));
+            if (getRandom().nextInt(260) == 0) playSound(SoundEvents.GENERIC_DRINK.value(), 0.6f, 0.9f + getRandom().nextFloat() * 0.2f);
+            return;
+        }
         // música perto: pula no ritmo de vez em quando e comemora
         if (tickCount % 5 == 0 && onGround() && ServerBoomboxManager.isPlayingNear(level, position(), 24)) {
             if (getRandom().nextInt(3) == 0) {
@@ -88,12 +102,14 @@ public class Raver extends PathfinderMob {
     protected void addAdditionalSaveData(ValueOutput out) {
         super.addAdditionalSaveData(out);
         out.putInt("Look", look());
+        out.putBoolean("Bar", atBar());
     }
 
     @Override
     protected void readAdditionalSaveData(ValueInput in) {
         super.readAdditionalSaveData(in);
         entityData.set(LOOK, in.getIntOr("Look", -1));
+        entityData.set(BAR, in.getBooleanOr("Bar", false));
     }
 
     @Override

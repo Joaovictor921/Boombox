@@ -119,7 +119,7 @@ public final class ClientBoomboxManager {
         }
         String k = p.key();
         State old = STATES.get(k);
-        if (p.settings().leo() && !p.song().hasSong() && p.holder() == null) LEO_IDLE.put(k, p);
+        if (p.settings().autoPlays() && !p.song().hasSong() && p.holder() == null) LEO_IDLE.put(k, p);
         else LEO_IDLE.remove(k);
         if (!p.song().hasSong()) {
             STATES.remove(k);
@@ -397,7 +397,7 @@ public final class ClientBoomboxManager {
     }
 
     /** Caixa estourada: quanto mais alta e até onde vai. */
-    private static final float BLOWN_LOUDNESS = 5.0f;
+    private static final float BLOWN_LOUDNESS = 5.8f;
 
     /**
      * Quanto de parede tem entre a caixa e o ouvido: anda pela linha reta em passos de 1/4 de bloco
@@ -458,6 +458,10 @@ public final class ClientBoomboxManager {
             String key = p.key();
             String query = LEO_SEARCHES[(int) (Math.random() * LEO_SEARCHES.length)];
             long delay = (long) (Math.random() * 1500);
+            if (p.settings().ze()) {
+                askZePlaylist(mc, key, List.of(), "", delay);
+                continue;
+            }
             Tools.EXEC.submit(() -> {
                 try {
                     Thread.sleep(delay);
@@ -477,6 +481,31 @@ public final class ClientBoomboxManager {
                 }
             });
         }
+    }
+
+    /**
+     * Bar do Seu Zé: procura no YouTube algumas músicas da playlist do bar e manda para o servidor
+     * (forUrl vazio = caixa parada; senão = fila automática da música que está tocando).
+     */
+    private static void askZePlaylist(Minecraft mc, String key, List<String> recent, String forUrl, long delay) {
+        Tools.EXEC.submit(() -> {
+            try {
+                Thread.sleep(delay);
+                Tools.ensureReady().get();
+                List<QueueItem> items = new ArrayList<>();
+                for (String track : ZePlaylist.pick(6, recent)) {
+                    List<YouTube.Result> found = YouTube.search(track, 1);
+                    if (!found.isEmpty()) {
+                        YouTube.Result r = found.get(0);
+                        items.add(new QueueItem(r.url(), r.title(), r.durationSec()));
+                    }
+                }
+                if (items.isEmpty()) return;
+                mc.execute(() -> ClientPlayNetworking.send(new Payloads.AutoSuggest(key, forUrl, items)));
+            } catch (Exception e) {
+                com.boombox.BoomboxMod.LOGGER.info("Boombox: bar do Seu Zé não achou músicas: {}", e.getMessage());
+            }
+        });
     }
 
     /**
@@ -514,6 +543,14 @@ public final class ClientBoomboxManager {
      */
     private static void maybeAutoQueue(Minecraft mc, State st, List<State> members) {
         if (st.suggested || !st.song.autoplay() || !st.song.queue().isEmpty() || st.song.paused()) return;
+        if (st.settings.ze()) {
+            // bar do Seu Zé: a fila continua só com músicas da playlist do bar (nada de "parecidas")
+            for (State m : members) m.suggested = true;
+            List<String> recent = new ArrayList<>(st.song.history().size() + 1);
+            recent.add(st.song.title());
+            askZePlaylist(mc, st.key, recent, st.song.url(), (long) (Math.random() * 2500));
+            return;
+        }
         if (YouTube.videoId(st.song.url()) == null) return;
         for (State m : members) m.suggested = true;
         String key = st.key, url = st.song.url();

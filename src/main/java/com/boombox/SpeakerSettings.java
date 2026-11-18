@@ -22,9 +22,10 @@ import java.util.UUID;
  * @param ownerName nome do dono, para mostrar no menu
  * @param blown     caixa "estourada" (da casa do DJ Leo): bem mais alta e distorcida
  * @param leo       caixa do DJ Leo: toca sozinha quando alguém chega perto
+ * @param ze        caixinha do bar do Seu Zé: toca sozinha, só as músicas da playlist do bar
  */
 public record SpeakerSettings(int light, int color, int dye, boolean djLock, Optional<UUID> owner, String ownerName,
-                              boolean blown, boolean leo) {
+                              boolean blown, boolean leo, boolean ze) {
 
     public static final int LIGHT_RAINBOW = 0, LIGHT_FIXED = 1, LIGHT_BEAT = 2, LIGHT_OFF = 3;
     public static final String[] LIGHT_NAMES = {"Arco-íris", "Cor fixa", "Na batida", "Desligada"};
@@ -38,8 +39,9 @@ public record SpeakerSettings(int light, int color, int dye, boolean djLock, Opt
             "Azul-claro", "Azul", "Roxo", "Magenta", "Rosa", "Branco"};
 
     public static final String LEO_NAME = "DJ Leo";
+    public static final String ZE_NAME = "Seu Zé";
 
-    public static final SpeakerSettings DEFAULT = new SpeakerSettings(LIGHT_RAINBOW, 0, -1, false, Optional.empty(), "", false, false);
+    public static final SpeakerSettings DEFAULT = new SpeakerSettings(LIGHT_RAINBOW, 0, -1, false, Optional.empty(), "", false, false, false);
 
     public static final Codec<SpeakerSettings> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.INT.optionalFieldOf("light", 0).forGetter(SpeakerSettings::light),
@@ -49,7 +51,8 @@ public record SpeakerSettings(int light, int color, int dye, boolean djLock, Opt
             UUIDUtil.CODEC.optionalFieldOf("owner").forGetter(SpeakerSettings::owner),
             Codec.STRING.optionalFieldOf("owner_name", "").forGetter(SpeakerSettings::ownerName),
             Codec.BOOL.optionalFieldOf("blown", false).forGetter(SpeakerSettings::blown),
-            Codec.BOOL.optionalFieldOf("leo", false).forGetter(SpeakerSettings::leo)
+            Codec.BOOL.optionalFieldOf("leo", false).forGetter(SpeakerSettings::leo),
+            Codec.BOOL.optionalFieldOf("ze", false).forGetter(SpeakerSettings::ze)
     ).apply(i, SpeakerSettings::new));
 
     public static final StreamCodec<ByteBuf, SpeakerSettings> STREAM_CODEC = StreamCodec.of(
@@ -63,6 +66,7 @@ public record SpeakerSettings(int light, int color, int dye, boolean djLock, Opt
                 ByteBufCodecs.stringUtf8(64).encode(buf, s.ownerName);
                 ByteBufCodecs.BOOL.encode(buf, s.blown);
                 ByteBufCodecs.BOOL.encode(buf, s.leo);
+                ByteBufCodecs.BOOL.encode(buf, s.ze);
             },
             buf -> {
                 int light = ByteBufCodecs.VAR_INT.decode(buf);
@@ -71,8 +75,8 @@ public record SpeakerSettings(int light, int color, int dye, boolean djLock, Opt
                 boolean lock = ByteBufCodecs.BOOL.decode(buf);
                 Optional<UUID> owner = ByteBufCodecs.BOOL.decode(buf) ? Optional.of(UUIDUtil.STREAM_CODEC.decode(buf)) : Optional.empty();
                 String name = ByteBufCodecs.stringUtf8(64).decode(buf);
-                return new SpeakerSettings(light, color, dye, lock, owner, name,
-                        ByteBufCodecs.BOOL.decode(buf), ByteBufCodecs.BOOL.decode(buf));
+                boolean blown = ByteBufCodecs.BOOL.decode(buf), leo = ByteBufCodecs.BOOL.decode(buf);
+                return new SpeakerSettings(light, color, dye, lock, owner, name, blown, leo, ByteBufCodecs.BOOL.decode(buf));
             });
 
     public SpeakerSettings {
@@ -102,28 +106,33 @@ public record SpeakerSettings(int light, int color, int dye, boolean djLock, Opt
     }
 
     public SpeakerSettings withLight(int v) {
-        return new SpeakerSettings(v, color, dye, djLock, owner, ownerName, blown, leo);
+        return new SpeakerSettings(v, color, dye, djLock, owner, ownerName, blown, leo, ze);
     }
 
     public SpeakerSettings withColor(int v) {
-        return new SpeakerSettings(light, v, dye, djLock, owner, ownerName, blown, leo);
+        return new SpeakerSettings(light, v, dye, djLock, owner, ownerName, blown, leo, ze);
     }
 
     public SpeakerSettings withDye(int v) {
-        return new SpeakerSettings(light, color, v, djLock, owner, ownerName, blown, leo);
+        return new SpeakerSettings(light, color, v, djLock, owner, ownerName, blown, leo, ze);
     }
 
     public SpeakerSettings withLock(boolean v) {
-        return new SpeakerSettings(light, color, dye, v, owner, ownerName, blown, leo);
+        return new SpeakerSettings(light, color, dye, v, owner, ownerName, blown, leo, ze);
     }
 
-    /** Novo dono (ao colocar a caixa): deixa de ser a caixa do DJ Leo, mas continua estourada. */
+    /** Novo dono (ao colocar a caixa): deixa de ser a caixa do DJ Leo / do bar, mas continua estourada. */
     public SpeakerSettings withOwner(UUID id, String name) {
-        return new SpeakerSettings(light, color, dye, djLock, Optional.ofNullable(id), name, blown, false);
+        return new SpeakerSettings(light, color, dye, djLock, Optional.ofNullable(id), name, blown, false, false);
+    }
+
+    /** Toca sozinha quando alguém chega perto (DJ Leo ou bar do Seu Zé)? */
+    public boolean autoPlays() {
+        return leo || ze;
     }
 
     /** Caixa da casa do DJ Leo: travada por ele, estourada e tocando sozinha. */
     public static SpeakerSettings leoSpeaker() {
-        return new SpeakerSettings(LIGHT_RAINBOW, 0, -1, true, Optional.empty(), LEO_NAME, true, true);
+        return new SpeakerSettings(LIGHT_RAINBOW, 0, -1, true, Optional.empty(), LEO_NAME, true, true, false);
     }
 }

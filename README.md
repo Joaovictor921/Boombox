@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-2.3.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-2.4.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,20 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 2.4
+- **Bar do Seu Zé**: agora cada vila tem 50% de chance de ganhar a **balada do DJ Leo** e 50% de ganhar o **bar do
+  Seu Zé** (o sorteio é fixo por vila: o mesmo mundo dá sempre o mesmo resultado).
+  - Boteco pequeno: entrada aberta com a placa "BAR DO SEU ZÉ", piso de caquinho, balcão, barris de chope, mesas de
+    plástico amarelas e uma plaquinha de "fiado só amanhã".
+  - Uma **caixinha de som pequena** em cima do balcão, travada no Modo DJ do Seu Zé, que toca sozinha quando alguém
+    chega perto e **só toca as músicas da playlist do bar** ("Bar do mirlu", no Spotify): Grupo Revelação,
+    Chitãozinho & Xororó, Trio Parada Dura, Leandro & Leonardo e outras (25 músicas). Como o Spotify não deixa tocar
+    fora do app, cada música é procurada no YouTube pelo nome e artista. Quando a fila acaba, ela sorteia mais
+    músicas da mesma playlist (nunca músicas "parecidas" de fora).
+  - **Aldeões tomando cerveja**: ficam no balcão e nas mesas com a cerveja na mão, e de vez em quando dão um gole.
+- **Balada do DJ Leo um pouco mais alta** (5,8x).
+- Prévia: [docs/preview-2.4.png](docs/preview-2.4.png).
 
 ## Novidades da 2.3
 - **Câmera treme no grave**: colado numa caixa alta (2 a 5 blocos, mais longe para caixas mais fortes, como as do

@@ -170,7 +170,21 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             ctx.waitTicks(60);
             ctx.takeScreenshot("telao_video");
 
+            // ---- bar do Seu Zé: a caixinha tem que começar sozinha com uma música da playlist do bar
+            server.runCommand("place template boombox:ze_bar 30 -61 40");
+            look(ctx, server, new Vec3(33.5, -60, 44.5), -90f, 4f);
+            BlockPos barSpeaker = new BlockPos(37, -59, 42);
+            int bw = server.waitFor(s -> s.overworld().getBlockEntity(barSpeaker) instanceof BoomboxBlockEntity be && be.song().hasSong(), 20 * 180);
+            String barSong = server.computeOnServer(s -> s.overworld().getBlockEntity(barSpeaker) instanceof BoomboxBlockEntity be
+                    ? be.song().title() + " | fila=" + be.song().queue().stream().map(q -> q.title()).toList() : "sem caixa");
+            System.out.println("[BoomboxTest] bar do Seu Zé tocou depois de " + bw + " ticks: " + barSong);
+            ctx.waitTicks(200);
+            ctx.takeScreenshot("ze_bar_inside");
             server.runCommand("time set noon");
+            look(ctx, server, new Vec3(22.5, -57, 35.5), -60f, 15f);
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("ze_bar_outside");
+
             look(ctx, server, new Vec3(HX - 9.5, HY + 9, HZ - 9.5), -45f, 22f);
             ctx.waitTicks(20);
             ctx.takeScreenshot("house_outside");
@@ -188,7 +202,9 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 List<Vec3> leos = server.computeOnServer(s -> s.overworld()
                         .getEntities(ModEntities.DJ_LEO, e -> Math.abs(e.position().z - zc) < 150).stream()
                         .map(DjLeo::position).toList());
-                System.out.println("[BoomboxTest] vila " + types[i] + ": " + leos.size() + " DJ Leo " + leos);
+                long bars = server.computeOnServer(s -> (long) s.overworld()
+                        .getEntities(ModEntities.RAVER, e -> e.atBar() && Math.abs(e.position().z - zc) < 150).size());
+                System.out.println("[BoomboxTest] vila " + types[i] + ": " + leos.size() + " DJ Leo, " + bars + " fregueses de bar " + leos);
                 if (i == 0 && !leos.isEmpty()) {
                     Vec3 p = leos.get(0);
                     server.runCommand("time set noon");

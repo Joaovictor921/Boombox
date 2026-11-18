@@ -36,21 +36,28 @@ import java.util.Set;
  */
 public final class DjLeoHouse {
     public static final String TEMPLATE = BoomboxMod.MOD_ID + ":djleo_house";
+    /** Bar do Seu Zé: metade das vilas ganha o bar no lugar da balada. */
+    public static final String BAR_TEMPLATE = BoomboxMod.MOD_ID + ":ze_bar";
     private static final Set<String> VILLAGE_STARTS = Set.of(
             "village/plains/town_centers", "village/desert/town_centers", "village/savanna/town_centers",
             "village/snowy/town_centers", "village/taiga/town_centers");
-    /** Degrau da porta no molde da casa (a porta fica no lado oeste, x = 0). */
-    private static final BlockPos DOORSTEP = new BlockPos(0, 0, 7);
+    /** Degrau da porta no molde (a porta fica no lado oeste, x = 0). */
+    private static final BlockPos DOORSTEP = new BlockPos(0, 0, 7), BAR_DOORSTEP = new BlockPos(0, 0, 4);
     /** Desnível máximo do terreno embaixo da casa. */
     private static final int MAX_SLOPE = 3;
     /** Morro: aceita até esse desnível se não houver lugar melhor (o terreno da vila se ajusta em volta). */
     private static final int MAX_SLOPE_FALLBACK = 7;
 
-    private static volatile StructurePoolElement element;
+    private static volatile StructurePoolElement element, barElement;
 
     private DjLeoHouse() {}
 
-    private static StructurePoolElement element() {
+    private static StructurePoolElement element(boolean bar) {
+        if (bar) {
+            StructurePoolElement e = barElement;
+            if (e == null) barElement = e = StructurePoolElement.single(BAR_TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
+            return e;
+        }
         StructurePoolElement e = element;
         if (e == null) element = e = StructurePoolElement.single(TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
         return e;
@@ -65,13 +72,16 @@ public final class DjLeoHouse {
     public static void addToVillage(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center) {
         List<StructurePiece> pieces = ((StructurePiecesBuilderAccessor) builder).boombox$pieces();
         if (pieces.isEmpty()) return;
-        StructurePoolElement house = element();
         var manager = ctx.structureTemplateManager();
         var gen = ctx.chunkGenerator();
         var heights = ctx.heightAccessor();
         var randomState = ctx.randomState();
         RandomSource rnd = RandomSource.create(ctx.seed() ^ center.asLong() ^ 0x5EEDD1E0L);
         Random shuffler = new Random(rnd.nextLong());
+        // 50% balada do DJ Leo, 50% bar do Seu Zé (sorteio fixo por vila: o mesmo mundo dá sempre o mesmo)
+        boolean bar = rnd.nextBoolean();
+        StructurePoolElement house = element(bar);
+        BlockPos doorstep = bar ? BAR_DOORSTEP : DOORSTEP;
 
         List<PoolElementStructurePiece> streets = new ArrayList<>();
         for (StructurePiece p : pieces) {
@@ -109,7 +119,7 @@ public final class DjLeoHouse {
                 };
                 int ground = gen.getBaseHeight(sx, sz, Heightmap.Types.WORLD_SURFACE_WG, heights, randomState) - 1;
                 BlockPos step = new BlockPos(sx, ground, sz);
-                BlockPos origin = step.subtract(StructureTemplate.transform(DOORSTEP, Mirror.NONE, rot, BlockPos.ZERO));
+                BlockPos origin = step.subtract(StructureTemplate.transform(doorstep, Mirror.NONE, rot, BlockPos.ZERO));
                 BoundingBox box = house.getBoundingBox(manager, origin, rot);
                 if (builder.findCollisionPiece(box) != null) continue;
                 int slope = slope(gen, heights, randomState, box, ground);
