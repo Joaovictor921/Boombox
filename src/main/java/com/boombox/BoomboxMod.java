@@ -4,15 +4,15 @@ import com.boombox.net.Payloads;
 import com.boombox.server.ServerBoomboxManager;
 import com.boombox.server.ServerFiles;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +37,12 @@ public class BoomboxMod implements ModInitializer {
         ServerBoomboxManager.registerReceivers();
         ServerFiles.registerReceivers();
 
-        ResourceKey<CreativeModeTab> functional = ResourceKey.create(Registries.CREATIVE_MODE_TAB,
-                Identifier.withDefaultNamespace("functional_blocks"));
-        CreativeModeTabEvents.modifyOutputEvent(functional).register(output ->
-                output.accept(new ItemStack(ModBlocks.BOOMBOX_ITEM), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS));
+        // aba própria do mod no modo criativo
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, id("speakers"), FabricCreativeModeTab.builder()
+                .title(Component.translatable("itemGroup.boombox.speakers"))
+                .icon(() -> new ItemStack(ModBlocks.BOOMBOX_ITEM))
+                .displayItems((params, output) -> ModBlocks.ALL_ITEMS.forEach(output::accept))
+                .build());
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 ServerBoomboxManager.sendAllTo(handler.getPlayer()));

@@ -5,18 +5,20 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 public final class ModBlocks {
-    private static final ResourceKey<Block> BLOCK_KEY = ResourceKey.create(Registries.BLOCK, BoomboxMod.id("boombox"));
-    private static final ResourceKey<Item> ITEM_KEY = ResourceKey.create(Registries.ITEM, BoomboxMod.id("boombox"));
-
     /** Música guardada no item / bloco. */
     public static final DataComponentType<SongData> SONG = Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
             BoomboxMod.id("song"),
@@ -26,19 +28,37 @@ public final class ModBlocks {
                     .ignoreSwapAnimation()
                     .build());
 
-    public static final Block BOOMBOX = Registry.register(BuiltInRegistries.BLOCK, BLOCK_KEY,
-            new BoomboxBlock(BlockBehaviour.Properties.of()
-                    .setId(BLOCK_KEY)
-                    .strength(1.0f)
-                    .sound(SoundType.WOOD)
-                    .noOcclusion()));
+    public static final Map<SpeakerType, Block> BLOCKS = new EnumMap<>(SpeakerType.class);
+    public static final Map<SpeakerType, Item> ITEMS = new EnumMap<>(SpeakerType.class);
+    /** Todos os itens do mod, na ordem da aba do criativo. */
+    public static final List<Item> ALL_ITEMS = new ArrayList<>();
 
-    public static final Item BOOMBOX_ITEM = Registry.register(BuiltInRegistries.ITEM, ITEM_KEY,
-            new BoomboxItem(BOOMBOX, new Item.Properties().setId(ITEM_KEY).useBlockDescriptionPrefix().stacksTo(1)));
+    static {
+        for (SpeakerType type : SpeakerType.values()) {
+            ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, BoomboxMod.id(type.id()));
+            ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, BoomboxMod.id(type.id()));
+            Block block = Registry.register(BuiltInRegistries.BLOCK, blockKey,
+                    new BoomboxBlock(type, BlockBehaviour.Properties.of()
+                            .setId(blockKey)
+                            .strength(type == SpeakerType.PARTY_LARGE ? 1.5f : 1.0f)
+                            .sound(type.isParty() ? SoundType.METAL : SoundType.WOOD)
+                            .noOcclusion()));
+            Item.Properties props = new Item.Properties().setId(itemKey).useBlockDescriptionPrefix().stacksTo(1);
+            // só a boombox dá para levar tocando na mão; as caixas de festa tocam no chão
+            Item item = Registry.register(BuiltInRegistries.ITEM, itemKey,
+                    type == SpeakerType.BOOMBOX ? new BoomboxItem(block, props) : new BlockItem(block, props));
+            BLOCKS.put(type, block);
+            ITEMS.put(type, item);
+            ALL_ITEMS.add(item);
+        }
+    }
+
+    public static final Block BOOMBOX = BLOCKS.get(SpeakerType.BOOMBOX);
+    public static final Item BOOMBOX_ITEM = ITEMS.get(SpeakerType.BOOMBOX);
 
     public static final BlockEntityType<BoomboxBlockEntity> BOOMBOX_BE = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE, BoomboxMod.id("boombox"),
-            new BlockEntityType<>(BoomboxBlockEntity::new, Set.of(BOOMBOX)));
+            new BlockEntityType<>(BoomboxBlockEntity::new, new HashSet<>(BLOCKS.values())));
 
     private ModBlocks() {}
 

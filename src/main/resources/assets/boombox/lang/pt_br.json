@@ -1,1 +1,7 @@
-{ "block.boombox.boombox": "Boombox" }
+{
+  "block.boombox.boombox": "Boombox",
+  "block.boombox.party_speaker_small": "Caixa de Festa Pequena",
+  "block.boombox.party_speaker_medium": "Caixa de Festa Média",
+  "block.boombox.party_speaker_large": "Caixa de Festa Grande",
+  "itemGroup.boombox.speakers": "Boombox e Caixas de Som"
+}

@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "boombox:item/party_speaker_medium",
+    "model": {
+      "type": "boombox:boombox",
+      "speaker": "party_speaker_medium"
+    }
+  }
+}

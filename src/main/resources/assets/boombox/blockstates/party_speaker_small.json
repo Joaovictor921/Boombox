@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/party_speaker_small"
+    },
+    "facing=east": {
+      "model": "boombox:block/party_speaker_small",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/party_speaker_small",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/party_speaker_small",
+      "y": 270
+    }
+  }
+}

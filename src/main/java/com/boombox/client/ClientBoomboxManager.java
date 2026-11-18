@@ -1,5 +1,7 @@
 package com.boombox.client;
 
+import com.boombox.BoomboxBlock;
+
 import com.boombox.SongData;
 import com.boombox.net.Payloads;
 import net.minecraft.client.Minecraft;
@@ -179,8 +181,9 @@ public final class ClientBoomboxManager {
             }
             double dist = src == null ? Double.MAX_VALUE : Math.sqrt(ear.distanceToSqr(src));
             AudioStream stream = STREAMS.get(st.key);
+            double hear = hearDistance(mc, st);
             boolean inRange = src != null && st.dim.equals(dim)
-                    && dist < (stream != null ? HEAR_DISTANCE + 16 : HEAR_DISTANCE);
+                    && dist < (stream != null ? hear + 16 : hear);
             boolean shouldPlay = inRange && !st.song.paused() && !st.finished;
 
             if (shouldPlay && stream == null) {
@@ -194,8 +197,8 @@ public final class ClientBoomboxManager {
             }
 
             if (stream != null) {
-                double att = dist <= FULL_VOLUME_DISTANCE ? 1.0
-                        : Math.max(0.0, 1.0 - (dist - FULL_VOLUME_DISTANCE) / (HEAR_DISTANCE - FULL_VOLUME_DISTANCE));
+                double full = FULL_VOLUME_DISTANCE * hear / HEAR_DISTANCE; // caixas maiores enchem mais o ambiente
+                double att = dist <= full ? 1.0 : Math.max(0.0, 1.0 - (dist - full) / (hear - full));
                 float gain = (float) (master * (st.song.volume() / 100.0) * att * att);
                 stream.tick(src.x, src.y, src.z, gain);
                 if (!stream.isLoading()) maybeAutoQueue(mc, st);
@@ -227,6 +230,15 @@ public final class ClientBoomboxManager {
                 it.remove();
             }
         }
+    }
+
+    /** Até onde o som chega: depende do tamanho da caixa (a boombox na mão usa o padrão). */
+    private static double hearDistance(Minecraft mc, State st) {
+        if (st.holder == null && st.pos != null && mc.level != null
+                && mc.level.getBlockState(st.pos).getBlock() instanceof BoomboxBlock b) {
+            return b.type().hearDistance;
+        }
+        return HEAR_DISTANCE;
     }
 
     /**

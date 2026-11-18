@@ -22,12 +22,26 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class BoomboxBlock extends Block implements EntityBlock {
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
-    private static final VoxelShape SHAPE_NS = Block.box(0.5, 0, 4, 15.5, 13.5, 11.5);
-    private static final VoxelShape SHAPE_EW = Block.box(4, 0, 0.5, 11.5, 13.5, 15.5);
+    private final SpeakerType type;
+    private final VoxelShape shapeNS;
+    private final VoxelShape shapeEW;
 
-    public BoomboxBlock(Properties properties) {
+    public BoomboxBlock(SpeakerType type, Properties properties) {
         super(properties);
+        this.type = type;
+        if (type == SpeakerType.BOOMBOX) {
+            shapeNS = Block.box(0.5, 0, 4, 15.5, 13.5, 11.5);
+            shapeEW = Block.box(4, 0, 0.5, 11.5, 13.5, 15.5);
+        } else {
+            double hw = type.width / 2.0, hd = type.depth / 2.0;
+            shapeNS = Block.box(8 - hw, 0, 8 - hd, 8 + hw, type.height, 8 + hd);
+            shapeEW = Block.box(8 - hd, 0, 8 - hw, 8 + hd, type.height, 8 + hw);
+        }
         registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH));
+    }
+
+    public SpeakerType type() {
+        return type;
     }
 
     @Override
@@ -43,7 +57,7 @@ public class BoomboxBlock extends Block implements EntityBlock {
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
         Direction d = state.getValue(FACING);
-        return (d == Direction.NORTH || d == Direction.SOUTH) ? SHAPE_NS : SHAPE_EW;
+        return (d == Direction.NORTH || d == Direction.SOUTH) ? shapeNS : shapeEW;
     }
 
     @Override

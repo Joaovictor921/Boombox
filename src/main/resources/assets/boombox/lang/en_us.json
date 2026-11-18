@@ -1,1 +1,7 @@
-{ "block.boombox.boombox": "Boombox" }
+{
+  "block.boombox.boombox": "Boombox",
+  "block.boombox.party_speaker_small": "Small Party Speaker",
+  "block.boombox.party_speaker_medium": "Medium Party Speaker",
+  "block.boombox.party_speaker_large": "Large Party Speaker",
+  "itemGroup.boombox.speakers": "Boombox & Speakers"
+}

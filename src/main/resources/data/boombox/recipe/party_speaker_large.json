@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IGI",
+    "CSC",
+    "CJC"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:glowstone",
+    "C": "minecraft:black_concrete",
+    "S": "boombox:party_speaker_medium",
+    "J": "minecraft:jukebox"
+  },
+  "result": {
+    "id": "boombox:party_speaker_large",
+    "count": 1
+  }
+}

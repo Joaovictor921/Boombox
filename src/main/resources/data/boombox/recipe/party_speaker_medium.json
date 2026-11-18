@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ILI",
+    "CSC",
+    "CRC"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "L": "minecraft:glowstone_dust",
+    "C": "minecraft:black_concrete",
+    "S": "boombox:party_speaker_small",
+    "R": "minecraft:redstone_block"
+  },
+  "result": {
+    "id": "boombox:party_speaker_medium",
+    "count": 1
+  }
+}

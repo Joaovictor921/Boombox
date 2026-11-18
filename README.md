@@ -4,14 +4,14 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-1.3.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-1.4.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
 
 ## Como usar
 - Receita: barra de ferro em cima, tábuas + jukebox + tábuas no meio, tábuas + redstone + tábuas embaixo
-  (ou pegue no criativo, aba *Blocos funcionais*).
+  (ou pegue no criativo, na aba própria **Boombox e Caixas de Som**).
 - Clique com o botão direito na boombox para abrir o menu:
   - **Tocar**: cole um link (YouTube, SoundCloud, link direto de .mp3…) e toque. Se você digitar texto em vez de link, ele pesquisa.
   - **Pesquisar**: busca no YouTube e mostra os resultados; clique em um para tocar.
@@ -21,6 +21,19 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 1.4
+- **Caixas de festa** em 3 tamanhos (estilo "party speaker"): gabinete preto em pé, anéis de LED nos
+  alto-falantes que mudam de cor e pulsam com o grave, barra de luz que pisca nas batidas fortes.
+  Tocam igual à boombox (mesmo menu, fila, playlists), mas só no chão.
+  | Caixa | Tamanho | Som chega a | Receita |
+  |---|---|---|---|
+  | Pequena | ~0,8 bloco, 1 woofer | 40 blocos | ferro em cima; concreto preto + bloco musical + concreto preto; concreto preto + redstone + concreto preto |
+  | Média | ~1,3 bloco, 2 woofers | 56 blocos | ferro + pó de glowstone + ferro; concreto preto + **caixa pequena** + concreto preto; concreto preto + bloco de redstone + concreto preto |
+  | Grande | 1,5 bloco, 2 woofers grandes, rodinhas e alça de puxar | 72 blocos | ferro + glowstone + ferro; concreto preto + **caixa média** + concreto preto; concreto preto + jukebox + concreto preto |
+- **Alto-falantes não saem mais para fora** com grave forte: o aro ficou mais fundo e o curso do cone é limitado
+  (vale para a boombox também).
+- **Aba própria no modo criativo** com todas as caixas do mod.
 
 ## Novidades da 1.3
 - **Começa do zero**: ao tocar uma música, todo mundo tem ~3 segundos para carregar ("Começando em 3s...")
@@ -61,6 +74,11 @@ Precisa de JDK 25+:
 ## Versões
 | Versão | Minecraft | Download |
 |---|---|---|
+| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
 | 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
 | 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
-| 1.0.0 | 26.3 (Fabric) | em breve |
+
+Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
+
+## Licença
+MIT

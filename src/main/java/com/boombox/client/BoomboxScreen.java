@@ -65,6 +65,14 @@ public class BoomboxScreen extends Screen {
 
     // ------------------------------------------------------------ estado
 
+    /** Nome da caixa (Boombox, Caixa de Festa Grande...) para o título. */
+    private String speakerName() {
+        Minecraft mc = Minecraft.getInstance();
+        if (target.isHeld()) return "Boombox (na mão)";
+        if (mc.level != null) return mc.level.getBlockState(target.pos()).getBlock().getName().getString();
+        return "Boombox";
+    }
+
     private ClientBoomboxManager.State state() {
         Minecraft mc = Minecraft.getInstance();
         if (target.isHeld()) return mc.player == null ? null : ClientBoomboxManager.getHeld(mc.player.getUUID());
@@ -572,7 +580,7 @@ public class BoomboxScreen extends Screen {
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         int cx = width / 2;
         int left = cx - W / 2;
-        g.centeredText(font, target.isHeld() ? "§l♪ Boombox (na mão) ♪" : "§l♪ Boombox ♪", cx, 6, 0xFFFFFFFF);
+        g.centeredText(font, "§l♪ " + speakerName() + " ♪", cx, 6, 0xFFFFFFFF);
 
         String now;
         long startsIn = ClientBoomboxManager.startsInMs(st);
