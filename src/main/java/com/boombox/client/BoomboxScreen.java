@@ -70,7 +70,10 @@ public class BoomboxScreen extends Screen {
     /** Nome da caixa (Boombox, Caixa de Festa Grande...) para o título. */
     private String speakerName() {
         Minecraft mc = Minecraft.getInstance();
-        if (target.isHeld()) return "Boombox (na mão)";
+        if (target.isHeld()) {
+            return mc.player == null ? "Boombox (na mão)"
+                    : mc.player.getItemInHand(target.hand()).getHoverName().getString() + " (na mão)";
+        }
         if (mc.level != null) return mc.level.getBlockState(target.pos()).getBlock().getName().getString();
         return "Boombox";
     }

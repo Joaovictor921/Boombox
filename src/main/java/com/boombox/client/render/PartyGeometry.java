@@ -52,6 +52,12 @@ public final class PartyGeometry {
     /** Desenha a caixa. bass/treble de 0 a 1 (0 e 0 = parada). */
     public static void draw(SpeakerType type, PoseStack.Pose pose, VertexConsumer vc, int light, int overlay,
                             float bass, float treble) {
+        draw(type, pose, vc, light, overlay, bass, treble, 0f);
+    }
+
+    /** wheelAngle: giro das rodinhas (radianos), quando a caixa grande é puxada. */
+    public static void draw(SpeakerType type, PoseStack.Pose pose, VertexConsumer vc, int light, int overlay,
+                            float bass, float treble, float wheelAngle) {
         Layout L = layout(type);
         Geo c = new Geo(pose, vc, light, overlay);
         double t = System.nanoTime() / 1e9;
@@ -63,8 +69,8 @@ public final class PartyGeometry {
         if (L.wheels) {
             float wr = 1.6f, wz = z1 - 1.9f;
             for (float off = 0.12f; off < 0.6f; off += 0.14f) { // camadas dão espessura à roda
-                c.sideDisc(x0 - off, wr, wz, wr, WHEEL, false);
-                c.sideDisc(x1 + off, wr, wz, wr, WHEEL, true);
+                c.sideDisc(x0 - off, wr, wz, wr, WHEEL, false, wheelAngle);
+                c.sideDisc(x1 + off, wr, wz, wr, WHEEL, true, wheelAngle);
             }
             c.box(x0 + 1, 0, z0 + 1, x0 + 3, L.bottom, z0 + 3, RUBBER);
             c.box(x1 - 3, 0, z0 + 1, x1 - 1, L.bottom, z0 + 3, RUBBER);

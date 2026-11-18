@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.Block;
 import java.util.function.Consumer;
 
 /**
- * Item da boombox. Clicar num bloco coloca a boombox no chão; clicar no ar abre o menu
+ * Item da boombox e das caixas de festa. Clicar num bloco coloca a boombox no chão; clicar no ar abre o menu
  * e ela toca na sua mão (qualquer uma das mãos).
  */
 public class BoomboxItem extends BlockItem {
@@ -29,7 +29,16 @@ public class BoomboxItem extends BlockItem {
         return InteractionResult.SUCCESS;
     }
 
+    /** true para qualquer caixa do mod (boombox ou caixa de festa). */
     public static boolean isBoombox(net.minecraft.world.item.ItemStack stack) {
         return stack != null && stack.getItem() instanceof BoomboxItem;
+    }
+
+    /** Tipo da caixa no item, ou null se não for uma caixa. */
+    public static SpeakerType type(net.minecraft.world.item.ItemStack stack) {
+        if (stack != null && stack.getItem() instanceof BoomboxItem item && item.getBlock() instanceof BoomboxBlock b) {
+            return b.type();
+        }
+        return null;
     }
 }

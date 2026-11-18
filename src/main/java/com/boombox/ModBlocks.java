@@ -5,7 +5,6 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
@@ -44,9 +43,8 @@ public final class ModBlocks {
                             .sound(type.isParty() ? SoundType.METAL : SoundType.WOOD)
                             .noOcclusion()));
             Item.Properties props = new Item.Properties().setId(itemKey).useBlockDescriptionPrefix().stacksTo(1);
-            // só a boombox dá para levar tocando na mão; as caixas de festa tocam no chão
-            Item item = Registry.register(BuiltInRegistries.ITEM, itemKey,
-                    type == SpeakerType.BOOMBOX ? new BoomboxItem(block, props) : new BlockItem(block, props));
+            // todas as caixas dá para levar tocando na mão (cada uma com a sua animação)
+            Item item = Registry.register(BuiltInRegistries.ITEM, itemKey, new BoomboxItem(block, props));
             BLOCKS.put(type, block);
             ITEMS.put(type, item);
             ALL_ITEMS.add(item);

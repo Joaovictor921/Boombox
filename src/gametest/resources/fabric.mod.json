@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "boombox-test",
+  "version": "1.0.0",
+  "name": "Boombox visual test",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-client-gametest": ["com.boombox.test.BoomboxVisualTest"]
+  },
+  "depends": { "boombox": "*" }
+}

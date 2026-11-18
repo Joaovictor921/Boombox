@@ -6,6 +6,7 @@ import com.boombox.BoomboxItem;
 import com.boombox.ModBlocks;
 import com.boombox.QueueItem;
 import com.boombox.SongData;
+import com.boombox.SpeakerType;
 import com.boombox.Target;
 import com.boombox.net.Payloads;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
@@ -404,6 +405,7 @@ public final class ServerBoomboxManager {
         MinecraftServer server = player.level().getServer();
         long now = System.currentTimeMillis();
         SongData song = null;
+        int type = 0;
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = player.getItemInHand(hand);
             if (!BoomboxItem.isBoombox(stack)) continue;
@@ -415,12 +417,14 @@ public final class ServerBoomboxManager {
                 if (s == null || !s.hasSong()) continue;
             }
             song = s;
+            SpeakerType t = BoomboxItem.type(stack);
+            type = t == null ? 0 : t.ordinal();
             break;
         }
         if (song == null || player.isSpectator()) {
             remove(server, key);
         } else {
-            update(server, key, new Entry(dim(player.level()), BlockPos.ZERO, player.getUUID(), song, 0, 0));
+            update(server, key, new Entry(dim(player.level()), BlockPos.ZERO, player.getUUID(), song, type, 0));
         }
     }
 

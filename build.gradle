@@ -34,3 +34,14 @@ java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
+
+// Teste visual automático (cria um mundo e tira prints das caixas): ./gradlew runClientGameTest
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "boombox-test"
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+    }
+}

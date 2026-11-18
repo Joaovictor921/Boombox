@@ -10,9 +10,14 @@ public final class SpeakerRendering {
 
     public static void submit(SpeakerType type, PoseStack poseStack, SubmitNodeCollector collector,
                               int light, int overlay, float bass, float treble) {
+        submit(type, poseStack, collector, light, overlay, bass, treble, 0f);
+    }
+
+    public static void submit(SpeakerType type, PoseStack poseStack, SubmitNodeCollector collector,
+                              int light, int overlay, float bass, float treble, float wheelAngle) {
         if (type.isParty()) {
             collector.submitCustomGeometry(poseStack, PartyGeometry.RENDER_TYPE,
-                    (pose, vc) -> PartyGeometry.draw(type, pose, vc, light, overlay, bass, treble));
+                    (pose, vc) -> PartyGeometry.draw(type, pose, vc, light, overlay, bass, treble, wheelAngle));
         } else {
             collector.submitCustomGeometry(poseStack, BoomboxGeometry.RENDER_TYPE,
                     (pose, vc) -> BoomboxGeometry.draw(pose, vc, light, overlay, bass, treble));

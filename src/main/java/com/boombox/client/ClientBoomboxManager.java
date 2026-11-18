@@ -290,16 +290,16 @@ public final class ClientBoomboxManager {
 
     /** Volume (sem o controle de som do jogo) de uma caixa a essa distância. */
     private static double gainAt(State st, double dist) {
-        double hear = st.holder != null ? HEAR_DISTANCE : st.type.hearDistance;
+        double hear = st.type.hearDistance;
         double full = FULL_VOLUME_DISTANCE * hear / HEAR_DISTANCE; // caixas maiores enchem mais o ambiente
         double att = dist <= full ? 1.0 : Math.max(0.0, 1.0 - (dist - full) / (hear - full));
-        float loud = st.holder != null ? 1f : st.type.loudness; // caixas maiores tocam mais alto
+        float loud = st.type.loudness; // caixas maiores tocam mais alto (também na mão)
         return (st.song.volume() / 100.0) * att * att * loud;
     }
 
     /** Até onde o som chega: quanto maior a caixa, mais longe (o servidor informa o tipo). */
     private static double hearDistance(Minecraft mc, State st) {
-        return st.holder != null ? HEAR_DISTANCE : st.type.hearDistance;
+        return st.type.hearDistance;
     }
 
     /**
@@ -359,7 +359,8 @@ public final class ClientBoomboxManager {
         }
         Player p = mc.level.getPlayerByUUID(st.holder);
         if (p == null) return null;
-        return p.getEyePosition();
+        // boombox: ao lado da cabeça; caixas de festa: na altura da mão / atrás do jogador
+        return st.type == SpeakerType.BOOMBOX ? p.getEyePosition() : p.position().add(0, 0.7, 0);
     }
 
     private static String shorten(String s) {

@@ -79,11 +79,19 @@ final class Geo {
         }
     }
 
-    /** Disco virado para o lado (±X), ex.: rodas. */
-    void sideDisc(float x, float cy, float cz, float r, int region, boolean positive) {
-        float xf = x / 16, y0 = (cy - r) / 16, y1 = (cy + r) / 16, z0 = (cz - r) / 16, z1 = (cz + r) / 16;
-        if (positive) quad(region, 1, 0, 0, xf, y0, z0, xf, y1, z0, xf, y1, z1, xf, y0, z1, false);
-        else quad(region, -1, 0, 0, xf, y0, z0, xf, y0, z1, xf, y1, z1, xf, y1, z0, false);
+    /** Disco virado para o lado (±X), ex.: rodas. angle gira o disco (radianos) em volta do centro. */
+    void sideDisc(float x, float cy, float cz, float r, int region, boolean positive, float angle) {
+        float c = (float) Math.cos(angle), s = (float) Math.sin(angle), xf = x / 16;
+        // cantos (dy, dz) girados
+        float[][] k = {{-r, -r}, {r, -r}, {r, r}, {-r, r}};
+        float[] ys = new float[4], zs = new float[4];
+        for (int i = 0; i < 4; i++) {
+            ys[i] = (cy + k[i][0] * c - k[i][1] * s) / 16;
+            zs[i] = (cz + k[i][0] * s + k[i][1] * c) / 16;
+        }
+        // ordem igual à do disco sem giro: (y0,z0) (y1,z0) (y1,z1) (y0,z1)
+        if (positive) quad(region, 1, 0, 0, xf, ys[0], zs[0], xf, ys[1], zs[1], xf, ys[2], zs[2], xf, ys[3], zs[3], false);
+        else quad(region, -1, 0, 0, xf, ys[0], zs[0], xf, ys[3], zs[3], xf, ys[2], zs[2], xf, ys[1], zs[1], false);
     }
 
     /**
