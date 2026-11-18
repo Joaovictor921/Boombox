@@ -151,8 +151,9 @@ public final class AudioStream {
         cmd.addAll(List.of("-i", input, "-vn"));
         if (blown) {
             // grave lá em cima, agudo abafado e volume passando do limite: o som "estoura" (clipa)
-            cmd.addAll(List.of("-af", "bass=g=20:f=60:w=0.7,bass=g=9:f=120:w=1,treble=g=-6,volume=3.6,"
-                    + "asoftclip=type=tanh:threshold=0.8,volume=1.5"));
+            // grave forte, mas sem saturar tanto (2.2: menos estourada; o volume sobe pelo ganho da caixa)
+            cmd.addAll(List.of("-af", "bass=g=15:f=60:w=0.7,bass=g=6:f=120:w=1,treble=g=-3,volume=1.9,"
+                    + "asoftclip=type=tanh:threshold=0.95,volume=1.2"));
         }
         cmd.addAll(List.of("-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", "s16le", "pipe:1"));
 
@@ -221,6 +222,13 @@ public final class AudioStream {
 
     /** Chamado a cada tick do cliente. highs = quanto dos agudos passa (1 = som aberto). */
     public void tick(double x, double y, double z, float gain, float highs) {
+        tick(x, y, z, gain, highs, 0.5f);
+    }
+
+    /** Fonte "grande" (OpenAL Soft): dentro do raio o som não vem de um lado só. */
+    private static Boolean radiusSupported;
+
+    public void tick(double x, double y, double z, float gain, float highs, float radius) {
         if (closed || finished) return;
         try {
             if (!synced) {
@@ -254,7 +262,7 @@ public final class AudioStream {
                 source = AL10.alGenSources();
                 AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
                 AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0f); // a atenuação é feita aqui no código
-                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 12f); // caixas grandes passam do volume "normal"
+                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 16f); // caixas grandes passam do volume "normal"
                 AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
             }
             // eco/abafamento do Sound Physics Remastered (se instalado): logo que a fonte nasce, a cada 4 ticks
@@ -272,6 +280,8 @@ public final class AudioStream {
             if (physicsPos != null) AL10.alSource3f(source, AL10.AL_POSITION, (float) physicsPos[0], (float) physicsPos[1], (float) physicsPos[2]);
             else AL10.alSource3f(source, AL10.AL_POSITION, (float) x, (float) y, (float) z);
             AL10.alSourcef(source, AL10.AL_GAIN, gain);
+            if (radiusSupported == null) radiusSupported = AL10.alIsExtensionPresent("AL_EXT_SOURCE_RADIUS");
+            if (radiusSupported) AL10.alSourcef(source, org.lwjgl.openal.EXTSourceRadius.AL_SOURCE_RADIUS, radius);
 
             int processed = AL10.alGetSourcei(source, AL10.AL_BUFFERS_PROCESSED);
             while (processed-- > 0 && !alBuffers.isEmpty()) {

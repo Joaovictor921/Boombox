@@ -94,6 +94,18 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Pedido de música pro DJ Leo (o jogador paga 1 barra de ouro). */
+    public record DjRequest(int djId, String url, String title, long durationSec) implements CustomPacketPayload {
+        public static final Type<DjRequest> TYPE = new Type<>(BoomboxMod.id("dj_request"));
+        public static final StreamCodec<ByteBuf, DjRequest> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, DjRequest::djId,
+                URL, DjRequest::url,
+                SHORT, DjRequest::title,
+                ByteBufCodecs.VAR_LONG, DjRequest::durationSec,
+                DjRequest::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** Garante que o servidor tenha um arquivo local (para a fila/playlist), sem tocar agora. */
     public record PrepareFile(String sha1, String title) implements CustomPacketPayload {
         public static final Type<PrepareFile> TYPE = new Type<>(BoomboxMod.id("prepare_file"));
@@ -189,6 +201,7 @@ public final class Payloads {
         PayloadTypeRegistry.serverboundPlay().register(PrepareFile.TYPE, PrepareFile.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(UploadChunk.TYPE, UploadChunk.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(FileRequest.TYPE, FileRequest.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(DjRequest.TYPE, DjRequest.CODEC);
 
         PayloadTypeRegistry.clientboundPlay().register(BoomboxState.TYPE, BoomboxState.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(UploadNeeded.TYPE, UploadNeeded.CODEC);

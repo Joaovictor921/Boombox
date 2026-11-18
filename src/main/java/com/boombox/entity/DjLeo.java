@@ -57,13 +57,41 @@ public class DjLeo extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
+        if (level().isClientSide()) return;
         // não sai de casa: fica num raio pequeno de onde nasceu
-        if (!level().isClientSide() && !hasHome()) setHomeTo(blockPosition(), 3);
+        if (!hasHome()) setHomeTo(blockPosition(), 3);
+        // seguranças da rave: monstro que aparecer lá dentro é posto para fora
+        if (tickCount % 40 == 0 && level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            var area = new net.minecraft.world.phys.AABB(getHomePosition()).inflate(20, 8, 20);
+            for (var m : sl.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, area,
+                    m -> !m.isPersistenceRequired() && !m.hasCustomName())) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, m.getX(), m.getY() + 0.8, m.getZ(), 12, 0.3, 0.5, 0.3, 0.02);
+                m.discard();
+            }
+        }
+    }
+
+    /** Preenchido pelo cliente: abre a tela de pedir música (id da entidade). */
+    public static java.util.function.IntConsumer openRequestHook;
+
+    /** Comemora um pedido: pulo e som de festa. */
+    public void cheer() {
+        if (onGround()) jumpFromGround();
+        playSound(net.minecraft.sounds.SoundEvents.VILLAGER_CELEBRATE, 1f, 1.1f);
     }
 
     @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        // com uma barra de ouro na mão: pedir música
+        if (player.getItemInHand(hand).is(net.minecraft.world.item.Items.GOLD_INGOT)) {
+            if (level().isClientSide() && openRequestHook != null) openRequestHook.accept(getId());
+            return InteractionResult.SUCCESS;
+        }
         if (!level().isClientSide()) {
+            if (getRandom().nextInt(3) == 0) {
+                player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Quer pedir música? Me traz uma §6barra de ouro§r e clica em mim com ela!"));
+                return InteractionResult.SUCCESS;
+            }
             player.sendSystemMessage(Component.literal("§d<DJ Leo>§r " + LINES[getRandom().nextInt(LINES.length)]));
             getLookControl().setLookAt(player);
         }

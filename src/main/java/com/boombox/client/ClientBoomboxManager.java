@@ -250,6 +250,9 @@ public final class ClientBoomboxManager {
             State rep = null;
             Vec3 repSrc = null;
             double repDist = Double.MAX_VALUE, repGain = -1;
+            // centro "de massa" das caixas que você ouve (peso = volume²) e o quanto elas se espalham
+            double wSum = 0, cx = 0, cy = 0, cz = 0;
+            List<double[]> heard = new ArrayList<>();
             for (State st : members) {
                 Vec3 src = sourcePosition(mc, st);
                 if (src == null || !st.dim.equals(dim)) continue;
@@ -259,6 +262,14 @@ public final class ClientBoomboxManager {
                 if (measure || !OCCLUSION.containsKey(st.key)) OCCLUSION.put(st.key, occlusion(mc, src, ear));
                 // paredes no caminho abafam: a caixa "mais audível" é a menos escondida
                 double g = gainAt(st, dist) * occlusionGain(OCCLUSION.get(st.key));
+                double w = g * g;
+                if (w > 1e-6) {
+                    wSum += w;
+                    cx += src.x * w;
+                    cy += src.y * w;
+                    cz += src.z * w;
+                    heard.add(new double[]{src.x, src.y, src.z, w});
+                }
                 if (rep == null || g > repGain) {
                     rep = st;
                     repSrc = src;
@@ -288,7 +299,21 @@ public final class ClientBoomboxManager {
             UNIT_OCCLUSION.put(uk, occ);
             double open = gainAt(rep, repDist);
             float gain = (float) (master * open * occlusionGain(occ));
-            stream.tick(repSrc.x, repSrc.y, repSrc.z, gain, occlusionHighs(occ));
+            // Várias caixas juntas: o som sai do centro delas, "espalhado" pelo tamanho do grupo. Dentro da
+            // rave você fica dentro desse raio e ouve dos dois lados; de fora, o som vem da direção da casa.
+            // Antes saía só da caixa mais alta: se ela estivesse do seu lado, um lado do fone ficava mudo.
+            Vec3 at = repSrc;
+            float radius = 0.5f;
+            if (heard.size() > 1 && wSum > 0) {
+                at = new Vec3(cx / wSum, cy / wSum, cz / wSum);
+                double var = 0;
+                for (double[] h : heard) {
+                    double dx = h[0] - at.x, dy = h[1] - at.y, dz = h[2] - at.z;
+                    var += h[3] * (dx * dx + dy * dy + dz * dz);
+                }
+                radius = (float) Math.max(0.5, Math.sqrt(var / wSum) * 1.3);
+            }
+            stream.tick(at.x, at.y, at.z, gain, occlusionHighs(occ), radius);
             if (!stream.isLoading()) maybeAutoQueue(mc, rep, members);
             if (!rep.song.queue().isEmpty() && !rep.song.queue().get(0).url().equals(rep.prefetched)) {
                 String next = rep.song.queue().get(0).url();
@@ -340,7 +365,7 @@ public final class ClientBoomboxManager {
     }
 
     /** Caixa estourada: quanto mais alta e até onde vai. */
-    private static final float BLOWN_LOUDNESS = 3.6f;
+    private static final float BLOWN_LOUDNESS = 4.4f;
 
     /**
      * Quanto de parede tem entre a caixa e o ouvido: anda pela linha reta em passos de 1/4 de bloco

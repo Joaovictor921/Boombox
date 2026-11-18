@@ -115,6 +115,31 @@ public final class YouTube {
         });
     }
 
+    private static final Map<String, CachedStream> VIDEO_CACHE = new ConcurrentHashMap<>();
+
+    /**
+     * Link direto só do vídeo (sem som), em até 360p, para o telão. Prefere H.264 (decodifica leve)
+     * e links https simples (dá para pular para qualquer ponto).
+     */
+    public static StreamInfo videoStreamUrl(String url) throws Exception {
+        CachedStream c = VIDEO_CACHE.get(url);
+        if (c != null && System.currentTimeMillis() - c.time < 20 * 60_000L) return c.info;
+        Tools.ensureReady().get();
+        String out = Tools.run(Tools.ytdlpCommand(
+                "--no-playlist", "--skip-download",
+                "-f", "bv*[height<=360][vcodec^=avc1][protocol^=http]/bv*[height<=360][protocol^=http]"
+                        + "/bv*[height<=480]/b[height<=480]/b",
+                "--print", "%(url)s",
+                "--print", "%(http_headers.User-Agent)s",
+                url), 60);
+        List<String> lines = out.lines().map(String::trim).filter(l -> !l.isEmpty()).toList();
+        if (lines.isEmpty() || !lines.get(0).startsWith("http")) throw new IOException("yt-dlp não retornou o link do vídeo");
+        String ua = lines.size() > 1 && !lines.get(1).equals("NA") ? lines.get(1) : null;
+        StreamInfo info = new StreamInfo(lines.get(0), ua);
+        VIDEO_CACHE.put(url, new CachedStream(info, System.currentTimeMillis()));
+        return info;
+    }
+
     private static StreamInfo resolveStream(String url) throws Exception {
         Tools.ensureReady().get();
         String out = Tools.run(Tools.ytdlpCommand(

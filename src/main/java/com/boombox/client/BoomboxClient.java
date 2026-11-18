@@ -28,6 +28,8 @@ public class BoomboxClient implements ClientModInitializer {
         // modelo 3D animado: bloco, item e boombox na mão
         BlockEntityRendererRegistry.register(ModBlocks.BOOMBOX_BE, BoomboxBlockRenderer::new);
         BlockEntityRendererRegistry.register(ModBlocks.RAVE_LED_BE, com.boombox.client.render.RaveLedRenderer::new);
+        BlockEntityRendererRegistry.register(ModBlocks.RAVE_SCREEN_BE, com.boombox.client.render.RaveScreenRenderer::new);
+        com.boombox.entity.DjLeo.openRequestHook = id -> Minecraft.getInstance().gui.setScreen(new DjRequestScreen(id));
         net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
                 com.boombox.entity.ModEntities.DJ_LEO, com.boombox.client.render.DjLeoRenderer::new);
         net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
@@ -50,10 +52,12 @@ public class BoomboxClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             ClientBoomboxManager.tick(mc);
+            VideoManager.tick();
             ClientFiles.tick();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
             ClientBoomboxManager.clear();
+            VideoManager.clear();
             ClientFiles.clear();
         }));
         ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) ->

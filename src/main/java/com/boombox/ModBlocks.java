@@ -74,7 +74,7 @@ public final class ModBlocks {
                     .setId(RAVE_LED_KEY)
                     .strength(0.3f)
                     .sound(SoundType.GLASS)
-                    .lightLevel(s -> 8) // meia-luz: o ambiente fica escuro e os feixes aparecem
+                    .lightLevel(s -> 10) // meia-luz: o ambiente fica escuro e os feixes aparecem
                     .noCollision()
                     .noOcclusion()));
     public static final Item RAVE_LED_ITEM = Registry.register(BuiltInRegistries.ITEM,
@@ -85,8 +85,25 @@ public final class ModBlocks {
             BuiltInRegistries.BLOCK_ENTITY_TYPE, BoomboxMod.id("rave_led"),
             new BlockEntityType<>(RaveLedBlockEntity::new, java.util.Set.of(RAVE_LED)));
 
+    // ---- telão
+    private static final ResourceKey<Block> RAVE_SCREEN_KEY = ResourceKey.create(Registries.BLOCK, BoomboxMod.id("rave_screen"));
+    public static final Block RAVE_SCREEN = Registry.register(BuiltInRegistries.BLOCK, RAVE_SCREEN_KEY,
+            new RaveScreenBlock(BlockBehaviour.Properties.of()
+                    .setId(RAVE_SCREEN_KEY)
+                    .strength(0.8f)
+                    .sound(SoundType.METAL)
+                    .noOcclusion()));
+    public static final Item RAVE_SCREEN_ITEM = Registry.register(BuiltInRegistries.ITEM,
+            ResourceKey.create(Registries.ITEM, BoomboxMod.id("rave_screen")),
+            new net.minecraft.world.item.BlockItem(RAVE_SCREEN, new Item.Properties()
+                    .setId(ResourceKey.create(Registries.ITEM, BoomboxMod.id("rave_screen"))).useBlockDescriptionPrefix()));
+    public static final BlockEntityType<RaveScreenBlockEntity> RAVE_SCREEN_BE = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE, BoomboxMod.id("rave_screen"),
+            new BlockEntityType<>(RaveScreenBlockEntity::new, java.util.Set.of(RAVE_SCREEN)));
+
     static {
         ALL_ITEMS.add(RAVE_LED_ITEM);
+        ALL_ITEMS.add(RAVE_SCREEN_ITEM);
     }
 
     private ModBlocks() {}

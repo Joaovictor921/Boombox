@@ -8,5 +8,6 @@
   "entity.boombox.dj_leo": "DJ Leo",
   "item.boombox.dj_leo_spawn_egg": "Ovo Gerador de DJ Leo",
   "entity.boombox.raver": "Aldeão Festeiro",
-  "item.boombox.raver_spawn_egg": "Ovo Gerador de Aldeão Festeiro"
+  "item.boombox.raver_spawn_egg": "Ovo Gerador de Aldeão Festeiro",
+  "block.boombox.rave_screen": "Telão"
 }

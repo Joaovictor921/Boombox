@@ -35,8 +35,8 @@ import org.joml.Vector3f;
  * da caixa (arco-íris, cor fixa, na batida ou desligada).
  */
 public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, RaveLedRenderer.State> {
-    /** Luz que soma na cena (mesmo tipo do raio), com transparência ordenada. */
-    private static final RenderType BEAM = RenderTypes.lightning();
+    /** Luz que soma na cena e não grava profundidade (não mancha telões desenhados depois). */
+    private static final RenderType BEAM = BeamRenderType.BEAM;
     private static final int BEAMS = 5;
     private static final double MAX_LENGTH = 22;
 
@@ -237,10 +237,9 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
             vc.addVertex(pose, x, y, z).setColor(alpha << 24 | (rgb & 0xFFFFFF));
         }
 
-        /** Quadrilátero dos dois lados (não some quando visto de trás). */
+        /** Quadrilátero (o pipeline não descarta o lado de trás). */
         void quad(float[] p, int rgb, float[] a) {
             v(p[0], p[1], p[2], rgb, a[0]); v(p[3], p[4], p[5], rgb, a[1]); v(p[6], p[7], p[8], rgb, a[2]); v(p[9], p[10], p[11], rgb, a[3]);
-            v(p[9], p[10], p[11], rgb, a[3]); v(p[6], p[7], p[8], rgb, a[2]); v(p[3], p[4], p[5], rgb, a[1]); v(p[0], p[1], p[2], rgb, a[0]);
         }
 
         /**

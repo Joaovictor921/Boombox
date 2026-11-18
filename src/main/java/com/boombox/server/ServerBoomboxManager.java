@@ -204,6 +204,33 @@ public final class ServerBoomboxManager {
             h.sync();
         });
 
+        // pedido de música pro DJ Leo, pago com uma barra de ouro
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.DjRequest.TYPE, (payload, ctx) -> {
+            ServerPlayer player = ctx.player();
+            ServerLevel level = player.level();
+            if (!(level.getEntity(payload.djId()) instanceof com.boombox.entity.DjLeo dj) || dj.distanceTo(player) > 10) return;
+            String url = payload.url().trim();
+            if (!validUrl(url) || url.startsWith("local:")) {
+                player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Esse link aí eu não consigo tocar não."));
+                return;
+            }
+            InteractionHand hand = player.getMainHandItem().is(net.minecraft.world.item.Items.GOLD_INGOT) ? InteractionHand.MAIN_HAND
+                    : player.getOffhandItem().is(net.minecraft.world.item.Items.GOLD_INGOT) ? InteractionHand.OFF_HAND : null;
+            if (hand == null) {
+                player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Cadê o ouro? Sem barra de ouro não tem pedido!"));
+                return;
+            }
+            String title = payload.title().isBlank() ? url : payload.title().trim();
+            if (!djLeoPlay(level, dj.position(), new QueueItem(url, title, payload.durationSec()))) {
+                player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Minhas caixas sumiram! Não tenho onde tocar."));
+                return;
+            }
+            if (!player.getAbilities().instabuild) player.getItemInHand(hand).shrink(1);
+            dj.cheer();
+            player.level().getServer().getPlayerList().broadcastSystemMessage(Component.literal(
+                    "§d<DJ Leo>§r Essa vai pra você, " + player.getName().getString() + "! §e♪ " + title), false);
+        });
+
         // sugestões da fila automática (vêm de algum cliente que está ouvindo)
         ServerPlayNetworking.registerGlobalReceiver(Payloads.AutoSuggest.TYPE, (payload, ctx) -> {
             Holder h = byKey(ctx.player().level().getServer(), payload.key());
@@ -272,6 +299,37 @@ public final class ServerBoomboxManager {
             if (p.distanceToSqr(at) <= r2) return true;
         }
         return false;
+    }
+
+    /** Toca uma música nas caixas do DJ Leo perto desse ponto (todas as caixas do grupo dele). */
+    public static boolean djLeoPlay(ServerLevel level, Vec3 near, QueueItem item) {
+        BlockPos center = BlockPos.containing(near);
+        BlockPos best = null;
+        BoomboxBlockEntity bestBe = null;
+        double bestD = Double.MAX_VALUE;
+        int cx = center.getX() >> 4, cz = center.getZ() >> 4, r = 2;
+        for (int x = cx - r; x <= cx + r; x++) {
+            for (int z = cz - r; z <= cz + r; z++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
+                if (chunk == null) continue;
+                for (Map.Entry<BlockPos, BlockEntity> e : chunk.getBlockEntities().entrySet()) {
+                    if (e.getValue() instanceof BoomboxBlockEntity be && !be.isRemoved() && be.settings().leo()) {
+                        double d = e.getKey().distSqr(center);
+                        if (d < bestD && d <= 32 * 32) {
+                            bestD = d;
+                            best = e.getKey();
+                            bestBe = be;
+                        }
+                    }
+                }
+            }
+        }
+        if (bestBe == null) return false;
+        linkLeoIfNeeded(level, best, System.currentTimeMillis());
+        Holder h = blockHolder(level, best, bestBe);
+        startItem(level.getServer(), h, item, System.currentTimeMillis());
+        h.sync();
+        return true;
     }
 
     /** Toca uma música agora (chamado também depois de um upload). Mantém a fila. */

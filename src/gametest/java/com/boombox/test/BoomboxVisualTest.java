@@ -107,6 +107,57 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             });
             System.out.println("[BoomboxTest] " + dancers);
 
+            // ---- luz: nenhum lugar do chão da casa pode ficar com luz 0 (é onde monstros nascem)
+            String light = server.computeOnServer(s -> {
+                var level = s.overworld();
+                int min = 99, dark = 0, total = 0;
+                for (BlockPos p : BlockPos.betweenClosed(HX + 2, HY + 1, HZ + 1, HX + 31, HY + 1, HZ + 14)) {
+                    if (!level.getBlockState(p).isAir() || !level.getBlockState(p.below()).isSolidRender()) continue;
+                    int l = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, p);
+                    min = Math.min(min, l);
+                    total++;
+                    if (l == 0) dark++;
+                }
+                return "luz mínima no chão=" + min + ", lugares escuros=" + dark + " de " + total;
+            });
+            System.out.println("[BoomboxTest] " + light);
+
+            // ---- pedir música pro DJ Leo com uma barra de ouro
+            var djPos = server.computeOnServer(s -> s.overworld().getEntities(ModEntities.DJ_LEO, e -> true).get(0).position());
+            look(ctx, server, djPos.add(-3, 0, 0), -90f, 0f);
+            server.runCommand("item replace entity @p weapon.mainhand with minecraft:gold_ingot 3");
+            ctx.waitTicks(10);
+            int djId = server.computeOnServer(s -> s.overworld().getEntities(ModEntities.DJ_LEO, e -> true).get(0).getId());
+            String reqUrl = url + "?pedido=1";
+            ctx.runOnClient(mc -> net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                    new com.boombox.net.Payloads.DjRequest(djId, reqUrl, "Pedido de teste", 120)));
+            ctx.waitTicks(20);
+            String req = server.computeOnServer(s -> {
+                var level = s.overworld();
+                int gold = s.getPlayerList().getPlayers().get(0).getMainHandItem().getCount();
+                int playing = 0;
+                for (BlockPos p : BlockPos.betweenClosed(HX, HY, HZ, HX + 33, HY + 11, HZ + 16)) {
+                    if (level.getBlockEntity(p) instanceof BoomboxBlockEntity be && be.song().url().equals(reqUrl)) playing++;
+                }
+                return "ouro na mão=" + gold + " (era 3), caixas tocando o pedido=" + playing;
+            });
+            System.out.println("[BoomboxTest] pedido pro DJ Leo: " + req);
+
+            // ---- telão com o vídeo de verdade (YouTube) em todas as caixas da casa
+            String yt = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
+            server.runOnServer(s -> {
+                var level = s.overworld();
+                SongData song = SongData.EMPTY.withSong(yt, "Me at the zoo", 19, System.currentTimeMillis() + 3000);
+                for (BlockPos p : BlockPos.betweenClosed(HX, HY, HZ, HX + 33, HY + 11, HZ + 16)) {
+                    if (level.getBlockEntity(p) instanceof BoomboxBlockEntity be) be.setSong(song);
+                }
+            });
+            look(ctx, server, new Vec3(HX + 16.5, HY + 2.6, HZ + 7.5), -90f, -6f);
+            int vt = ctx.waitFor((Minecraft mc) -> com.boombox.client.VideoManager.anyFrame(), 20 * 90);
+            System.out.println("[BoomboxTest] telão mostrou vídeo depois de " + vt + " ticks");
+            ctx.waitTicks(60);
+            ctx.takeScreenshot("telao_video");
+
             server.runCommand("time set noon");
             look(ctx, server, new Vec3(HX - 9.5, HY + 9, HZ - 9.5), -45f, 22f);
             ctx.waitTicks(20);

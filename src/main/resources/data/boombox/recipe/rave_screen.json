@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "CCC",
+    "CGC",
+    "IRI"
+  ],
+  "key": {
+    "C": "minecraft:black_concrete",
+    "G": "minecraft:glowstone_dust",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "boombox:rave_screen",
+    "count": 1
+  }
+}

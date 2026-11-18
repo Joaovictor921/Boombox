@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-2.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-2.2.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,26 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 2.2
+- **Telão** (bloco novo): mostra o **clipe da música** que está tocando na caixa mais perto (até 48 blocos), sincronizado
+  com o som. Músicas sem vídeo (arquivos do PC, links de .mp3) mostram um **equalizador** colorido que pula com a música.
+  - Vai na parede, com a tela centrada no bloco e subindo a partir dele. Clique com a mão vazia para trocar o tamanho:
+    4, 8 ou 12 blocos de largura (formato 16:9). A tela tem brilho próprio e aparece igual no escuro.
+  - Vários telões mostrando a mesma música dividem o mesmo vídeo. O vídeo só é baixado por quem está a até 96 blocos.
+  - Receita: concreto preto em volta, pó de pedra luminosa no meio, ferro + redstone + ferro embaixo.
+  - A casa do DJ Leo agora tem um telão no fundo, atrás do DJ, com as caixas empilhadas dos dois lados.
+- **Pedir música pro DJ Leo**: clique com o botão direito nele segurando uma **barra de ouro**. Abre uma tela para pesquisar
+  (ou colar um link); ele pega a barra e toca a música na hora em todas as caixas da casa.
+- **Lasers não mancham mais telões**: os feixes não "furam" mais o que é desenhado depois deles (como o telão do mod
+  Dream Displays). Antes as bordas transparentes dos feixes deixavam manchas escuras na tela.
+- **Som dos dois lados**: com várias caixas juntas, o som sai do centro delas, espalhado pelo tamanho do grupo. Dentro da
+  rave você ouve dos dois lados do fone; antes saía só da caixa mais alta, e às vezes um lado ficava mudo.
+- **Caixas do DJ Leo**: um pouco menos estouradas (menos saturação) e um pouco mais altas (4,4x).
+- **Rave mais clara e sem monstros**: luz invisível espalhada pela casa nova (nenhum lugar fica escuro) e canhões de luz mais
+  fortes (nível 10). O DJ Leo também põe para fora qualquer monstro que apareça na rave dele, inclusive nas casas que
+  já existiam no seu mundo.
+- Prévia: [docs/preview-2.2.png](docs/preview-2.2.png).
 
 ## Novidades da 2.1
 - **Casa do DJ Leo bem maior** (16 x 32 blocos) e escura, como uma rave de verdade:
