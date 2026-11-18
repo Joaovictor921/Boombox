@@ -46,6 +46,8 @@ public final class Payloads {
     public record Control(Target target, int action, int value) implements CustomPacketPayload {
         public static final int STOP = 0, PAUSE = 1, RESUME = 2, VOLUME = 3, SKIP = 4, AUTOPLAY = 5,
                 QUEUE_REMOVE = 6, QUEUE_CLEAR = 7, QUEUE_PLAY_INDEX = 8;
+        /** Sincroniza todas as caixas num raio de 8x8 chunks com esta / desfaz a sincronização. */
+        public static final int SYNC = 9, UNSYNC = 10;
         public static final Type<Control> TYPE = new Type<>(BoomboxMod.id("control"));
         public static final StreamCodec<ByteBuf, Control> CODEC = StreamCodec.composite(
                 Target.STREAM_CODEC, Control::target,
@@ -124,17 +126,26 @@ public final class Payloads {
      * Estado de uma boombox: no chão (pos) ou na mão de um jogador (holder).
      * song sem música = parada/removida.
      */
-    public record BoomboxState(String key, String dim, BlockPos pos, UUID holder, SongData song, long serverNowMs)
+    /**
+     * Estado de uma boombox/caixa. type = SpeakerType (ordinal); group = quantas caixas estão
+     * sincronizadas com esta (0 = nenhuma).
+     */
+    public record BoomboxState(String key, String dim, BlockPos pos, UUID holder, SongData song, long serverNowMs,
+                               int speakerType, int group)
             implements CustomPacketPayload {
         public static final Type<BoomboxState> TYPE = new Type<>(BoomboxMod.id("state"));
         private static final UUID NONE = new UUID(0, 0);
+        private static final StreamCodec<ByteBuf, UUID> HOLDER_CODEC =
+                UUIDUtil.STREAM_CODEC.<UUID>map(u -> u.equals(NONE) ? null : u, u -> u == null ? NONE : u);
         public static final StreamCodec<ByteBuf, BoomboxState> CODEC = StreamCodec.composite(
                 SHORT, BoomboxState::key,
                 SHORT, BoomboxState::dim,
                 BlockPos.STREAM_CODEC, BoomboxState::pos,
-                UUIDUtil.STREAM_CODEC.map(u -> u.equals(NONE) ? null : u, u -> u == null ? NONE : u), BoomboxState::holder,
+                HOLDER_CODEC, BoomboxState::holder,
                 SongData.STREAM_CODEC, BoomboxState::song,
                 ByteBufCodecs.VAR_LONG, BoomboxState::serverNowMs,
+                ByteBufCodecs.VAR_INT, BoomboxState::speakerType,
+                ByteBufCodecs.VAR_INT, BoomboxState::group,
                 BoomboxState::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

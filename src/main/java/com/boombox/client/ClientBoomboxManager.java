@@ -1,6 +1,6 @@
 package com.boombox.client;
 
-import com.boombox.BoomboxBlock;
+import com.boombox.SpeakerType;
 
 import com.boombox.SongData;
 import com.boombox.net.Payloads;
@@ -30,6 +30,10 @@ public final class ClientBoomboxManager {
         public final String key;
         public final String dim;
         public final BlockPos pos;
+        /** Tipo da caixa (define alcance e volume). */
+        public final SpeakerType type;
+        /** Quantas caixas estão sincronizadas com esta (0 = nenhuma). */
+        public final int group;
         public final UUID holder;
         public final SongData song;
         boolean finished;
@@ -44,6 +48,8 @@ public final class ClientBoomboxManager {
             this.pos = p.pos();
             this.holder = p.holder();
             this.song = p.song();
+            this.type = SpeakerType.byOrdinal(p.speakerType());
+            this.group = p.group();
         }
 
         public String error() { return error; }
@@ -199,7 +205,9 @@ public final class ClientBoomboxManager {
             if (stream != null) {
                 double full = FULL_VOLUME_DISTANCE * hear / HEAR_DISTANCE; // caixas maiores enchem mais o ambiente
                 double att = dist <= full ? 1.0 : Math.max(0.0, 1.0 - (dist - full) / (hear - full));
-                float gain = (float) (master * (st.song.volume() / 100.0) * att * att);
+                // caixas maiores tocam mais alto que a boombox
+                float loud = st.holder != null ? 1f : st.type.loudness;
+                float gain = (float) (master * (st.song.volume() / 100.0) * att * att * loud);
                 stream.tick(src.x, src.y, src.z, gain);
                 if (!stream.isLoading()) maybeAutoQueue(mc, st);
                 if (!st.song.queue().isEmpty() && !st.song.queue().get(0).url().equals(st.prefetched)) {
@@ -232,13 +240,9 @@ public final class ClientBoomboxManager {
         }
     }
 
-    /** Até onde o som chega: depende do tamanho da caixa (a boombox na mão usa o padrão). */
+    /** Até onde o som chega: quanto maior a caixa, mais longe (o servidor informa o tipo). */
     private static double hearDistance(Minecraft mc, State st) {
-        if (st.holder == null && st.pos != null && mc.level != null
-                && mc.level.getBlockState(st.pos).getBlock() instanceof BoomboxBlock b) {
-            return b.type().hearDistance;
-        }
-        return HEAR_DISTANCE;
+        return st.holder != null ? HEAR_DISTANCE : st.type.hearDistance;
     }
 
     /**

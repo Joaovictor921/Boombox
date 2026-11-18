@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-1.4.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-1.5.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -22,15 +22,30 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 1.5
+- **Caixas maiores tocam mais alto e mais longe** (a boombox é a menor):
+  | Caixa | Volume (perto) | Som chega a |
+  |---|---|---|
+  | Boombox | 1x | 48 blocos |
+  | Caixa de Festa Pequena | 1,4x | 64 blocos |
+  | Caixa de Festa Média | 1,9x | 96 blocos |
+  | Caixa de Festa Grande | 2,5x | 128 blocos |
+- **Botão ⇄ Sincronizar** no menu de qualquer caixa no chão: junta todas as caixas (boombox e caixas de festa)
+  numa área de **8x8 chunks** em volta dela (64 blocos para cada lado). Todas passam a tocar a mesma música,
+  ao mesmo tempo, com a mesma fila e volume; mexer em qualquer uma (tocar, pausar, pular, volume) vale para todas.
+  O botão mostra "Juntas: N"; clique de novo para separar aquela caixa.
+  - Só entram caixas em chunks carregados. A sincronização dura até o servidor reiniciar ou a caixa ser quebrada
+    (as músicas continuam iguais, mas cada uma volta a seguir a própria fila).
+
 ## Novidades da 1.4
 - **Caixas de festa** em 3 tamanhos (estilo "party speaker"): gabinete preto em pé, anéis de LED nos
   alto-falantes que mudam de cor e pulsam com o grave, barra de luz que pisca nas batidas fortes.
   Tocam igual à boombox (mesmo menu, fila, playlists), mas só no chão.
   | Caixa | Tamanho | Som chega a | Receita |
   |---|---|---|---|
-  | Pequena | ~0,8 bloco, 1 woofer | 40 blocos | ferro em cima; concreto preto + bloco musical + concreto preto; concreto preto + redstone + concreto preto |
-  | Média | ~1,3 bloco, 2 woofers | 56 blocos | ferro + pó de glowstone + ferro; concreto preto + **caixa pequena** + concreto preto; concreto preto + bloco de redstone + concreto preto |
-  | Grande | 1,5 bloco, 2 woofers grandes, rodinhas e alça de puxar | 72 blocos | ferro + glowstone + ferro; concreto preto + **caixa média** + concreto preto; concreto preto + jukebox + concreto preto |
+  | Pequena | ~0,8 bloco, 1 woofer | 64 blocos (1.5) | ferro em cima; concreto preto + bloco musical + concreto preto; concreto preto + redstone + concreto preto |
+  | Média | ~1,3 bloco, 2 woofers | 96 blocos (1.5) | ferro + pó de glowstone + ferro; concreto preto + **caixa pequena** + concreto preto; concreto preto + bloco de redstone + concreto preto |
+  | Grande | 1,5 bloco, 2 woofers grandes, rodinhas e alça de puxar | 128 blocos (1.5) | ferro + glowstone + ferro; concreto preto + **caixa média** + concreto preto; concreto preto + jukebox + concreto preto |
 - **Alto-falantes não saem mais para fora** com grave forte: o aro ficou mais fundo e o curso do cone é limitado
   (vale para a boombox também).
 - **Aba própria no modo criativo** com todas as caixas do mod.
@@ -74,6 +89,7 @@ Precisa de JDK 25+:
 ## Versões
 | Versão | Minecraft | Download |
 |---|---|---|
+| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
 | 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
 | 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
 | 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |

@@ -1,5 +1,6 @@
 package com.boombox.server;
 
+import com.boombox.BoomboxBlock;
 import com.boombox.BoomboxBlockEntity;
 import com.boombox.BoomboxItem;
 import com.boombox.ModBlocks;
@@ -19,9 +20,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,7 +37,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * todos os jogadores quando algo muda. Cada cliente decide sozinho se está perto o bastante para ouvir.
  */
 public final class ServerBoomboxManager {
-    public record Entry(String dim, BlockPos pos, UUID holder, SongData song) {}
+    public record Entry(String dim, BlockPos pos, UUID holder, SongData song, int type, int group) {}
+
+    /** Caixas sincronizadas: tocam sempre a mesma coisa ao mesmo tempo (mesma música, fila e volume). */
+    private record Group(String dim, Set<BlockPos> members) {}
+
+    /** Raio para sincronizar: 4 chunks para cada lado = área de 8x8 chunks em volta da caixa. */
+    public static final int SYNC_RADIUS_BLOCKS = 64;
+    /** chave do bloco -> grupo */
+    private static final Map<String, Group> GROUPS = new ConcurrentHashMap<>();
 
     /** Algo que guarda uma música: o bloco ou o item na mão. */
     interface Holder {
@@ -95,6 +108,21 @@ public final class ServerBoomboxManager {
             ServerPlayer player = ctx.player();
             Holder h = resolve(player, payload.target());
             if (h == null) return;
+            if (payload.action() == Payloads.Control.SYNC || payload.action() == Payloads.Control.UNSYNC) {
+                if (payload.target().isHeld()) return;
+                ServerLevel level = player.level();
+                BlockPos pos = payload.target().pos();
+                if (payload.action() == Payloads.Control.UNSYNC) {
+                    unlink(level, pos);
+                    player.sendOverlayMessage(Component.literal("Boombox: caixa separada das outras"));
+                } else {
+                    int n = linkNearby(level, pos);
+                    player.sendOverlayMessage(Component.literal(n == 0
+                            ? "Boombox: nenhuma outra caixa numa área de 8x8 chunks"
+                            : "Boombox: " + (n + 1) + " caixas sincronizadas"));
+                }
+                return;
+            }
             MinecraftServer server = player.level().getServer();
             long now = System.currentTimeMillis();
             SongData s = h.get();
@@ -244,6 +272,20 @@ public final class ServerBoomboxManager {
     }
 
     private static Holder blockHolder(ServerLevel level, BlockPos pos, BoomboxBlockEntity be) {
+        Group g = GROUPS.get(Payloads.blockKey(dim(level), pos));
+        if (g != null) {
+            // caixa sincronizada: qualquer mudança vale para todas do grupo
+            return new Holder() {
+                @Override public SongData get() { return be.song(); }
+                @Override public void set(SongData song) {
+                    for (BlockPos m : g.members()) {
+                        BoomboxBlockEntity o = loadedSpeaker(level, m);
+                        if (o != null) o.setSong(song);
+                    }
+                }
+                @Override public void sync() { syncGroup(level, g); }
+            };
+        }
         return new Holder() {
             @Override public SongData get() { return be.song(); }
             @Override public void set(SongData song) { be.setSong(song); }
@@ -264,23 +306,96 @@ public final class ServerBoomboxManager {
     /** Chamado pelo tick da boombox no chão. */
     public static void syncBlock(ServerLevel level, BlockPos pos, SongData song) {
         String key = Payloads.blockKey(dim(level), pos);
-        boolean defaults = !song.hasSong() && song.queue().isEmpty() && song.autoplay() && song.volume() == 100;
+        Group g = GROUPS.get(key);
+        int group = g == null ? 0 : g.members().size();
+        boolean defaults = group == 0 && !song.hasSong() && song.queue().isEmpty() && song.autoplay() && song.volume() == 100;
         if (defaults) {
             remove(level.getServer(), key);
             return;
         }
-        update(level.getServer(), key, new Entry(dim(level), pos.immutable(), null, song));
+        int type = level.getBlockState(pos).getBlock() instanceof BoomboxBlock b ? b.type().ordinal() : 0;
+        update(level.getServer(), key, new Entry(dim(level), pos.immutable(), null, song, type, group));
     }
 
     /** Tick da boombox no chão: passa para a próxima quando a música acaba. */
     public static void tickBlock(ServerLevel level, BlockPos pos, BoomboxBlockEntity be) {
         long now = System.currentTimeMillis();
-        if (be.song().isOver(now)) advance(level.getServer(), blockHolder(level, pos, be), now);
+        if (be.song().isOver(now)) {
+            Holder h = blockHolder(level, pos, be);
+            advance(level.getServer(), h, now);
+            h.sync();
+        }
         syncBlock(level, pos, be.song());
     }
 
     public static void removeBlock(ServerLevel level, BlockPos pos) {
+        unlink(level, pos);
         remove(level.getServer(), Payloads.blockKey(dim(level), pos));
+    }
+
+    // ------------------------------------------------------------ caixas sincronizadas
+
+    private static BoomboxBlockEntity loadedSpeaker(ServerLevel level, BlockPos pos) {
+        if (!level.isLoaded(pos)) return null;
+        return level.getBlockEntity(pos) instanceof BoomboxBlockEntity be && !be.isRemoved() ? be : null;
+    }
+
+    private static void syncGroup(ServerLevel level, Group g) {
+        for (BlockPos m : g.members()) {
+            BoomboxBlockEntity o = loadedSpeaker(level, m);
+            if (o != null) syncBlock(level, m, o.song());
+        }
+    }
+
+    /**
+     * Junta esta caixa com todas as outras caixas carregadas numa área de 8x8 chunks em volta dela.
+     * Todas passam a tocar o que esta caixa está tocando. Devolve quantas outras caixas entraram.
+     */
+    static int linkNearby(ServerLevel level, BlockPos center) {
+        BoomboxBlockEntity self = loadedSpeaker(level, center);
+        if (self == null) return 0;
+        Set<BlockPos> found = new LinkedHashSet<>();
+        found.add(center.immutable());
+        int cx = center.getX() >> 4, cz = center.getZ() >> 4, r = SYNC_RADIUS_BLOCKS >> 4;
+        for (int x = cx - r; x <= cx + r; x++) {
+            for (int z = cz - r; z <= cz + r; z++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
+                if (chunk == null) continue;
+                for (Map.Entry<BlockPos, BlockEntity> e : chunk.getBlockEntities().entrySet()) {
+                    BlockPos p = e.getKey();
+                    if (e.getValue() instanceof BoomboxBlockEntity && !e.getValue().isRemoved()
+                            && Math.abs(p.getX() - center.getX()) <= SYNC_RADIUS_BLOCKS
+                            && Math.abs(p.getZ() - center.getZ()) <= SYNC_RADIUS_BLOCKS) {
+                        found.add(p.immutable());
+                    }
+                }
+            }
+        }
+        if (found.size() < 2) return 0;
+        for (BlockPos p : found) unlink(level, p); // sai de grupos antigos
+        Group g = new Group(dim(level), ConcurrentHashMap.newKeySet());
+        g.members().addAll(found);
+        for (BlockPos p : found) GROUPS.put(Payloads.blockKey(dim(level), p), g);
+        SongData song = self.song();
+        for (BlockPos p : found) {
+            BoomboxBlockEntity o = loadedSpeaker(level, p);
+            if (o != null) o.setSong(song);
+        }
+        syncGroup(level, g);
+        return found.size() - 1;
+    }
+
+    /** Tira a caixa do grupo (ela continua tocando, mas sozinha). */
+    static void unlink(ServerLevel level, BlockPos pos) {
+        Group g = GROUPS.remove(Payloads.blockKey(dim(level), pos));
+        if (g == null) return;
+        g.members().remove(pos);
+        if (g.members().size() < 2) {
+            for (BlockPos m : g.members()) GROUPS.remove(Payloads.blockKey(dim(level), m));
+        }
+        syncGroup(level, g); // as que sobraram recebem a nova contagem
+        BoomboxBlockEntity self = loadedSpeaker(level, pos);
+        if (self != null) syncBlock(level, pos, self.song());
     }
 
     /** Confere se o jogador está segurando uma boombox tocando. */
@@ -305,7 +420,7 @@ public final class ServerBoomboxManager {
         if (song == null || player.isSpectator()) {
             remove(server, key);
         } else {
-            update(server, key, new Entry(dim(player.level()), BlockPos.ZERO, player.getUUID(), song));
+            update(server, key, new Entry(dim(player.level()), BlockPos.ZERO, player.getUUID(), song, 0, 0));
         }
     }
 
@@ -324,11 +439,11 @@ public final class ServerBoomboxManager {
 
     private static void remove(MinecraftServer server, String key) {
         Entry old = ACTIVE.remove(key);
-        if (old != null) broadcast(server, key, new Entry(old.dim(), old.pos(), old.holder(), SongData.EMPTY));
+        if (old != null) broadcast(server, key, new Entry(old.dim(), old.pos(), old.holder(), SongData.EMPTY, old.type(), 0));
     }
 
     private static Payloads.BoomboxState toPayload(String key, Entry e, long now) {
-        return new Payloads.BoomboxState(key, e.dim(), e.pos(), e.holder(), e.song(), now);
+        return new Payloads.BoomboxState(key, e.dim(), e.pos(), e.holder(), e.song(), now, e.type(), e.group());
     }
 
     private static void broadcast(MinecraftServer server, String key, Entry e) {
@@ -349,5 +464,6 @@ public final class ServerBoomboxManager {
 
     public static void clear() {
         ACTIVE.clear();
+        GROUPS.clear();
     }
 }

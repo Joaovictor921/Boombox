@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -45,6 +46,7 @@ public class BoomboxScreen extends Screen {
 
     private final Target target;
     private EditBox input;
+    private Button syncButton;
     private Button pauseButton;
     private String text = "";
     private Mode mode = Mode.NONE;
@@ -124,14 +126,20 @@ public class BoomboxScreen extends Screen {
             setStatus("Parado");
         });
 
-        // linha 2: volume / fila / playlists / músicas
+        // linha 2: volume / sincronizar / fila / playlists / músicas
         y = 76;
-        int vw = 122;
+        int vw = 92, sw = 78;
         addRenderableWidget(new VolumeSlider(left, y, vw, 20));
-        int tw = (W - vw - 12) / 3;
-        button(tab(Mode.QUEUE, "Fila"), left + vw + 4, y, tw, () -> setMode(Mode.QUEUE));
-        button(tab(Mode.PLAYLISTS, "Playlists"), left + vw + 8 + tw, y, tw, () -> setMode(Mode.PLAYLISTS));
-        button(tab(Mode.LOCAL, "♫ Músicas"), left + vw + 12 + 2 * tw, y, W - vw - 12 - 2 * tw, () -> setMode(Mode.LOCAL));
+        syncButton = button("⇄ Sincronizar", left + vw + 4, y, sw, this::toggleSync);
+        syncButton.setTooltip(Tooltip.create(Component.literal(
+                "Faz todas as caixas de som numa área de 8x8 chunks em volta desta tocarem a mesma música, "
+                        + "ao mesmo tempo. Clique de novo para separar esta caixa.")));
+        if (target.isHeld()) syncButton.active = false;
+        int tx0 = left + vw + sw + 8;
+        int tw = (W - vw - sw - 16) / 3;
+        button(tab(Mode.QUEUE, "Fila"), tx0, y, tw, () -> setMode(Mode.QUEUE));
+        button(tab(Mode.PLAYLISTS, "Playlists"), tx0 + tw + 4, y, tw, () -> setMode(Mode.PLAYLISTS));
+        button(tab(Mode.LOCAL, "Músicas"), tx0 + 2 * (tw + 4), y, left + W - (tx0 + 2 * (tw + 4)), () -> setMode(Mode.LOCAL));
 
         // barra de ferramentas da aba atual (alinhada à direita)
         List<Tool> tools = tools();
@@ -167,6 +175,22 @@ public class BoomboxScreen extends Screen {
             Button next = button(">", left + W - 24, py, 24, () -> { page++; refresh(); });
             prev.active = page > 0;
             next.active = page < pages - 1;
+        }
+    }
+
+    private int syncedCount() {
+        ClientBoomboxManager.State st = state();
+        return st == null ? 0 : st.group;
+    }
+
+    private void toggleSync() {
+        if (target.isHeld()) return;
+        if (syncedCount() > 1) {
+            control(Payloads.Control.UNSYNC, 0);
+            setStatus("Caixa separada das outras");
+        } else {
+            control(Payloads.Control.SYNC, 0);
+            setStatus("Sincronizando as caixas numa área de 8x8 chunks...");
         }
     }
 
@@ -575,6 +599,11 @@ public class BoomboxScreen extends Screen {
             boolean paused = st != null && st.song.paused();
             pauseButton.setMessage(Component.literal(paused ? "▶ Continuar" : "❚❚ Pausar"));
             pauseButton.active = st != null;
+        }
+
+        if (syncButton != null && !target.isHeld()) {
+            int n = syncedCount();
+            syncButton.setMessage(Component.literal(n > 1 ? "§b⇄ Juntas: " + n : "⇄ Sincronizar"));
         }
 
         super.extractRenderState(g, mouseX, mouseY, partialTick);

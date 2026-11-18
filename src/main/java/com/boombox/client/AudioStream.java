@@ -222,6 +222,7 @@ public final class AudioStream {
                 source = AL10.alGenSources();
                 AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
                 AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0f); // a atenuação é feita aqui no código
+                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 4f); // caixas grandes passam do volume "normal"
                 AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
             }
             AL10.alSource3f(source, AL10.AL_POSITION, (float) x, (float) y, (float) z);
