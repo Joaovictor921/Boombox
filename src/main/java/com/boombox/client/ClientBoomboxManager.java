@@ -14,7 +14,9 @@ import net.minecraft.world.phys.Vec3;
 import com.boombox.QueueItem;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Iterator;
 import java.util.Map;
@@ -70,8 +72,14 @@ public final class ClientBoomboxManager {
     private static final Map<String, SongData> IDLE = new HashMap<>();
     /** id da entidade do jogador → chave da boombox que ele segura */
     private static final Map<Integer, String> HELD_BY_ENTITY = new HashMap<>();
+    /**
+     * Caixa → "unidade" de som. Caixas sincronizadas tocando a mesma música formam uma só unidade:
+     * uma única fonte de som (na caixa mais perto de você), para não ouvir a voz duas vezes.
+     */
+    private static final Map<String, String> UNIT_OF = new HashMap<>();
     /** relógio do servidor - relógio local */
     private static long clockOffset;
+    private static boolean clockKnown;
 
     private ClientBoomboxManager() {}
 
@@ -80,7 +88,13 @@ public final class ClientBoomboxManager {
     }
 
     public static void onState(Payloads.BoomboxState p) {
-        clockOffset = p.serverNowMs() - System.currentTimeMillis();
+        // A diferença medida = diferença real - atraso da rede. O menor atraso dá a medida mais
+        // precisa (a maior diferença), então guardamos o máximo; reinicia se mudar muito (outro servidor).
+        long measured = p.serverNowMs() - System.currentTimeMillis();
+        if (!clockKnown || measured > clockOffset || clockOffset - measured > 2000) {
+            clockOffset = measured;
+            clockKnown = true;
+        }
         String k = p.key();
         State old = STATES.get(k);
         if (!p.song().hasSong()) {
@@ -128,14 +142,14 @@ public final class ClientBoomboxManager {
 
     public static boolean isLoading(State st) {
         if (st == null) return false;
-        AudioStream s = STREAMS.get(st.key);
+        AudioStream s = STREAMS.get(UNIT_OF.getOrDefault(st.key, st.key));
         return s != null && s.isLoading();
     }
 
     private static void levels(String key, float[] out) {
         out[0] = out[1] = 0;
         State st = key == null ? null : STATES.get(key);
-        AudioStream s = key == null ? null : STREAMS.get(key);
+        AudioStream s = key == null ? null : STREAMS.get(UNIT_OF.getOrDefault(key, key));
         if (st == null || s == null) {
             return;
         }
@@ -169,6 +183,14 @@ public final class ClientBoomboxManager {
 
     // ------------------------------------------------------------ tick
 
+    /** Caixas sincronizadas com a mesma música dividem uma única unidade de som. */
+    private static String unitKey(State st) {
+        if (st.group > 1 && st.holder == null) {
+            return "g|" + st.dim + "|" + st.song.startMs() + "|" + st.song.url();
+        }
+        return st.key;
+    }
+
     public static void tick(Minecraft mc) {
         if (mc.level == null || mc.player == null) {
             if (!STREAMS.isEmpty()) stopAll();
@@ -178,66 +200,101 @@ public final class ClientBoomboxManager {
         Vec3 ear = mc.gameRenderer.mainCamera().position();
         float master = mc.options.getFinalSoundSourceVolume(SoundSource.RECORDS);
         HELD_BY_ENTITY.clear();
+        UNIT_OF.clear();
 
+        Map<String, List<State>> units = new LinkedHashMap<>();
         for (State st : STATES.values()) {
-            Vec3 src = sourcePosition(mc, st);
+            String uk = unitKey(st);
+            UNIT_OF.put(st.key, uk);
+            units.computeIfAbsent(uk, k -> new ArrayList<>()).add(st);
             if (st.holder != null) {
                 Player holder = mc.level.getPlayerByUUID(st.holder);
                 if (holder != null) HELD_BY_ENTITY.put(holder.getId(), st.key);
             }
-            double dist = src == null ? Double.MAX_VALUE : Math.sqrt(ear.distanceToSqr(src));
-            AudioStream stream = STREAMS.get(st.key);
-            double hear = hearDistance(mc, st);
-            boolean inRange = src != null && st.dim.equals(dim)
-                    && dist < (stream != null ? hear + 16 : hear);
-            boolean shouldPlay = inRange && !st.song.paused() && !st.finished;
+        }
+
+        for (Map.Entry<String, List<State>> unit : units.entrySet()) {
+            String uk = unit.getKey();
+            List<State> members = unit.getValue();
+            AudioStream stream = STREAMS.get(uk);
+
+            // de qual caixa o som sai: a que soaria mais alto para você (normalmente a mais perto)
+            State rep = null;
+            Vec3 repSrc = null;
+            double repDist = Double.MAX_VALUE, repGain = -1;
+            for (State st : members) {
+                Vec3 src = sourcePosition(mc, st);
+                if (src == null || !st.dim.equals(dim)) continue;
+                double dist = Math.sqrt(ear.distanceToSqr(src));
+                double hear = hearDistance(mc, st);
+                if (dist >= (stream != null ? hear + 16 : hear)) continue;
+                double g = gainAt(st, dist);
+                if (rep == null || g > repGain) {
+                    rep = st;
+                    repSrc = src;
+                    repDist = dist;
+                    repGain = g;
+                }
+            }
+            boolean finished = false;
+            for (State st : members) finished |= st.finished;
+            boolean shouldPlay = rep != null && !rep.song.paused() && !finished;
 
             if (shouldPlay && stream == null) {
-                SongData song = st.song;
-                stream = new AudioStream(song.url(), st.key, () -> song.positionMs(serverNow()));
+                SongData song = rep.song;
+                stream = new AudioStream(song.url(), uk, () -> song.positionMs(serverNow()));
                 stream.start();
-                STREAMS.put(st.key, stream);
+                STREAMS.put(uk, stream);
             } else if (!shouldPlay && stream != null) {
-                closeStream(st.key);
+                closeStream(uk);
                 stream = null;
             }
+            if (stream == null) continue;
 
-            if (stream != null) {
-                double full = FULL_VOLUME_DISTANCE * hear / HEAR_DISTANCE; // caixas maiores enchem mais o ambiente
-                double att = dist <= full ? 1.0 : Math.max(0.0, 1.0 - (dist - full) / (hear - full));
-                // caixas maiores tocam mais alto que a boombox
-                float loud = st.holder != null ? 1f : st.type.loudness;
-                float gain = (float) (master * (st.song.volume() / 100.0) * att * att * loud);
-                stream.tick(src.x, src.y, src.z, gain);
-                if (!stream.isLoading()) maybeAutoQueue(mc, st);
-                if (!st.song.queue().isEmpty() && !st.song.queue().get(0).url().equals(st.prefetched)) {
-                    st.prefetched = st.song.queue().get(0).url();
-                    YouTube.prefetch(st.prefetched); // a próxima já fica pronta
-                }
-                if (stream.isFinished()) {
+            float gain = (float) (master * repGain);
+            stream.tick(repSrc.x, repSrc.y, repSrc.z, gain);
+            if (!stream.isLoading()) maybeAutoQueue(mc, rep, members);
+            if (!rep.song.queue().isEmpty() && !rep.song.queue().get(0).url().equals(rep.prefetched)) {
+                String next = rep.song.queue().get(0).url();
+                for (State st : members) st.prefetched = next;
+                YouTube.prefetch(next); // a próxima já fica pronta
+            }
+            if (stream.isFinished()) {
+                String error = stream.error();
+                boolean report = error == null && members.stream().noneMatch(st -> st.reportedEnd);
+                for (State st : members) {
                     st.finished = true;
-                    st.error = stream.error();
-                    if (st.error == null && !st.reportedEnd) {
-                        st.reportedEnd = true;
-                        ClientPlayNetworking.send(new Payloads.SongEnded(st.key, st.song.url(), st.song.startMs()));
-                    }
-                    if (st.error != null && dist < 16) {
-                        mc.player.sendOverlayMessage(Component.literal("§cBoombox: " + shorten(st.error)));
-                    }
-                    closeStream(st.key);
+                    st.error = error;
+                    st.reportedEnd = true;
                 }
+                if (report) {
+                    ClientPlayNetworking.send(new Payloads.SongEnded(rep.key, rep.song.url(), rep.song.startMs()));
+                }
+                if (error != null && repDist < 16) {
+                    mc.player.sendOverlayMessage(Component.literal("§cBoombox: " + shorten(error)));
+                }
+                closeStream(uk);
             }
         }
 
-        // streams sem estado (segurança)
+        // streams sem unidade (segurança)
         Iterator<Map.Entry<String, AudioStream>> it = STREAMS.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, AudioStream> e = it.next();
-            if (!STATES.containsKey(e.getKey())) {
+            if (!units.containsKey(e.getKey())) {
                 e.getValue().close();
                 it.remove();
             }
         }
+    }
+
+    /** Volume (sem o controle de som do jogo) de uma caixa a essa distância. */
+    private static double gainAt(State st, double dist) {
+        double hear = st.holder != null ? HEAR_DISTANCE : st.type.hearDistance;
+        double full = FULL_VOLUME_DISTANCE * hear / HEAR_DISTANCE; // caixas maiores enchem mais o ambiente
+        double att = dist <= full ? 1.0 : Math.max(0.0, 1.0 - (dist - full) / (hear - full));
+        float loud = st.holder != null ? 1f : st.type.loudness; // caixas maiores tocam mais alto
+        return (st.song.volume() / 100.0) * att * att * loud;
     }
 
     /** Até onde o som chega: quanto maior a caixa, mais longe (o servidor informa o tipo). */
@@ -249,10 +306,10 @@ public final class ClientBoomboxManager {
      * Fila automática: quando a fila está vazia, busca músicas parecidas (Mix do YouTube) e sugere
      * ao servidor. Vários ouvintes podem tentar; o servidor aceita só a primeira sugestão.
      */
-    private static void maybeAutoQueue(Minecraft mc, State st) {
+    private static void maybeAutoQueue(Minecraft mc, State st, List<State> members) {
         if (st.suggested || !st.song.autoplay() || !st.song.queue().isEmpty() || st.song.paused()) return;
         if (YouTube.videoId(st.song.url()) == null) return;
-        st.suggested = true;
+        for (State m : members) m.suggested = true;
         String key = st.key, url = st.song.url();
         long delay = (long) (Math.random() * 2500);
         Tools.EXEC.submit(() -> {
@@ -324,5 +381,7 @@ public final class ClientBoomboxManager {
         STATES.clear();
         IDLE.clear();
         HELD_BY_ENTITY.clear();
+        UNIT_OF.clear();
+        clockKnown = false;
     }
 }

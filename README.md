@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-1.5.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-1.6.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,19 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 1.6
+- **Caixas sincronizadas sem eco**: caixas ligadas pelo botão ⇄ Sincronizar agora tocam como **um só som**, saindo
+  da caixa que soa mais alto para você (normalmente a mais perto). Antes cada caixa tocava o seu próprio áudio e
+  diferenças de alguns milissegundos faziam a voz soar duas vezes. Todas as caixas do grupo continuam com os
+  alto-falantes e luzes mexendo juntos.
+- **Sincronia melhor em geral**:
+  - o relógio do servidor é medido descontando o atraso da internet (todos os jogadores ficam mais alinhados);
+  - se a internet travar no meio da música e o som ficar atrasado, a caixa pula sozinha para o ponto certo.
+- **Compatível com o Sound Physics Remastered** (opcional): com ele instalado, a boombox e as caixas ganham eco em
+  cavernas e salas fechadas e ficam abafadas atrás de paredes, igual aos outros sons do jogo. O efeito é
+  recalculado 2x por segundo, então muda na hora em que você entra numa caverna. Sem o mod, nada muda.
+  No sound_rates.properties do Sound Physics o som aparece como boombox:music.
 
 ## Novidades da 1.5
 - **Caixas maiores tocam mais alto e mais longe** (a boombox é a menor):
@@ -89,6 +102,7 @@ Precisa de JDK 25+:
 ## Versões
 | Versão | Minecraft | Download |
 |---|---|---|
+| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
 | 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
 | 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
 | 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |

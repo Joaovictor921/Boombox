@@ -2,6 +2,7 @@ package com.boombox.client;
 
 import com.boombox.BoomboxMod;
 import org.lwjgl.openal.AL10;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.openal.AL11;
 
 import java.io.InputStream;
@@ -49,9 +50,15 @@ public final class AudioStream {
     private Thread thread;
 
     private int source;
-    private long skippedBytes;
+    /** Bytes já tirados da fila de decodificação (pulados ou enviados à placa de som). */
+    private long takenBytes;
+    /** Bytes de buffers que a placa de som já terminou de tocar. */
+    private long playedBytes;
     private boolean synced;
     private boolean finished;
+    private int ticks;
+    /** Posição sugerida pelo Sound Physics (som contornando paredes), ou null. */
+    private double[] physicsPos;
 
     // filtros (thread de decodificação)
     private float lowBass, lowMid;
@@ -196,18 +203,18 @@ public final class AudioStream {
                 // a música ainda não começou para ninguém: espera o horário combinado (começa do zero)
                 if (elapsedMs.getAsLong() < 0) return;
                 // Pula o áudio correspondente ao tempo gasto preparando, para ficar em sincronia com os outros
-                long behindBytes = (elapsedMs.getAsLong() - seekMs) * BYTES_PER_MS - skippedBytes;
+                long behindBytes = (elapsedMs.getAsLong() - seekMs) * BYTES_PER_MS - takenBytes;
                 behindBytes &= ~1L;
                 while (behindBytes > 0) {
                     Chunk c = decoded.peek();
                     if (c == null) break;
                     decoded.poll();
                     if (c.data.length <= behindBytes) {
-                        skippedBytes += c.data.length;
+                        takenBytes += c.data.length;
                         behindBytes -= c.data.length;
                     } else {
                         decoded.offerFirst(new Chunk(Arrays.copyOfRange(c.data, (int) behindBytes, c.data.length), c.bass, c.treble));
-                        skippedBytes += behindBytes;
+                        takenBytes += behindBytes;
                         behindBytes = 0;
                     }
                 }
@@ -225,19 +232,38 @@ public final class AudioStream {
                 AL10.alSourcef(source, AL10.AL_MAX_GAIN, 4f); // caixas grandes passam do volume "normal"
                 AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
             }
-            AL10.alSource3f(source, AL10.AL_POSITION, (float) x, (float) y, (float) z);
+            // eco/abafamento do Sound Physics Remastered (se instalado), recalculado 2x por segundo
+            // porque o ambiente muda quando você entra numa caverna ou a boombox se move
+            if (ticks++ % 10 == 0 && SoundPhysicsCompat.available()) {
+                Vec3 p = SoundPhysicsCompat.process(source, x, y, z);
+                physicsPos = p == null ? null : new double[]{p.x, p.y, p.z};
+            }
+            if (physicsPos != null) AL10.alSource3f(source, AL10.AL_POSITION, (float) physicsPos[0], (float) physicsPos[1], (float) physicsPos[2]);
+            else AL10.alSource3f(source, AL10.AL_POSITION, (float) x, (float) y, (float) z);
             AL10.alSourcef(source, AL10.AL_GAIN, gain);
 
             int processed = AL10.alGetSourcei(source, AL10.AL_BUFFERS_PROCESSED);
             while (processed-- > 0 && !alBuffers.isEmpty()) {
                 int b = AL10.alSourceUnqueueBuffers(source);
-                alBuffers.removeIf(q -> q.buffer == b);
+                Queued done = null;
+                for (Queued q : alBuffers) if (q.buffer == b) { done = q; break; }
+                if (done != null) {
+                    alBuffers.remove(done);
+                    playedBytes += done.chunk.data.length;
+                }
                 AL10.alDeleteBuffers(b);
+            }
+
+            // Correção de atraso: se a internet travou e o som ficou para trás, pula para o ponto certo
+            if (ticks % 20 == 0 && driftMs() > 120) {
+                resync();
+                return;
             }
 
             while (alBuffers.size() < MAX_QUEUED_BUFFERS) {
                 Chunk c = decoded.poll();
                 if (c == null) break;
+                takenBytes += c.data.length;
                 direct.clear();
                 direct.put(c.data).flip();
                 int b = AL10.alGenBuffers();
@@ -258,6 +284,29 @@ public final class AudioStream {
             finished = true;
             BoomboxMod.LOGGER.warn("Boombox: erro OpenAL", t);
         }
+    }
+
+    /** Quanto o som que está saindo agora está atrasado em relação ao relógio do servidor (ms). */
+    private long driftMs() {
+        int state = AL10.alGetSourcei(source, AL10.AL_SOURCE_STATE);
+        if (state != AL10.AL_PLAYING) return 0;
+        int offset = AL10.alGetSourcei(source, AL11.AL_SAMPLE_OFFSET);
+        // bytes já pulados + tocados até agora (o offset conta dentro dos buffers ainda na fila)
+        long queuedBytes = 0;
+        for (Queued q : alBuffers) queuedBytes += q.chunk.data.length;
+        long firstQueuedAt = takenBytes - queuedBytes;
+        long playingByte = firstQueuedAt + offset * 2L;
+        long playingMs = seekMs + playingByte / BYTES_PER_MS;
+        return elapsedMs.getAsLong() - playingMs;
+    }
+
+    /** Joga fora o que está na placa de som e volta a sincronizar pelo relógio. */
+    private void resync() {
+        AL10.alSourceStop(source);
+        AL10.alSourcei(source, AL10.AL_BUFFER, 0);
+        for (Queued q : alBuffers) AL10.alDeleteBuffers(q.buffer);
+        alBuffers.clear();
+        synced = false;
     }
 
     /**
