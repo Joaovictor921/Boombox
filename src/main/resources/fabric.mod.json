@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "boombox",
+  "version": "${version}",
+  "name": "Boombox",
+  "description": "Uma boombox que toca músicas do YouTube, links diretos ou arquivos seus — sincronizada para todos os jogadores por perto.",
+  "authors": [],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.boombox.BoomboxMod"],
+    "client": ["com.boombox.client.BoomboxClient"]
+  },
+  "mixins": [
+    { "config": "boombox.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

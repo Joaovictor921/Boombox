@@ -1,0 +1,7 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "boombox:item/boombox",
+    "model": { "type": "boombox:boombox" }
+  }
+}
