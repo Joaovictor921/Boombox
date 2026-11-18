@@ -56,8 +56,6 @@ public class BoomboxMod implements ModInitializer {
             if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickDancers(server);
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());
-        // casa do DJ Leo em todas as vilas
-        ServerLifecycleEvents.SERVER_STARTING.register(com.boombox.village.DjLeoHouse::onServerStarting);
 
         LOGGER.info("Boombox carregada!");
     }

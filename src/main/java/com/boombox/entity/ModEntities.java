@@ -21,10 +21,19 @@ public final class ModEntities {
     public static final Item DJ_LEO_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, EGG_KEY,
             new SpawnEggItem(new Item.Properties().setId(EGG_KEY).spawnEgg(DJ_LEO)));
 
+    private static final ResourceKey<EntityType<?>> RAVER_KEY = ResourceKey.create(Registries.ENTITY_TYPE, BoomboxMod.id("raver"));
+    public static final EntityType<Raver> RAVER = Registry.register(BuiltInRegistries.ENTITY_TYPE, RAVER_KEY,
+            EntityType.Builder.of(Raver::new, MobCategory.MISC).sized(0.6f, 1.95f).eyeHeight(1.62f).build(RAVER_KEY));
+    private static final ResourceKey<Item> RAVER_EGG_KEY = ResourceKey.create(Registries.ITEM, BoomboxMod.id("raver_spawn_egg"));
+    public static final Item RAVER_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, RAVER_EGG_KEY,
+            new SpawnEggItem(new Item.Properties().setId(RAVER_EGG_KEY).spawnEgg(RAVER)));
+
     private ModEntities() {}
 
     public static void init() {
         FabricDefaultAttributeRegistry.register(DJ_LEO, DjLeo.createAttributes());
+        FabricDefaultAttributeRegistry.register(RAVER, Raver.createAttributes());
         ModBlocks.ALL_ITEMS.add(DJ_LEO_SPAWN_EGG);
+        ModBlocks.ALL_ITEMS.add(RAVER_SPAWN_EGG);
     }
 }

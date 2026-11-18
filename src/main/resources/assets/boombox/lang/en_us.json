@@ -4,7 +4,9 @@
   "block.boombox.party_speaker_medium": "Medium Party Speaker",
   "block.boombox.party_speaker_large": "Large Party Speaker",
   "itemGroup.boombox.speakers": "Boombox & Speakers",
-  "block.boombox.rave_led": "Rave LED",
+  "block.boombox.rave_led": "Rave LED (beam light)",
   "entity.boombox.dj_leo": "DJ Leo",
-  "item.boombox.dj_leo_spawn_egg": "DJ Leo Spawn Egg"
+  "item.boombox.dj_leo_spawn_egg": "DJ Leo Spawn Egg",
+  "entity.boombox.raver": "Party Villager",
+  "item.boombox.raver_spawn_egg": "Party Villager Spawn Egg"
 }

@@ -14,8 +14,7 @@
   },
   "mixins": [
     "AllayMixin",
-    "StructureTemplatePoolMixin",
-    "JigsawPlacerMixin",
-    "PoolElementStructurePieceMixin"
+    "JigsawStructureMixin",
+    "StructurePiecesBuilderAccessor"
   ]
 }

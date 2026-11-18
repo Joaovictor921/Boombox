@@ -407,12 +407,60 @@ public final class ServerBoomboxManager {
     /** Tick da boombox no chão: passa para a próxima quando a música acaba. */
     public static void tickBlock(ServerLevel level, BlockPos pos, BoomboxBlockEntity be) {
         long now = System.currentTimeMillis();
+        if (be.settings().leo()) linkLeoIfNeeded(level, pos, now);
         if (be.song().isOver(now)) {
             Holder h = blockHolder(level, pos, be);
             advance(level.getServer(), h, now);
             h.sync();
         }
         syncBlock(level, pos, be.song());
+    }
+
+    /** Última tentativa de juntar as caixas do DJ Leo (por caixa), para não procurar a cada tick. */
+    private static final Map<String, Long> LEO_LINK_TRY = new ConcurrentHashMap<>();
+    /** Raio (blocos) em que as caixas da casa do DJ Leo se juntam. */
+    private static final int LEO_LINK_RADIUS = 24;
+
+    /**
+     * Casa do DJ Leo: todas as caixas dele por perto viram um grupo sincronizado (uma só fonte de som,
+     * todas mexendo juntas). Os grupos ficam só na memória, então isso é refeito depois de reiniciar.
+     */
+    private static void linkLeoIfNeeded(ServerLevel level, BlockPos pos, long now) {
+        String key = Payloads.blockKey(dim(level), pos);
+        if (GROUPS.containsKey(key)) return;
+        Long last = LEO_LINK_TRY.get(key);
+        if (last != null && now - last < 30_000) return;
+        LEO_LINK_TRY.put(key, now);
+        Set<BlockPos> found = new LinkedHashSet<>();
+        BoomboxBlockEntity playing = null;
+        int cx = pos.getX() >> 4, cz = pos.getZ() >> 4, r = (LEO_LINK_RADIUS >> 4) + 1;
+        for (int x = cx - r; x <= cx + r; x++) {
+            for (int z = cz - r; z <= cz + r; z++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
+                if (chunk == null) continue;
+                for (Map.Entry<BlockPos, BlockEntity> e : chunk.getBlockEntities().entrySet()) {
+                    BlockPos p = e.getKey();
+                    if (e.getValue() instanceof BoomboxBlockEntity obe && !obe.isRemoved() && obe.settings().leo()
+                            && p.distManhattan(pos) <= LEO_LINK_RADIUS * 2 && Math.abs(p.getY() - pos.getY()) <= 12) {
+                        found.add(p.immutable());
+                        if (playing == null && obe.song().hasSong()) playing = obe;
+                    }
+                }
+            }
+        }
+        if (found.size() < 2) return;
+        for (BlockPos p : found) unlink(level, p);
+        Group g = new Group(dim(level), ConcurrentHashMap.newKeySet());
+        g.members().addAll(found);
+        for (BlockPos p : found) GROUPS.put(Payloads.blockKey(dim(level), p), g);
+        if (playing != null) {
+            SongData song = playing.song();
+            for (BlockPos p : found) {
+                BoomboxBlockEntity o = loadedSpeaker(level, p);
+                if (o != null) o.setSong(song);
+            }
+        }
+        syncGroup(level, g);
     }
 
     public static void removeBlock(ServerLevel level, BlockPos pos) {
@@ -579,5 +627,6 @@ public final class ServerBoomboxManager {
     public static void clear() {
         ACTIVE.clear();
         GROUPS.clear();
+        LEO_LINK_TRY.clear();
     }
 }

@@ -20,8 +20,8 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * LED de rave: um painel fino de luzes coloridas que vai em parede, teto ou chão.
- * As cores giram sozinhas e, perto de uma caixa tocando, pulsam no grave seguindo o modo de luz dela.
+ * LED de rave: um canhão de luz pequeno (parede, teto ou chão) que solta feixes de laser coloridos
+ * com fumaça, varrendo o ambiente. Perto de uma caixa tocando, acompanha a música e o modo de luz dela.
  */
 public class RaveLedBlock extends Block implements EntityBlock {
     /** Para onde as luzes apontam (o painel fica grudado no lado oposto). */
@@ -29,12 +29,13 @@ public class RaveLedBlock extends Block implements EntityBlock {
     private static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Direction.class);
 
     static {
-        SHAPES.put(Direction.NORTH, Block.box(1, 1, 14, 15, 15, 16));
-        SHAPES.put(Direction.SOUTH, Block.box(1, 1, 0, 15, 15, 2));
-        SHAPES.put(Direction.WEST, Block.box(14, 1, 1, 16, 15, 15));
-        SHAPES.put(Direction.EAST, Block.box(0, 1, 1, 2, 15, 15));
-        SHAPES.put(Direction.UP, Block.box(1, 0, 1, 15, 2, 15));
-        SHAPES.put(Direction.DOWN, Block.box(1, 14, 1, 15, 16, 15));
+        // canhão de luz pequeno grudado na face de apoio
+        SHAPES.put(Direction.NORTH, Block.box(4.5, 4.5, 11.5, 11.5, 11.5, 16));
+        SHAPES.put(Direction.SOUTH, Block.box(4.5, 4.5, 0, 11.5, 11.5, 4.5));
+        SHAPES.put(Direction.WEST, Block.box(11.5, 4.5, 4.5, 16, 11.5, 11.5));
+        SHAPES.put(Direction.EAST, Block.box(0, 4.5, 4.5, 4.5, 11.5, 11.5));
+        SHAPES.put(Direction.UP, Block.box(4.5, 0, 4.5, 11.5, 4.5, 11.5));
+        SHAPES.put(Direction.DOWN, Block.box(4.5, 11.5, 4.5, 11.5, 16, 11.5));
     }
 
     public RaveLedBlock(Properties properties) {

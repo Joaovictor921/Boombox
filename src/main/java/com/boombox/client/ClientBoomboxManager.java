@@ -89,6 +89,13 @@ public final class ClientBoomboxManager {
     private static final String[] LEO_SEARCHES = {
             "eletrofunk rave", "funk rave mix", "automotivo rave funk", "brega funk 2025",
             "rave brasileira mix", "funk mandelão", "rave funk remix", "aquecimento rave funk"};
+    /** Quanto de parede tem entre cada caixa e você (medido a cada 4 ticks). */
+    private static final Map<String, Float> OCCLUSION = new HashMap<>();
+    /** Abafamento suavizado de cada unidade de som (para não dar "pulos" de volume). */
+    private static final Map<String, Float> UNIT_OCCLUSION = new HashMap<>();
+    private static int occlusionTick;
+    /** Última vez que algum cliente pesquisou músicas para o DJ Leo (uma pesquisa por vez). */
+    private static long lastLeoSearch;
     /** relógio do servidor - relógio local */
     private static long clockOffset;
     private static boolean clockKnown;
@@ -217,6 +224,7 @@ public final class ClientBoomboxManager {
         UNIT_OF.clear();
 
         tickLeo(mc, dim);
+        boolean measure = occlusionTick++ % 4 == 0;
 
         Map<String, List<State>> units = new LinkedHashMap<>();
         for (State st : STATES.values()) {
@@ -248,7 +256,9 @@ public final class ClientBoomboxManager {
                 double dist = Math.sqrt(ear.distanceToSqr(src));
                 double hear = hearDistance(mc, st);
                 if (dist >= (stream != null ? hear + 16 : hear)) continue;
-                double g = gainAt(st, dist);
+                if (measure || !OCCLUSION.containsKey(st.key)) OCCLUSION.put(st.key, occlusion(mc, src, ear));
+                // paredes no caminho abafam: a caixa "mais audível" é a menos escondida
+                double g = gainAt(st, dist) * occlusionGain(OCCLUSION.get(st.key));
                 if (rep == null || g > repGain) {
                     rep = st;
                     repSrc = src;
@@ -271,8 +281,14 @@ public final class ClientBoomboxManager {
             }
             if (stream == null) continue;
 
-            float gain = (float) (master * repGain);
-            stream.tick(repSrc.x, repSrc.y, repSrc.z, gain);
+            // abafamento suavizado: quem está do lado de fora ouve só o grave, baixinho
+            float target = OCCLUSION.getOrDefault(rep.key, 0f);
+            float occ = UNIT_OCCLUSION.getOrDefault(uk, target);
+            occ += (target - occ) * 0.3f;
+            UNIT_OCCLUSION.put(uk, occ);
+            double open = gainAt(rep, repDist);
+            float gain = (float) (master * open * occlusionGain(occ));
+            stream.tick(repSrc.x, repSrc.y, repSrc.z, gain, occlusionHighs(occ));
             if (!stream.isLoading()) maybeAutoQueue(mc, rep, members);
             if (!rep.song.queue().isEmpty() && !rep.song.queue().get(0).url().equals(rep.prefetched)) {
                 String next = rep.song.queue().get(0).url();
@@ -324,7 +340,47 @@ public final class ClientBoomboxManager {
     }
 
     /** Caixa estourada: quanto mais alta e até onde vai. */
-    private static final float BLOWN_LOUDNESS = 2.3f;
+    private static final float BLOWN_LOUDNESS = 3.6f;
+
+    /**
+     * Quanto de parede tem entre a caixa e o ouvido: anda pela linha reta em passos de 1/4 de bloco
+     * e soma 1 por bloco sólido (pedra, madeira...), 0,45 por bloco "vazado" (porta, vidro, grade, laje)
+     * e 0,3 por água. As outras caixas de som e o próprio bloco da caixa não contam.
+     */
+    public static float occlusion(Minecraft mc, Vec3 from, Vec3 to) {
+        double dist = from.distanceTo(to);
+        if (dist < 1.0 || mc.level == null) return 0f;
+        int steps = (int) Math.ceil(dist / 0.25);
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        long src = BlockPos.containing(from).asLong(), ear = BlockPos.containing(to).asLong(), last = Long.MIN_VALUE;
+        float occ = 0f;
+        for (int i = 1; i < steps; i++) {
+            double t = i / (double) steps;
+            m.set(Math.floor(from.x + (to.x - from.x) * t), Math.floor(from.y + (to.y - from.y) * t),
+                    Math.floor(from.z + (to.z - from.z) * t));
+            long k = m.asLong();
+            if (k == last || k == src || k == ear) continue;
+            last = k;
+            var s = mc.level.getBlockState(m);
+            if (s.isAir() || s.getBlock() instanceof com.boombox.BoomboxBlock) continue;
+            if (s.isSolidRender()) occ += 1f;
+            else if (!s.getCollisionShape(mc.level, m).isEmpty()) occ += 0.45f;
+            else if (!s.getFluidState().isEmpty()) occ += 0.3f;
+            if (occ >= 6f) break;
+        }
+        return occ;
+    }
+
+    /** Volume que passa pelas paredes (1 = nada no caminho). Com o Sound Physics ele também abafa, então aqui é mais leve. */
+    public static double occlusionGain(float occ) {
+        double k = SoundPhysicsCompat.available() ? 1.1 : 1.5; // uma parede: 33% / 22% do volume
+        return Math.max(0.03, Math.exp(-k * occ));
+    }
+
+    /** Quanto dos agudos passa pelas paredes (o grave atravessa, o agudo some). */
+    private static float occlusionHighs(float occ) {
+        return (float) Math.max(0.02, Math.exp(-2.0 * occ));
+    }
     private static final double BLOWN_RANGE = 1.4;
 
     /**
@@ -339,6 +395,8 @@ public final class ClientBoomboxManager {
             if (!p.dim().equals(dim) || me.distanceToSqr(Vec3.atCenterOf(p.pos())) > 40 * 40) continue;
             Long last = LEO_ASKED.get(p.key());
             if (last != null && now - last < 40_000) continue;
+            if (now - lastLeoSearch < 20_000) return; // a casa tem várias caixas: uma pesquisa serve para todas
+            lastLeoSearch = now;
             LEO_ASKED.put(p.key(), now);
             String key = p.key();
             String query = LEO_SEARCHES[(int) (Math.random() * LEO_SEARCHES.length)];
@@ -474,6 +532,9 @@ public final class ClientBoomboxManager {
         IDLE.clear();
         LEO_IDLE.clear();
         LEO_ASKED.clear();
+        OCCLUSION.clear();
+        UNIT_OCCLUSION.clear();
+        lastLeoSearch = 0;
         HELD_BY_ENTITY.clear();
         UNIT_OF.clear();
         clockKnown = false;

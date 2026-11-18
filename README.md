@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-2.0.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-2.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,33 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 2.1
+- **Casa do DJ Leo bem maior** (16 x 32 blocos) e escura, como uma rave de verdade:
+  - **paredão de caixas** atrás do DJ: 42 caixas de festa empilhadas em 3 andares, de uma parede à outra;
+  - caixas nas laterais da pista (20, menos que no fundo), palco com mesa de DJ, bar na entrada e pista xadrez;
+  - **aldeões festeiros** (10 por casa) que pulam no ritmo, levantam os braços e balançam a cabeça quando a música
+    toca. Cada um tem uma roupa sorteada (bioma e profissão). Existe também o **Ovo Gerador de Aldeão Festeiro**.
+  - Todas as caixas da casa tocam juntas como **uma só fonte de som** (sem eco), saindo da caixa mais perto de você,
+    e todas mexem os alto-falantes e as luzes no ritmo.
+- **LED de Rave virou um canhão de luz**: solta 5 feixes de laser macios (fortes no meio, sumindo nas bordas) que
+  varrem o ambiente, param nas paredes, acendem um ponto onde batem e deixam uma **fumaça colorida** no ar, no
+  estilo de feixes com shader. As luzes somam como luz de verdade, então brilham no escuro.
+  - Com música perto, o movimento acelera no grave e troca de padrão a cada 6 s (leque, cruzado, cone girando),
+    seguindo o modo de luz da caixa (arco-íris, cor fixa, na batida ou desligada).
+  - O bloco ilumina pouco de propósito (nível 8, meia-luz): o ambiente fica escuro e os feixes aparecem.
+- **Caixas do DJ Leo ainda mais altas e com mais grave**: 3,6x mais altas que uma caixa normal do mesmo tamanho,
+  com reforço forte no sub-grave (60 Hz) e no grave (120 Hz).
+- **Isolamento do som**: o mod agora mede quanta parede tem entre a caixa e você (bloco sólido, porta/vidro, água)
+  e abaixa o volume e corta os agudos (som abafado, só o grave passa).
+  - Funciona com e sem o Sound Physics Remastered. Com ele, o ambiente é recalculado a cada 4 ticks e na hora em
+    que o som troca de caixa: antes passava até meio segundo sem abafar, e dava para ouvir a música "limpa" do
+    lado de fora em alguns momentos.
+  - Sem o Sound Physics, o abafamento usa o filtro passa-baixa do próprio OpenAL do jogo.
+- **Como a casa entra na vila**: ela é grande demais para os lotes das ruas (no máximo 16 x 16), então depois que a
+  vila é montada o mod procura um lugar livre encostado numa rua, de preferência plano e sem água, e coloca a casa
+  com a porta virada para a rua. Testado nas 5 vilas (planície, deserto, savana, neve e taiga): uma casa em cada.
+- Prévia: [docs/preview-2.1.png](docs/preview-2.1.png).
 
 ## Novidades da 2.0
 - **Modos de luz** (botão **✦ Luz** no menu das caixas de festa): arco-íris (como antes), **cor fixa** (botão
@@ -134,21 +161,5 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build   # o jar sai em build/libs/
+./gradlew build
 ```
-
-## Versões
-| Versão | Minecraft | Download |
-|---|---|---|
-| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
-| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
-| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
-| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
-| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
-| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
-| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
-
-Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
-
-## Licença
-MIT

@@ -74,7 +74,7 @@ public final class ModBlocks {
                     .setId(RAVE_LED_KEY)
                     .strength(0.3f)
                     .sound(SoundType.GLASS)
-                    .lightLevel(s -> 12)
+                    .lightLevel(s -> 8) // meia-luz: o ambiente fica escuro e os feixes aparecem
                     .noCollision()
                     .noOcclusion()));
     public static final Item RAVE_LED_ITEM = Registry.register(BuiltInRegistries.ITEM,

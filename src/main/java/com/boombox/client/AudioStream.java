@@ -151,8 +151,8 @@ public final class AudioStream {
         cmd.addAll(List.of("-i", input, "-vn"));
         if (blown) {
             // grave lá em cima, agudo abafado e volume passando do limite: o som "estoura" (clipa)
-            cmd.addAll(List.of("-af", "bass=g=14:f=80:w=0.8,treble=g=-5,volume=3.2,"
-                    + "asoftclip=type=hard:threshold=0.6,volume=1.4"));
+            cmd.addAll(List.of("-af", "bass=g=20:f=60:w=0.7,bass=g=9:f=120:w=1,treble=g=-6,volume=3.6,"
+                    + "asoftclip=type=tanh:threshold=0.8,volume=1.5"));
         }
         cmd.addAll(List.of("-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", "s16le", "pipe:1"));
 
@@ -209,8 +209,18 @@ public final class AudioStream {
 
     // ------------------------------------------------------------ reprodução (thread principal)
 
-    /** Chamado a cada tick do cliente. */
+    /** Filtro passa-baixa próprio (abafa os agudos atrás de paredes) quando o Sound Physics não está instalado. */
+    private int lowpass;
+    private static boolean efxBroken;
+    /** Onde o Sound Physics calculou o ambiente pela última vez. */
+    private double[] physicsAt;
+
     public void tick(double x, double y, double z, float gain) {
+        tick(x, y, z, gain, 1f);
+    }
+
+    /** Chamado a cada tick do cliente. highs = quanto dos agudos passa (1 = som aberto). */
+    public void tick(double x, double y, double z, float gain, float highs) {
         if (closed || finished) return;
         try {
             if (!synced) {
@@ -244,14 +254,20 @@ public final class AudioStream {
                 source = AL10.alGenSources();
                 AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
                 AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0f); // a atenuação é feita aqui no código
-                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 8f); // caixas grandes passam do volume "normal"
+                AL10.alSourcef(source, AL10.AL_MAX_GAIN, 12f); // caixas grandes passam do volume "normal"
                 AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
             }
-            // eco/abafamento do Sound Physics Remastered (se instalado), recalculado 2x por segundo
-            // porque o ambiente muda quando você entra numa caverna ou a boombox se move
-            if (ticks++ % 10 == 0 && SoundPhysicsCompat.available()) {
-                Vec3 p = SoundPhysicsCompat.process(source, x, y, z);
-                physicsPos = p == null ? null : new double[]{p.x, p.y, p.z};
+            // eco/abafamento do Sound Physics Remastered (se instalado): logo que a fonte nasce, a cada 4 ticks
+            // e na hora em que o som muda de caixa (antes ficava até meio segundo sem abafar: o som "vazava")
+            if (SoundPhysicsCompat.available()) {
+                boolean moved = physicsAt == null || Math.abs(physicsAt[0] - x) + Math.abs(physicsAt[1] - y) + Math.abs(physicsAt[2] - z) > 1.5;
+                if (ticks++ % 4 == 0 || moved) {
+                    Vec3 p = SoundPhysicsCompat.process(source, x, y, z);
+                    physicsPos = p == null ? null : new double[]{p.x, p.y, p.z};
+                    physicsAt = new double[]{x, y, z};
+                }
+            } else {
+                applyLowpass(highs);
             }
             if (physicsPos != null) AL10.alSource3f(source, AL10.AL_POSITION, (float) physicsPos[0], (float) physicsPos[1], (float) physicsPos[2]);
             else AL10.alSource3f(source, AL10.AL_POSITION, (float) x, (float) y, (float) z);
@@ -357,6 +373,25 @@ public final class AudioStream {
         out[1] = trebleSmooth;
     }
 
+    /** Abafa os agudos com o filtro passa-baixa do OpenAL (EFX). Se a placa de som não suportar, só o volume abaixa. */
+    private void applyLowpass(float highs) {
+        if (efxBroken || source == 0) return;
+        try {
+            if (lowpass == 0) {
+                if (highs >= 0.99f) return; // som aberto: nem precisa do filtro
+                lowpass = org.lwjgl.openal.EXTEfx.alGenFilters();
+                org.lwjgl.openal.EXTEfx.alFilteri(lowpass, org.lwjgl.openal.EXTEfx.AL_FILTER_TYPE, org.lwjgl.openal.EXTEfx.AL_FILTER_LOWPASS);
+            }
+            org.lwjgl.openal.EXTEfx.alFilterf(lowpass, org.lwjgl.openal.EXTEfx.AL_LOWPASS_GAIN, 1f);
+            org.lwjgl.openal.EXTEfx.alFilterf(lowpass, org.lwjgl.openal.EXTEfx.AL_LOWPASS_GAINHF, Math.max(0.01f, Math.min(1f, highs)));
+            AL10.alSourcei(source, org.lwjgl.openal.EXTEfx.AL_DIRECT_FILTER, lowpass);
+            if (AL10.alGetError() != AL10.AL_NO_ERROR) throw new IllegalStateException("EFX");
+        } catch (Throwable t) {
+            efxBroken = true;
+            BoomboxMod.LOGGER.info("Boombox: filtro de abafamento indisponível ({}), usando só o volume", t.toString());
+        }
+    }
+
     public void close() {
         if (closed) return;
         closed = true;
@@ -372,6 +407,10 @@ public final class AudioStream {
                 source = 0;
             }
             for (Queued q : alBuffers) AL10.alDeleteBuffers(q.buffer);
+            if (lowpass != 0) {
+                org.lwjgl.openal.EXTEfx.alDeleteFilters(lowpass);
+                lowpass = 0;
+            }
         } catch (Throwable ignored) {}
         alBuffers.clear();
     }
