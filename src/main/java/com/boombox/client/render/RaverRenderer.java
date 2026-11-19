@@ -25,6 +25,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         public float bass;
         public float seed;
         public boolean bar;
+        public boolean cards;
     }
 
     private final float[] levels = new float[2];
@@ -46,6 +47,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         s.look = e.look();
         s.seed = (e.getId() * 0.618f) % 1f;
         s.bar = e.atBar();
+        s.cards = e.playingCards();
         net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
         s.dancing = playing != null && !s.bar;
@@ -119,6 +121,16 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         @Override
         public void setupAnim(VillagerRenderState state) {
             super.setupAnim(state);
+            if (state instanceof State c && c.bar && c.cards) {
+                // truco: de vez em quando levanta os braços e bate a carta na mesa
+                float cycle = (c.ageInTicks + c.seed * 300f) % 70f;
+                if (cycle < 10f) {
+                    float k = (float) Math.sin(cycle / 10f * Math.PI);
+                    arms.xRot -= 0.8f * k;
+                    head.xRot += 0.3f * k;
+                }
+                return;
+            }
             if (state instanceof State b && b.bar) {
                 // gole: de tempos em tempos levanta a cabeça e os braços com a cerveja
                 float cycle = (b.ageInTicks + b.seed * 300f) % 220f;

@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:party_speaker_large"
+    },
+    "title": "Ficou colado no paredão",
+    "description": "Fique a menos de 2 blocos de uma caixa grande ou estourada tocando",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

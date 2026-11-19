@@ -1,0 +1,17 @@
+{
+  "criteria": {
+    "tick": {
+      "trigger": "minecraft:tick"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:boombox"
+    },
+    "title": "Boombox",
+    "description": "Música, rave e boteco",
+    "background": "minecraft:gui/advancements/backgrounds/adventure",
+    "show_toast": false,
+    "announce_to_chat": false
+  }
+}

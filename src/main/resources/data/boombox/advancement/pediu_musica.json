@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:gold_ingot"
+    },
+    "title": "Pediu música pro DJ Leo",
+    "description": "Pague uma barra de ouro para o DJ Leo tocar a sua música",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

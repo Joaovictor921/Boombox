@@ -78,8 +78,20 @@ public class BoomboxScreen extends Screen {
     // ------------------------------------------------------------ estado
 
     /** Nome da caixa (Boombox, Caixa de Festa Grande...) para o título. */
+    /** Chave do paredão (barco/carrinho) que o menu controla, ou null. */
+    private String entityKey() {
+        Minecraft mc = Minecraft.getInstance();
+        if (!target.isEntity() || mc.level == null) return null;
+        var e = mc.level.getEntity(target.entity());
+        return e == null ? null : Payloads.entityKey(e.getUUID());
+    }
+
     private String speakerName() {
         Minecraft mc = Minecraft.getInstance();
+        if (target.isEntity()) {
+            return mc.level != null && mc.level.getEntity(target.entity()) instanceof com.boombox.entity.MountedSpeaker ms
+                    ? "Paredão (" + ModBlocks.BLOCKS.get(ms.speakerType()).getName().getString() + ")" : "Paredão";
+        }
         if (target.isHeld()) {
             return mc.player == null ? "Boombox (na mão)"
                     : mc.player.getItemInHand(target.hand()).getHoverName().getString() + " (na mão)";
@@ -91,12 +103,20 @@ public class BoomboxScreen extends Screen {
     private ClientBoomboxManager.State state() {
         Minecraft mc = Minecraft.getInstance();
         if (target.isHeld()) return mc.player == null ? null : ClientBoomboxManager.getHeld(mc.player.getUUID());
+        if (target.isEntity()) {
+            String k = entityKey();
+            return k == null ? null : ClientBoomboxManager.getByKey(k);
+        }
         return ClientBoomboxManager.getBlock(mc, target.pos());
     }
 
     /** Luz, cor, dono e Modo DJ desta caixa. */
     private SpeakerSettings settings() {
         Minecraft mc = Minecraft.getInstance();
+        if (target.isEntity()) {
+            String k = entityKey();
+            return k == null ? SpeakerSettings.DEFAULT : ClientBoomboxManager.settingsForKey(k);
+        }
         if (target.isHeld()) {
             return mc.player == null ? SpeakerSettings.DEFAULT
                     : mc.player.getItemInHand(target.hand()).getOrDefault(ModBlocks.SETTINGS, SpeakerSettings.DEFAULT);
@@ -107,6 +127,10 @@ public class BoomboxScreen extends Screen {
 
     private SpeakerType speakerType() {
         Minecraft mc = Minecraft.getInstance();
+        if (target.isEntity()) {
+            return mc.level != null && mc.level.getEntity(target.entity()) instanceof com.boombox.entity.MountedSpeaker ms
+                    ? ms.speakerType() : SpeakerType.PARTY_LARGE;
+        }
         if (target.isHeld()) return mc.player == null ? SpeakerType.BOOMBOX : BoomboxItem.type(mc.player.getItemInHand(target.hand()));
         if (mc.level != null && mc.level.getBlockState(target.pos()).getBlock() instanceof com.boombox.BoomboxBlock b) return b.type();
         return SpeakerType.BOOMBOX;
@@ -124,6 +148,10 @@ public class BoomboxScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (target.isHeld() && mc.player != null) {
             SongData s = mc.player.getItemInHand(target.hand()).get(ModBlocks.SONG);
+            if (s != null) return s;
+        } else if (target.isEntity()) {
+            String k = entityKey();
+            SongData s = k == null ? null : ClientBoomboxManager.songForKey(k);
             if (s != null) return s;
         } else if (!target.isHeld()) {
             SongData s = ClientBoomboxManager.blockSong(mc, target.pos());
@@ -171,7 +199,7 @@ public class BoomboxScreen extends Screen {
         syncButton.setTooltip(Tooltip.create(Component.literal(
                 "Faz todas as caixas de som numa área de 8x8 chunks em volta desta tocarem a mesma música, "
                         + "ao mesmo tempo. Clique de novo para separar esta caixa.")));
-        if (target.isHeld()) syncButton.active = false;
+        if (!target.isBlock()) syncButton.active = false;
         int tx0 = left + vw + sw + 8;
         int tw = (W - vw - sw - 16) / 3;
         button(tab(Mode.QUEUE, "Fila"), tx0, y, tw, () -> setMode(Mode.QUEUE));
@@ -277,7 +305,7 @@ public class BoomboxScreen extends Screen {
     }
 
     private void toggleSync() {
-        if (target.isHeld()) return;
+        if (!target.isBlock()) return;
         if (syncedCount() > 1) {
             control(Payloads.Control.UNSYNC, 0);
             setStatus("Caixa separada das outras");
@@ -704,7 +732,7 @@ public class BoomboxScreen extends Screen {
         }
         if (djButton != null) djButton.setMessage(Component.literal(djLabel(set)));
 
-        if (syncButton != null && !target.isHeld()) {
+        if (syncButton != null && target.isBlock()) {
             int n = syncedCount();
             syncButton.setMessage(Component.literal(n > 1 ? "§b⇄ Juntas: " + n : "⇄ Sincronizar"));
         }

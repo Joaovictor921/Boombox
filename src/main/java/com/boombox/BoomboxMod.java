@@ -45,6 +45,25 @@ public class BoomboxMod implements ModInitializer {
                 .displayItems((params, output) -> ModBlocks.ALL_ITEMS.forEach(output::accept))
                 .build());
 
+        // paredão de carro: clique num barco ou carrinho de mina com uma caixa na mão
+        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+            var stack = player.getItemInHand(hand);
+            SpeakerType type = BoomboxItem.type(stack);
+            if (type == null || !(entity instanceof net.minecraft.world.entity.vehicle.boat.AbstractBoat
+                    || entity instanceof net.minecraft.world.entity.vehicle.minecart.AbstractMinecart)) {
+                return net.minecraft.world.InteractionResult.PASS;
+            }
+            if (level instanceof net.minecraft.server.level.ServerLevel sl) {
+                if (com.boombox.entity.MountedSpeaker.fromItem(sl, stack, type, entity) == null) {
+                    player.sendOverlayMessage(Component.literal("Não cabe mais nada nesse veículo"));
+                    return net.minecraft.world.InteractionResult.FAIL;
+                }
+                if (!player.getAbilities().instabuild) stack.shrink(1);
+                player.sendOverlayMessage(Component.literal("Paredão montado! Clique nele para abrir o menu (agachado para tirar)"));
+            }
+            return net.minecraft.world.InteractionResult.SUCCESS;
+        });
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 ServerBoomboxManager.sendAllTo(handler.getPlayer()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {

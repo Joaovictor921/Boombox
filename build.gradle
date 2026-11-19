@@ -10,12 +10,15 @@ base {
 }
 
 repositories {
+    // Simple Voice Chat (opcional): só a API, para o microfone. Sem o mod instalado, nada muda.
+    maven { url = "https://maven.maxhenkel.de/repository/public" }
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    compileOnly "de.maxhenkel.voicechat:voicechat-api:2.6.27"
 }
 
 processResources {

@@ -28,6 +28,17 @@ public final class ModEntities {
     public static final Item RAVER_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, RAVER_EGG_KEY,
             new SpawnEggItem(new Item.Properties().setId(RAVER_EGG_KEY).spawnEgg(RAVER)));
 
+    private static final ResourceKey<EntityType<?>> SEU_ZE_KEY = ResourceKey.create(Registries.ENTITY_TYPE, BoomboxMod.id("seu_ze"));
+    public static final EntityType<SeuZe> SEU_ZE = Registry.register(BuiltInRegistries.ENTITY_TYPE, SEU_ZE_KEY,
+            EntityType.Builder.of(SeuZe::new, MobCategory.MISC).sized(0.6f, 1.95f).eyeHeight(1.62f).build(SEU_ZE_KEY));
+    private static final ResourceKey<Item> SEU_ZE_EGG_KEY = ResourceKey.create(Registries.ITEM, BoomboxMod.id("seu_ze_spawn_egg"));
+    public static final Item SEU_ZE_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, SEU_ZE_EGG_KEY,
+            new SpawnEggItem(new Item.Properties().setId(SEU_ZE_EGG_KEY).spawnEgg(SEU_ZE)));
+
+    private static final ResourceKey<EntityType<?>> MOUNTED_KEY = ResourceKey.create(Registries.ENTITY_TYPE, BoomboxMod.id("mounted_speaker"));
+    public static final EntityType<MountedSpeaker> MOUNTED_SPEAKER = Registry.register(BuiltInRegistries.ENTITY_TYPE, MOUNTED_KEY,
+            EntityType.Builder.<MountedSpeaker>of(MountedSpeaker::new, MobCategory.MISC).sized(0.8f, 1.2f).clientTrackingRange(10).build(MOUNTED_KEY));
+
     private ModEntities() {}
 
     public static void init() {
@@ -35,5 +46,8 @@ public final class ModEntities {
         FabricDefaultAttributeRegistry.register(RAVER, Raver.createAttributes());
         ModBlocks.ALL_ITEMS.add(DJ_LEO_SPAWN_EGG);
         ModBlocks.ALL_ITEMS.add(RAVER_SPAWN_EGG);
+        FabricDefaultAttributeRegistry.register(SEU_ZE, SeuZe.createAttributes());
+        ModBlocks.ALL_ITEMS.add(SEU_ZE_SPAWN_EGG);
+        ModBlocks.ALL_ITEMS.add(ModBlocks.BEER);
     }
 }

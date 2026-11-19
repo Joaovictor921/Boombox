@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:beer"
+    },
+    "title": "Bebeu no bar do Seu Zé",
+    "description": "Tome uma cerveja do Seu Zé",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

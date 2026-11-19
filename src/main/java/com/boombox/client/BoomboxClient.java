@@ -29,11 +29,19 @@ public class BoomboxClient implements ClientModInitializer {
         BlockEntityRendererRegistry.register(ModBlocks.BOOMBOX_BE, BoomboxBlockRenderer::new);
         BlockEntityRendererRegistry.register(ModBlocks.RAVE_LED_BE, com.boombox.client.render.RaveLedRenderer::new);
         BlockEntityRendererRegistry.register(ModBlocks.RAVE_SCREEN_BE, com.boombox.client.render.RaveScreenRenderer::new);
+        BlockEntityRendererRegistry.register(ModBlocks.DISCO_BALL_BE, com.boombox.client.render.DiscoBallRenderer::new);
+        com.boombox.SmokeMachineBlock.clientTicker = SmokeMachines::tick;
         com.boombox.entity.DjLeo.openRequestHook = id -> Minecraft.getInstance().gui.setScreen(new DjRequestScreen(id));
+        com.boombox.entity.Raver.openTrucoHook = id -> Minecraft.getInstance().gui.setScreen(new TrucoScreen(id));
+        com.boombox.entity.MountedSpeaker.openMenuHook = id -> Minecraft.getInstance().gui.setScreen(new BoomboxScreen(Target.entity(id)));
+        net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+                com.boombox.entity.ModEntities.MOUNTED_SPEAKER, com.boombox.client.render.MountedSpeakerRenderer::new);
         net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
                 com.boombox.entity.ModEntities.DJ_LEO, com.boombox.client.render.DjLeoRenderer::new);
         net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
                 com.boombox.entity.ModEntities.RAVER, com.boombox.client.render.RaverRenderer::new);
+        net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+                com.boombox.entity.ModEntities.SEU_ZE, com.boombox.client.render.SeuZeRenderer::new);
         SpecialModelRenderersAccessor.boombox$idMapper().put(BoomboxMod.id("boombox"), BoomboxItemRenderer.Unbaked.MAP_CODEC);
         LivingEntityRenderLayerRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {
             if (renderer instanceof AvatarRenderer<?> avatar) {
@@ -58,6 +66,7 @@ public class BoomboxClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
             ClientBoomboxManager.clear();
             VideoManager.clear();
+            SmokeMachines.clear();
             ClientFiles.clear();
         }));
         ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) ->

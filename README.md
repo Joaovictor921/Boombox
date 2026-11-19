@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-2.4.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-3.0.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,30 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.0
+- **Seu Zé**: o dono do bar, com skin própria (regata, bigodão grisalho, correntinha e chinelo), fica atrás do balcão.
+  Clique nele com uma **esmeralda** na mão e ele te dá uma **Cerveja do Seu Zé**: dá para beber (deixa a tela
+  tonta por 10 segundos) e sobra a garrafa. Sem esmeralda, ele só joga conversa fora ("Fiado só amanhã!").
+- **Truco no bar**: os aldeões das mesas jogam truco (cartas na mão, batem na mesa e comemoram de vez em quando).
+  **Você também joga**: clique num freguês do bar e abre a mesa de truco paulista contra ele (vira e manilhas,
+  "Truco! / Seis! / Nove! / Doze!", até 12 pontos). Ganhou a partida? Leva uma esmeralda (no máximo uma por minuto).
+- **A balada do DJ Leo só abre de noite**: de dia o DJ Leo dorme deitado no chão ("DJ Leo (zZz)"), a música para,
+  as portas fecham e ele não aceita pedido. Quando escurece, ele acorda, abre as portas e a música volta.
+- **Paredão de carro**: com uma caixa na mão, clique num **barco** ou **carrinho de mina** e ela vai junto, tocando
+  enquanto você anda. Clique na caixa para abrir o menu; agachado + clique (ou um soco) para pegar de volta.
+- **Microfone** (precisa do mod **Simple Voice Chat**): segurando o microfone, a sua voz sai também pelas caixas
+  perto de você (até 32 blocos, as 6 mais perto), menos as que estão no Modo DJ de outra pessoa.
+  Receita: ferro em cima, redstone no meio, pedra-negra embaixo.
+- **Máquina de Fumaça**: solta fumaça enquanto tem música perto. Perto dela, os feixes dos canhões de luz ficam bem
+  mais fortes e "acendem" o ar, como laser na fumaça de show. Receita: ferro em volta, redstone dos lados e fogueira no meio.
+- **Globo Espelhado**: pendurado no teto, gira (mais rápido com música) e espalha 60 pontinhos de luz pelas paredes,
+  chão e teto, seguindo o modo de luz da caixa mais perto. Receita: linha em cima, painéis de vidro e ferro no meio.
+- A balada do DJ Leo ganhou duas máquinas de fumaça e um globo; o bar ganhou o Seu Zé e duas mesas de truco.
+- **Conquistas** (aba "Boombox"): Pediu música pro DJ Leo, Ficou colado no paredão, Bebeu no bar do Seu Zé e Truco, ladrão!
+- Prévia: [docs/preview-3.0.png](docs/preview-3.0.png).
+- Correção: as partes do mod que rodam no servidor (casas nas vilas, allays dançando) agora funcionam também em
+  servidor dedicado (antes só carregavam no jogo do jogador).
 
 ## Novidades da 2.4
 - **Bar do Seu Zé**: agora cada vila tem 50% de chance de ganhar a **balada do DJ Leo** e 50% de ganhar o **bar do

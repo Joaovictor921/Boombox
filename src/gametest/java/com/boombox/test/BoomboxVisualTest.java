@@ -79,6 +79,9 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             look(ctx, server, new Vec3(HX + 23.5, HY + 1, HZ + 12.5), -120f, -5f);
             ctx.waitTicks(17);
             ctx.takeScreenshot("rave_side");
+            look(ctx, server, new Vec3(HX + 10.5, HY + 1.2, HZ + 7.5), -90f, -14f);
+            ctx.waitTicks(60);
+            ctx.takeScreenshot("rave_fumaca_globo");
 
             // ---- tremor da câmera: colado numa caixa vs. longe (maior valor em 3 segundos)
             for (Object[] spot : new Object[][]{{"colado na caixa", new Vec3(HX + 16.5, HY + 1, HZ + 2.6)},
@@ -184,6 +187,104 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             look(ctx, server, new Vec3(22.5, -57, 35.5), -60f, 15f);
             ctx.waitTicks(20);
             ctx.takeScreenshot("ze_bar_outside");
+
+            // ---- 3.0: Seu Zé vende cerveja por uma esmeralda; beber deixa tonto e dá conquista
+            String ze = server.computeOnServer(s -> {
+                var level = s.overworld();
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var zes = level.getEntities(ModEntities.SEU_ZE, e -> true);
+                if (zes.isEmpty()) return "sem Seu Zé";
+                var z = zes.get(0);
+                pl.teleportTo(z.getX() - 2, z.getY(), z.getZ());
+                pl.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD));
+                pl.interactOn(z, net.minecraft.world.InteractionHand.MAIN_HAND, z.position());
+                int slot = -1;
+                for (int i = 0; i < pl.getInventory().getContainerSize(); i++) if (pl.getInventory().getItem(i).is(com.boombox.ModBlocks.BEER)) slot = i;
+                if (slot < 0) return "Seu Zé não deu a cerveja";
+                var beer = pl.getInventory().getItem(slot);
+                beer.finishUsingItem(level, pl);
+                boolean tonto = pl.hasEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
+                return "cerveja comprada, tonto=" + tonto + ", fregueses jogando truco="
+                        + level.getEntities(ModEntities.RAVER, e -> e.playingCards()).size();
+            });
+            System.out.println("[BoomboxTest] bar 3.0: " + ze);
+            look(ctx, server, new Vec3(33.5, -59.5, 44.5), -90f, 10f);
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("ze_bar_seuze");
+
+            // ---- truco: uma partida inteira jogada no automático tem que terminar
+            String truco = ctx.computeOnClient(mc -> {
+                int games = 0, wins = 0;
+                for (int g = 0; g < 20; g++) {
+                    com.boombox.client.TrucoGame t = new com.boombox.client.TrucoGame();
+                    int steps = 0;
+                    while (t.phase != com.boombox.client.TrucoGame.Phase.GAME_OVER && steps++ < 5000) {
+                        switch (t.phase) {
+                            case PLAYER_TURN -> { if (steps % 7 == 0) t.playerRaises(); else t.playerPlays(0); }
+                            case PLAYER_ANSWER -> t.playerAnswers(steps % 3);
+                            default -> t.botStep();
+                        }
+                    }
+                    if (t.phase == com.boombox.client.TrucoGame.Phase.GAME_OVER) games++;
+                    if (t.playerWon()) wins++;
+                }
+                return games + " de 20 partidas terminaram (você ganhou " + wins + ")";
+            });
+            System.out.println("[BoomboxTest] truco: " + truco);
+            int raverId = server.computeOnServer(s -> s.overworld().getEntities(ModEntities.RAVER, e -> e.playingCards()).get(0).getId());
+            ctx.runOnClient(mc -> mc.gui.setScreen(new com.boombox.client.TrucoScreen(raverId)));
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("truco");
+            ctx.runOnClient(mc -> mc.gui.setScreen(null));
+
+            // ---- de dia a balada fecha: DJ Leo dorme e as caixas param
+            ctx.waitTicks(80);
+            String day = server.computeOnServer(s -> {
+                var level = s.overworld();
+                var dj = level.getEntities(ModEntities.DJ_LEO, e -> e.getZ() < 30).get(0);
+                int playing = 0;
+                for (BlockPos p : BlockPos.betweenClosed(HX, HY, HZ, HX + 33, HY + 11, HZ + 16)) {
+                    if (level.getBlockEntity(p) instanceof BoomboxBlockEntity be && be.song().hasSong()) playing++;
+                }
+                return "DJ dormindo=" + dj.sleepingDay() + " nome=" + dj.getCustomName().getString() + " caixas tocando=" + playing;
+            });
+            System.out.println("[BoomboxTest] de dia: " + day);
+            look(ctx, server, new Vec3(HX + 24.5, HY + 2.6, HZ + 7.5), -90f, 15f);
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("djleo_dormindo");
+
+            // ---- paredão no barco, tocando
+            server.runCommand("summon minecraft:oak_boat 10 -60 -12");
+            ctx.waitTicks(10);
+            String boat = server.computeOnServer(s -> {
+                var level = s.overworld();
+                var b = level.getEntitiesOfClass(net.minecraft.world.entity.vehicle.boat.AbstractBoat.class,
+                        new net.minecraft.world.phys.AABB(new BlockPos(10, -60, -12)).inflate(4)).get(0);
+                var ms = com.boombox.entity.MountedSpeaker.fromItem(level,
+                        new net.minecraft.world.item.ItemStack(com.boombox.ModBlocks.ITEMS.get(com.boombox.SpeakerType.PARTY_LARGE)),
+                        com.boombox.SpeakerType.PARTY_LARGE, b);
+                if (ms == null) return "não montou";
+                ms.setSong(SongData.EMPTY.withSong(url, "Paredão de teste", 120, System.currentTimeMillis() + 1500));
+                return "montado no barco: " + ms.isPassenger();
+            });
+            System.out.println("[BoomboxTest] paredão: " + boat);
+            look(ctx, server, new Vec3(7.5, -59, -15.5), -40f, 12f);
+            int bt = ctx.waitFor((Minecraft mc) -> ClientBoomboxManager.playingNear(mc, new Vec3(10, -59, -12), 6) != null, 20 * 60);
+            System.out.println("[BoomboxTest] paredão tocando depois de " + bt + " ticks");
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("paredao_barco");
+
+            // ---- conquistas ganhas no caminho
+            String adv = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                StringBuilder b = new StringBuilder();
+                for (String n : new String[]{"pediu_musica", "colado_no_paredao", "bebeu_no_bar", "ganhou_no_truco"}) {
+                    var h = s.getAdvancements().get(com.boombox.BoomboxMod.id(n));
+                    b.append(n).append('=').append(h != null && pl.getAdvancements().getOrStartProgress(h).isDone()).append(' ');
+                }
+                return b.toString();
+            });
+            System.out.println("[BoomboxTest] conquistas: " + adv);
 
             look(ctx, server, new Vec3(HX - 9.5, HY + 9, HZ - 9.5), -45f, 22f);
             ctx.waitTicks(20);

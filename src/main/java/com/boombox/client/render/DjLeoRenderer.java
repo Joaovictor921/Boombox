@@ -19,6 +19,7 @@ public class DjLeoRenderer extends HumanoidMobRenderer<DjLeo, DjLeoRenderer.Stat
     public static class State extends HumanoidRenderState {
         public boolean dancing;
         public float bass;
+        public boolean sleeping;
     }
 
     private final float[] levels = new float[2];
@@ -35,6 +36,7 @@ public class DjLeoRenderer extends HumanoidMobRenderer<DjLeo, DjLeoRenderer.Stat
     @Override
     public void extractRenderState(DjLeo entity, State state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
+        state.sleeping = entity.sleepingDay();
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), entity.position(), 16);
         state.dancing = playing != null;
         if (playing != null) {
@@ -42,6 +44,16 @@ public class DjLeoRenderer extends HumanoidMobRenderer<DjLeo, DjLeoRenderer.Stat
             state.bass = levels[0];
         } else {
             state.bass = 0;
+        }
+    }
+
+    /** Dormindo: deitado no chão, de barriga para cima. */
+    @Override
+    protected void setupRotations(State state, com.mojang.blaze3d.vertex.PoseStack ps, float bodyRot, float scale) {
+        super.setupRotations(state, ps, bodyRot, scale);
+        if (state.sleeping) {
+            ps.translate(0f, 0.25f, 0f);
+            ps.rotateDegrees(com.mojang.math.Axis.XP, -90f);
         }
     }
 
@@ -59,6 +71,13 @@ public class DjLeoRenderer extends HumanoidMobRenderer<DjLeo, DjLeoRenderer.Stat
         @Override
         public void setupAnim(State s) {
             super.setupAnim(s);
+            if (s.sleeping) {
+                head.xRot = 0f;
+                head.yRot = 0f;
+                rightArm.xRot = leftArm.xRot = 0f;
+                rightLeg.xRot = leftLeg.xRot = 0f;
+                return;
+            }
             if (!s.dancing) return;
             float t = s.ageInTicks;
             float beat = (float) Math.sin(t * 0.65f);             // ~124 batidas por minuto

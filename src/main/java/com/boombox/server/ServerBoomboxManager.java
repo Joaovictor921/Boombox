@@ -67,6 +67,13 @@ public final class ServerBoomboxManager {
     private static final int MAX_AUTO_ITEMS = 10;
 
     private static final Map<String, Entry> ACTIVE = new ConcurrentHashMap<>();
+    /** Último prêmio de truco de cada jogador. */
+    private static final Map<UUID, Long> TRUCO_PRIZE = new ConcurrentHashMap<>();
+
+    /** A balada do DJ Leo só funciona de noite (no fim de tarde já começa). */
+    public static boolean raveOpen(ServerLevel level) {
+        return level.isDarkOutside();
+    }
     private static final double MAX_USE_DISTANCE_SQ = 10 * 10;
 
     private ServerBoomboxManager() {}
@@ -117,7 +124,7 @@ public final class ServerBoomboxManager {
             Holder h = resolve(player, payload.target());
             if (h == null) return;
             if (payload.action() == Payloads.Control.SYNC || payload.action() == Payloads.Control.UNSYNC) {
-                if (payload.target().isHeld()) return;
+                if (!payload.target().isBlock()) return;
                 ServerLevel level = player.level();
                 BlockPos pos = payload.target().pos();
                 if (payload.action() == Payloads.Control.UNSYNC) {
@@ -221,14 +228,41 @@ public final class ServerBoomboxManager {
                 return;
             }
             String title = payload.title().isBlank() ? url : payload.title().trim();
+            if (!raveOpen(level)) {
+                player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Zzz... a balada só abre de noite, parceiro..."));
+                return;
+            }
             if (!djLeoPlay(level, dj.position(), new QueueItem(url, title, payload.durationSec()))) {
                 player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Minhas caixas sumiram! Não tenho onde tocar."));
                 return;
             }
             if (!player.getAbilities().instabuild) player.getItemInHand(hand).shrink(1);
             dj.cheer();
+            com.boombox.Achievements.award(player, "pediu_musica");
             player.level().getServer().getPlayerList().broadcastSystemMessage(Component.literal(
                     "§d<DJ Leo>§r Essa vai pra você, " + player.getName().getString() + "! §e♪ " + title), false);
+        });
+
+        // fim de uma partida de truco: quem ganha leva uma esmeralda (no máximo uma por minuto)
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.TrucoResult.TYPE, (payload, ctx) -> {
+            ServerPlayer player = ctx.player();
+            if (!(player.level().getEntity(payload.opponentId()) instanceof com.boombox.entity.Raver r) || r.distanceTo(player) > 8) return;
+            r.celebrate(!payload.won());
+            if (!payload.won()) {
+                player.sendSystemMessage(Component.literal("§a<Aldeão>§r Truco é comigo mesmo! Volta quando aprender, hein."));
+                return;
+            }
+            long now = System.currentTimeMillis();
+            Long last = TRUCO_PRIZE.get(player.getUUID());
+            com.boombox.Achievements.award(player, "ganhou_no_truco");
+            if (last != null && now - last < 60_000) {
+                player.sendSystemMessage(Component.literal("§a<Aldeão>§r Ganhou de novo?! Agora é só de brincadeira, sem aposta."));
+                return;
+            }
+            TRUCO_PRIZE.put(player.getUUID(), now);
+            net.minecraft.world.item.ItemStack prize = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD);
+            if (!player.getInventory().add(prize)) r.spawnAtLocation(player.level(), prize);
+            player.sendSystemMessage(Component.literal("§a<Aldeão>§r Ganhou, ganhou... Toma a esmeralda. Vai lá no Seu Zé tomar uma!"));
         });
 
         // sugestões da fila automática (vêm de algum cliente que está ouvindo)
@@ -239,6 +273,7 @@ public final class ServerBoomboxManager {
             if (payload.forUrl().isEmpty()) {
                 // a caixa do DJ Leo está parada: um cliente pesquisou músicas de rave para ela
                 if (!h.settings().autoPlays() || s.hasSong()) return;
+                if (h.settings().leo() && !raveOpen(ctx.player().level())) return; // de dia a balada está fechada
                 List<QueueItem> rave = payload.items().stream()
                         .filter(i -> validUrl(i.url()) && !i.url().startsWith("local:"))
                         .limit(MAX_AUTO_ITEMS).toList();
@@ -291,9 +326,9 @@ public final class ServerBoomboxManager {
             if (!e.dim().equals(d) || !e.song().hasSong() || e.song().paused() || e.song().positionMs(now) < 0) continue;
             Vec3 p;
             if (e.holder() != null) {
-                ServerPlayer sp = level.getServer().getPlayerList().getPlayer(e.holder());
-                if (sp == null) continue;
-                p = sp.position();
+                net.minecraft.world.entity.Entity holder = level.getEntity(e.holder());
+                if (holder == null) continue;
+                p = holder.position();
             } else {
                 p = Vec3.atCenterOf(e.pos());
             }
@@ -376,6 +411,11 @@ public final class ServerBoomboxManager {
 
     /** Como resolve, mas sem conferir o Modo DJ. */
     static Holder resolveAny(ServerPlayer player, Target target) {
+        if (target.isEntity()) {
+            if (!(player.level().getEntity(target.entity()) instanceof com.boombox.entity.MountedSpeaker ms)
+                    || ms.distanceToSqr(player) > MAX_USE_DISTANCE_SQ) return null;
+            return entityHolder(player.level(), ms);
+        }
         if (target.isHeld()) {
             ItemStack stack = player.getItemInHand(target.hand());
             if (!BoomboxItem.isBoombox(stack)) return null;
@@ -396,6 +436,11 @@ public final class ServerBoomboxManager {
             ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, Identifier.parse(e.dim())));
             if (level == null || !(level.getBlockEntity(e.pos()) instanceof BoomboxBlockEntity be)) return null;
             return blockHolder(level, e.pos(), be);
+        }
+        if (key.startsWith("e|")) {
+            ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, Identifier.parse(e.dim())));
+            if (level != null && level.getEntity(e.holder()) instanceof com.boombox.entity.MountedSpeaker ms) return entityHolder(level, ms);
+            return null;
         }
         ServerPlayer p = server.getPlayerList().getPlayer(e.holder());
         if (p == null) return null;
@@ -435,6 +480,35 @@ public final class ServerBoomboxManager {
         };
     }
 
+    private static Holder entityHolder(ServerLevel level, com.boombox.entity.MountedSpeaker ms) {
+        return new Holder() {
+            @Override public SongData get() { return ms.song(); }
+            @Override public void set(SongData song) { ms.setSong(song); }
+            @Override public void sync() { syncEntity(level, ms); }
+            @Override public SpeakerSettings settings() { return ms.settings(); }
+            @Override public void setSettings(SpeakerSettings s) { ms.setSettings(s); syncEntity(level, ms); }
+        };
+    }
+
+    /** Paredão no barco/carrinho: passa para a próxima música quando acaba e avisa os jogadores. */
+    public static void tickEntity(ServerLevel level, com.boombox.entity.MountedSpeaker ms) {
+        long now = System.currentTimeMillis();
+        if (ms.song().isOver(now)) {
+            Holder h = entityHolder(level, ms);
+            advance(level.getServer(), h, now);
+        }
+        syncEntity(level, ms);
+    }
+
+    static void syncEntity(ServerLevel level, com.boombox.entity.MountedSpeaker ms) {
+        update(level.getServer(), Payloads.entityKey(ms.getUUID()),
+                new Entry(dim(level), BlockPos.ZERO, ms.getUUID(), ms.song(), ms.speakerType().ordinal(), 0, ms.settings()));
+    }
+
+    public static void removeEntity(ServerLevel level, com.boombox.entity.MountedSpeaker ms) {
+        remove(level.getServer(), Payloads.entityKey(ms.getUUID()));
+    }
+
     private static Holder stackHolder(ServerPlayer player, ItemStack stack) {
         return new Holder() {
             @Override public SongData get() { return stack.getOrDefault(ModBlocks.SONG, SongData.EMPTY); }
@@ -466,7 +540,15 @@ public final class ServerBoomboxManager {
     /** Tick da boombox no chão: passa para a próxima quando a música acaba. */
     public static void tickBlock(ServerLevel level, BlockPos pos, BoomboxBlockEntity be) {
         long now = System.currentTimeMillis();
-        if (be.settings().leo()) linkLeoIfNeeded(level, pos, now);
+        if (be.settings().leo()) {
+            linkLeoIfNeeded(level, pos, now);
+            // amanheceu: a balada fecha (para a música e limpa a fila)
+            if (!raveOpen(level) && (be.song().hasSong() || !be.song().queue().isEmpty())) {
+                Holder h = blockHolder(level, pos, be);
+                h.set(be.song().withQueue(List.of()).stopped());
+                h.sync();
+            }
+        }
         if (be.song().isOver(now)) {
             Holder h = blockHolder(level, pos, be);
             advance(level.getServer(), h, now);
@@ -632,11 +714,20 @@ public final class ServerBoomboxManager {
             if (level == null) continue;
             BlockPos at = e.pos();
             if (e.holder() != null) {
-                ServerPlayer p = server.getPlayerList().getPlayer(e.holder());
-                if (p == null) continue;
-                at = p.blockPosition();
+                net.minecraft.world.entity.Entity holder = level.getEntity(e.holder());
+                if (holder == null) continue;
+                at = holder.blockPosition();
             } else if (!level.isLoaded(at)) {
                 continue;
+            }
+            // conquista: colado numa caixa grande ou estourada tocando (a menos de 2 blocos)
+            if (e.settings().blown() || e.type() == SpeakerType.PARTY_LARGE.ordinal()) {
+                net.minecraft.world.phys.Vec3 c = net.minecraft.world.phys.Vec3.atCenterOf(at);
+                for (ServerPlayer pl : level.players()) {
+                    if (pl.position().distanceToSqr(c) < 2.2 * 2.2 && !pl.getUUID().equals(e.holder())) {
+                        com.boombox.Achievements.award(pl, "colado_no_paredao");
+                    }
+                }
             }
             for (var allay : level.getEntitiesOfClass(net.minecraft.world.entity.animal.allay.Allay.class,
                     new net.minecraft.world.phys.AABB(at).inflate(8))) {

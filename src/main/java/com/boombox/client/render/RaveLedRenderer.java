@@ -54,6 +54,8 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
         public final float[][] beams = new float[BEAMS][4];
         public final int[] colors = new int[BEAMS];
         public float intensity;
+        /** Fumaça no ar (máquina de fumaça perto): feixes e névoa aparecem mais. */
+        public float haze;
         public float lensColorMix;
     }
 
@@ -86,6 +88,7 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
         var pos = be.getBlockPos();
         s.phase = Math.floorMod(pos.getX() * 7 + pos.getY() * 13 + pos.getZ() * 5, 17) / 17f;
         s.time = System.nanoTime() / 1e9;
+        s.haze = com.boombox.client.SmokeMachines.hazeAt(Vec3.atCenterOf(pos));
         ClientBoomboxManager.State near = ClientBoomboxManager.playingNear(Minecraft.getInstance(), Vec3.atCenterOf(pos), 28);
         s.playing = near != null;
         s.settings = near != null ? near.settings : SpeakerSettings.DEFAULT;
@@ -206,15 +209,18 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
                 float[] b = s.beams[i];
                 float len = b[3];
                 int rgb = s.colors[i];
-                float a0 = 0.7f * s.intensity, a1 = 0.08f * s.intensity;
+                float boost = 1f + 0.7f * s.haze;
+                float a0 = Math.min(1f, 0.7f * s.intensity * boost), a1 = 0.08f * s.intensity * (1f + 2.5f * s.haze);
                 float w0 = 0.025f, w1 = 0.04f + len * 0.013f; // feixe fino que abre pouco
                 l.beam(ox, oy, oz, b[0], b[1], b[2], len, w0, w1, rgb, a0, a1);
                 // fumaça iluminada ao longo do feixe (manchas suaves que respiram)
-                for (int k = 1; k <= 2; k++) {
-                    float f = k / 3f;
+                int puffs = s.haze > 0.05f ? 6 : 2; // dentro da fumaça o feixe "acende" o ar todo
+                for (int k = 1; k <= puffs; k++) {
+                    float f = k / (puffs + 1f);
                     double breathe = 0.75 + 0.25 * Math.sin(s.time * 0.9 + i * 1.7 + k);
                     float r = (float) ((0.5 + len * f * 0.09) * breathe);
-                    l.blob(ox + b[0] * len * f, oy + b[1] * len * f, oz + b[2] * len * f, r, right, up, rgb, 0.09f * s.intensity);
+                    l.blob(ox + b[0] * len * f, oy + b[1] * len * f, oz + b[2] * len * f, r * (1f + 0.6f * s.haze), right, up, rgb,
+                            0.09f * s.intensity * (1f + 1.8f * s.haze));
                 }
                 // ponto de luz onde o feixe bate
                 if (len < MAX_LENGTH - 0.5) {

@@ -9,5 +9,12 @@
   "item.boombox.dj_leo_spawn_egg": "DJ Leo Spawn Egg",
   "entity.boombox.raver": "Party Villager",
   "item.boombox.raver_spawn_egg": "Party Villager Spawn Egg",
-  "block.boombox.rave_screen": "Video Screen"
+  "block.boombox.rave_screen": "Video Screen",
+  "item.boombox.beer": "Seu Zé's Beer",
+  "entity.boombox.seu_ze": "Seu Zé",
+  "item.boombox.seu_ze_spawn_egg": "Seu Zé Spawn Egg",
+  "block.boombox.smoke_machine": "Smoke Machine",
+  "block.boombox.disco_ball": "Disco Ball",
+  "item.boombox.microphone": "Microphone",
+  "entity.boombox.mounted_speaker": "Car Speaker"
 }

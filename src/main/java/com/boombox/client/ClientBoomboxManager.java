@@ -72,6 +72,10 @@ public final class ClientBoomboxManager {
 
     private static final Map<String, State> STATES = new HashMap<>();
     private static final Map<String, AudioStream> STREAMS = new HashMap<>();
+    /** Configurações das caixas paradas (paredões e menu). */
+    private static final Map<String, SpeakerSettings> SETTINGS_OF = new HashMap<>();
+    /** Paredões (barco/carrinho) que existem no mundo agora: UUID → entidade. */
+    private static final Map<UUID, net.minecraft.world.entity.Entity> MOUNTED = new HashMap<>();
     /** Boomboxes paradas com configurações (só para o menu). */
     private static final Map<String, SongData> IDLE = new HashMap<>();
     /** id da entidade do jogador → chave da boombox que ele segura */
@@ -118,6 +122,7 @@ public final class ClientBoomboxManager {
             clockKnown = true;
         }
         String k = p.key();
+        SETTINGS_OF.put(k, p.settings());
         State old = STATES.get(k);
         if (p.settings().autoPlays() && !p.song().hasSong() && p.holder() == null) LEO_IDLE.put(k, p);
         else LEO_IDLE.remove(k);
@@ -158,6 +163,24 @@ public final class ClientBoomboxManager {
         String k = Payloads.blockKey(mc.level.dimension().identifier().toString(), pos);
         State st = STATES.get(k);
         return st != null ? st.song : IDLE.get(k);
+    }
+
+    public static State getByKey(String key) {
+        return STATES.get(key);
+    }
+
+    /** Música de uma caixa pela chave (tocando ou parada). */
+    public static SongData songForKey(String key) {
+        State st = STATES.get(key);
+        return st != null ? st.song : IDLE.get(key);
+    }
+
+    public static SpeakerSettings settingsForKey(String key) {
+        return SETTINGS_OF.getOrDefault(key, SpeakerSettings.DEFAULT);
+    }
+
+    public static void levelsForKey(String key, float[] out) {
+        levels(key, out);
     }
 
     public static State getHeld(UUID player) {
@@ -225,6 +248,10 @@ public final class ClientBoomboxManager {
         float master = mc.options.getFinalSoundSourceVolume(SoundSource.RECORDS);
         HELD_BY_ENTITY.clear();
         UNIT_OF.clear();
+        MOUNTED.clear();
+        for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+            if (e instanceof com.boombox.entity.MountedSpeaker) MOUNTED.put(e.getUUID(), e);
+        }
 
         tickLeo(mc, dim);
         loudestKey = null;
@@ -450,6 +477,7 @@ public final class ClientBoomboxManager {
         Vec3 me = mc.player.position();
         for (Payloads.BoomboxState p : LEO_IDLE.values()) {
             if (!p.dim().equals(dim) || me.distanceToSqr(Vec3.atCenterOf(p.pos())) > 40 * 40) continue;
+            if (p.settings().leo() && !mc.level.isDarkOutside()) continue; // balada fechada de dia
             Long last = LEO_ASKED.get(p.key());
             if (last != null && now - last < 40_000) continue;
             if (now - lastLeoSearch < 20_000) return; // a casa tem várias caixas: uma pesquisa serve para todas
@@ -601,7 +629,10 @@ public final class ClientBoomboxManager {
             return new Vec3(st.pos.getX() + 0.5, st.pos.getY() + 0.4, st.pos.getZ() + 0.5);
         }
         Player p = mc.level.getPlayerByUUID(st.holder);
-        if (p == null) return null;
+        if (p == null) {
+            var e = MOUNTED.get(st.holder); // paredão andando no barco/carrinho
+            return e == null ? null : e.position().add(0, 0.7, 0);
+        }
         // boombox: ao lado da cabeça; caixas de festa: na altura da mão / atrás do jogador
         return st.type == SpeakerType.BOOMBOX ? p.getEyePosition() : p.position().add(0, 0.7, 0);
     }
@@ -624,6 +655,8 @@ public final class ClientBoomboxManager {
         stopAll();
         STATES.clear();
         IDLE.clear();
+        SETTINGS_OF.clear();
+        MOUNTED.clear();
         LEO_IDLE.clear();
         LEO_ASKED.clear();
         OCCLUSION.clear();

@@ -8,16 +8,30 @@
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.boombox.BoomboxMod"],
-    "client": ["com.boombox.client.BoomboxClient"]
+    "main": [
+      "com.boombox.BoomboxMod"
+    ],
+    "client": [
+      "com.boombox.client.BoomboxClient"
+    ],
+    "voicechat": [
+      "com.boombox.voice.BoomboxVoicePlugin"
+    ]
   },
   "mixins": [
-    { "config": "boombox.mixins.json", "environment": "client" }
+    {
+      "config": "boombox.mixins.json",
+      "environment": "*"
+    }
   ],
   "depends": {
     "fabricloader": ">=0.19.0",
     "minecraft": "~26.3",
     "java": ">=25",
     "fabric-api": "*"
+  },
+  "suggests": {
+    "voicechat": "*",
+    "sound_physics_remastered": "*"
   }
 }

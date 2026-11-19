@@ -106,6 +106,16 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Fim de uma partida de truco contra um aldeão do bar. */
+    public record TrucoResult(int opponentId, boolean won) implements CustomPacketPayload {
+        public static final Type<TrucoResult> TYPE = new Type<>(BoomboxMod.id("truco_result"));
+        public static final StreamCodec<ByteBuf, TrucoResult> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, TrucoResult::opponentId,
+                ByteBufCodecs.BOOL, TrucoResult::won,
+                TrucoResult::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** Garante que o servidor tenha um arquivo local (para a fila/playlist), sem tocar agora. */
     public record PrepareFile(String sha1, String title) implements CustomPacketPayload {
         public static final Type<PrepareFile> TYPE = new Type<>(BoomboxMod.id("prepare_file"));
@@ -202,6 +212,7 @@ public final class Payloads {
         PayloadTypeRegistry.serverboundPlay().register(UploadChunk.TYPE, UploadChunk.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(FileRequest.TYPE, FileRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DjRequest.TYPE, DjRequest.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(TrucoResult.TYPE, TrucoResult.CODEC);
 
         PayloadTypeRegistry.clientboundPlay().register(BoomboxState.TYPE, BoomboxState.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(UploadNeeded.TYPE, UploadNeeded.CODEC);
@@ -215,6 +226,10 @@ public final class Payloads {
 
     public static String blockKey(String dim, BlockPos pos) {
         return "b|" + dim + "|" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+    }
+
+    public static String entityKey(UUID id) {
+        return "e|" + id;
     }
 
     public static String playerKey(UUID id) {

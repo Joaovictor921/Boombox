@@ -32,6 +32,21 @@ public class DjLeo extends PathfinderMob {
             "Se o vizinho reclamar, a gente aumenta."
     };
 
+    /** Dormindo (de dia a balada está fechada). */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> SLEEPING =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(DjLeo.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+    private Boolean wasOpen;
+
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(SLEEPING, false);
+    }
+
+    public boolean sleepingDay() {
+        return entityData.get(SLEEPING);
+    }
+
     public DjLeo(EntityType<? extends DjLeo> type, Level level) {
         super(type, level);
         setPersistenceRequired();
@@ -60,6 +75,17 @@ public class DjLeo extends PathfinderMob {
         if (level().isClientSide()) return;
         // não sai de casa: fica num raio pequeno de onde nasceu
         if (!hasHome()) setHomeTo(blockPosition(), 3);
+        // de dia a balada fecha: DJ Leo dorme e as portas fecham; de noite abre tudo
+        if (tickCount % 20 == 0 && level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            boolean open = com.boombox.server.ServerBoomboxManager.raveOpen(sl);
+            entityData.set(SLEEPING, !open);
+            setCustomName(Component.literal(open ? "DJ Leo" : "DJ Leo (zZz)"));
+            if (!open) getNavigation().stop();
+            if (wasOpen == null || wasOpen != open) {
+                wasOpen = open;
+                setDoors(sl, open);
+            }
+        }
         // seguranças da rave: monstro que aparecer lá dentro é posto para fora
         if (tickCount % 40 == 0 && level() instanceof net.minecraft.server.level.ServerLevel sl) {
             var area = new net.minecraft.world.phys.AABB(getHomePosition()).inflate(20, 8, 20);
@@ -82,6 +108,10 @@ public class DjLeo extends PathfinderMob {
 
     @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (sleepingDay()) {
+            if (!level().isClientSide()) player.sendSystemMessage(Component.literal("§d<DJ Leo>§r Zzz... a balada só abre de noite... zzz"));
+            return InteractionResult.SUCCESS;
+        }
         // com uma barra de ouro na mão: pedir música
         if (player.getItemInHand(hand).is(net.minecraft.world.item.Items.GOLD_INGOT)) {
             if (level().isClientSide() && openRequestHook != null) openRequestHook.accept(getId());
@@ -96,6 +126,24 @@ public class DjLeo extends PathfinderMob {
             getLookControl().setLookAt(player);
         }
         return InteractionResult.SUCCESS;
+    }
+
+    /** Abre (noite) ou fecha (dia) as portas da casa dele. */
+    private void setDoors(net.minecraft.server.level.ServerLevel sl, boolean open) {
+        net.minecraft.core.BlockPos home = getHomePosition();
+        for (net.minecraft.core.BlockPos p : net.minecraft.core.BlockPos.betweenClosed(home.offset(-34, -3, -34), home.offset(34, 4, 34))) {
+            var st = sl.getBlockState(p);
+            if (st.getBlock() instanceof net.minecraft.world.level.block.DoorBlock door
+                    && st.getValue(net.minecraft.world.level.block.DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
+                    && st.getValue(net.minecraft.world.level.block.DoorBlock.OPEN) != open) {
+                door.setOpen(this, sl, st, p.immutable(), open);
+            }
+        }
+    }
+
+    @Override
+    public boolean isImmobile() {
+        return super.isImmobile() || sleepingDay();
     }
 
     @Override
