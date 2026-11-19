@@ -80,6 +80,46 @@ public final class ServerBoomboxManager {
     private static int lastSoonAnnounce = -1;
 
     /** Show do DJ Leo no fim de semana (relógio do computador): aviso, troca de playlist e fogos. */
+    private static int lastNewYearSecond = -1;
+
+    /** Réveillon: contagem regressiva no chat e fogos nas vilas na virada do ano (relógio do computador). */
+    public static void tickNewYear(MinecraftServer server) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        int sec = now.getSecond();
+        if (now.getMonthValue() == 12 && now.getDayOfMonth() == 31 && now.getHour() == 23 && now.getMinute() == 59 && sec >= 50) {
+            if (sec != lastNewYearSecond) {
+                lastNewYearSecond = sec;
+                server.getPlayerList().broadcastSystemMessage(Component.literal("§6§l" + (60 - sec) + "..."), false);
+            }
+        } else if (now.getMonthValue() == 1 && now.getDayOfMonth() == 1 && now.getHour() == 0 && now.getMinute() == 0) {
+            if (sec == 0 && lastNewYearSecond != 100) {
+                lastNewYearSecond = 100;
+                server.getPlayerList().broadcastSystemMessage(Component.literal("§e§l✦ FELIZ ANO NOVO! ✦ §r§6Feliz " + now.getYear() + "!"), false);
+            }
+            if (server.getTickCount() % 8 == 0) newYearFireworks(server);
+        }
+    }
+
+    /** Fogos de ano novo em volta das vilas perto de cada jogador. */
+    public static void newYearFireworks(MinecraftServer server) {
+        ServerLevel level = server.overworld();
+        var r = level.getRandom();
+        for (ServerPlayer p : level.players()) {
+            var villagers = level.getEntitiesOfClass(net.minecraft.world.entity.npc.villager.Villager.class, p.getBoundingBox().inflate(96));
+            net.minecraft.world.phys.Vec3 c = villagers.isEmpty() ? p.position() : villagers.get(r.nextInt(villagers.size())).position();
+            double x = c.x + r.nextInt(31) - 15, z = c.z + r.nextInt(31) - 15;
+            int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int) x, (int) z);
+            net.minecraft.world.item.ItemStack rocket = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.FIREWORK_ROCKET);
+            int[] palette = {0xFF3060, 0xFFD020, 0x30E070, 0x30A0FF, 0xC040FF, 0xFFFFFF, 0xFF8020};
+            var shapes = net.minecraft.world.item.component.FireworkExplosion.Shape.values();
+            rocket.set(net.minecraft.core.component.DataComponents.FIREWORKS, new net.minecraft.world.item.component.Fireworks(1 + r.nextInt(2),
+                    java.util.List.of(new net.minecraft.world.item.component.FireworkExplosion(shapes[r.nextInt(shapes.length)],
+                            it.unimi.dsi.fastutil.ints.IntList.of(palette[r.nextInt(palette.length)], palette[r.nextInt(palette.length)]),
+                            it.unimi.dsi.fastutil.ints.IntList.of(0xFFFFFF), r.nextBoolean(), r.nextBoolean()))));
+            level.addFreshEntity(new net.minecraft.world.entity.projectile.FireworkRocketEntity(level, x, y + 1, z, rocket));
+        }
+    }
+
     public static void tickShow(MinecraftServer server) {
         boolean show = com.boombox.bar.ShowTime.isShowNow();
         int day = java.time.LocalDate.now().getDayOfYear();
@@ -306,6 +346,15 @@ public final class ServerBoomboxManager {
             net.minecraft.world.item.ItemStack prize = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD);
             if (!player.getInventory().add(prize)) r.spawnAtLocation(player.level(), prize);
             player.sendSystemMessage(Component.literal("§a<Aldeão>§r Ganhou, ganhou... Toma a esmeralda. Vai lá no Seu Zé tomar uma!"));
+        });
+
+        // tacada de sinuca
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.SinucaShot.TYPE, (payload, ctx) -> {
+            ServerPlayer player = ctx.player();
+            if (player.blockPosition().distSqr(payload.table()) > 8 * 8) return;
+            if (player.level().getBlockEntity(payload.table()) instanceof com.boombox.bar.SinucaBlockEntity be) {
+                be.playerShot(player, payload.angle(), payload.power());
+            }
         });
 
         // pedido no cardápio do Seu Zé

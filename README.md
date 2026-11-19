@@ -22,6 +22,33 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.2
+**Bar do Seu Zé**:
+- **Churrasco de domingo**: a **Churrasqueira** assa carne de vaca, carneiro ou frango em **Espetinho** (força),
+  porco em **Linguiça Assada** (velocidade) e pão em **Pão de Alho** (regeneração). Clique com a carne crua para pôr
+  na grelha e com a mão vazia para pegar o que já ficou pronto. A fumaça chama os aldeões de perto, e aos domingos
+  (relógio do computador) a churrasqueira do bar assa sozinha.
+- **Sinuca nova, em 3D**: a mesa agora ocupa 3x2 blocos, com tabelas de madeira, caçapas, pés e bolas lisas e
+  listradas. Joga-se na própria mesa: clique para pegar o taco, mire olhando para onde quer tacar, e clique de novo
+  quando a barra de força estiver no ponto. Agachar guarda o taco. Com aldeões jogando perto, você joga contra eles.
+
+**Balada do DJ Leo**:
+- **Camarote VIP**: mezanino com **Sofá do Camarote** e **Balde de Gelo** (pegue uma Gelada do Zé de graça). O
+  segurança do camarote só deixa subir quem tem a **Pulseira VIP**, a qualquer hora.
+- **Máquina de Bolhas**: com música perto, solta bolhas de sabão coloridas que sobem balançando e estouram quando
+  batem em alguma coisa.
+
+**Mundo**:
+- **Paredão na praia**: vilas perto do mar ganham uma barraca de praia com caixinha tocando axé e reggae,
+  **Cadeiras de Praia**, **Guarda-Sóis** e um baú de **Água de Coco** (respiração na água).
+- **Réveillon**: na virada do ano (relógio do computador) tem contagem regressiva no chat e fogos em todas as vilas.
+  Use **/reveillon** para soltar os fogos quando quiser.
+- **Pagode na laje**: algumas vilas ganham uma casa com laje, churrasqueira, caixinha tocando pagode e aldeões
+  tocando **Pandeiro** e **Cavaquinho**. Você também pode fazer e tocar os dois instrumentos.
+- As estruturas novas só aparecem em chunks gerados depois de instalar a 3.2.
+
+![Prévia 3.2](https://raw.githubusercontent.com/Joaovictor921/Boombox/main/docs/preview-3.2.png)
+
 ## Novidades da 3.1
 **Bar do Seu Zé** (agora maior):
 - **Cardápio do Seu Zé**: clique nele e escolha entre Gelada do Zé, **Torresmo** (velocidade), **Coxinha** (pressa) e

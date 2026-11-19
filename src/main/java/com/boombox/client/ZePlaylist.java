@@ -51,11 +51,24 @@ public final class ZePlaylist {
             "Mastruz com Leite - Meu Vaqueiro Meu Peão", "Trio Nordestino - Chililique", "Luiz Gonzaga - Pagode Russo",
             "Alceu Valença - Morena Tropicana", "Flávio José - Tareco e Mariola", "Genival Lacerda - Severina Xique Xique"};
 
+    /** Praia: axé, reggae e pagode de verão. */
+    public static final String[] PRAIA = {
+            "Natiruts - Sorri Sou Rei", "Armandinho - Pescador", "Maneva - Lisboa", "Chiclete com Banana - Voa Voa",
+            "Ivete Sangalo - Sorte Grande", "Jorge Ben Jor - País Tropical", "Tim Maia - Do Leme ao Pontal",
+            "Cidade Negra - A Sombra da Maldade", "Armandinho - Ursinho de Dormir", "Netinho - Mila"};
+    /** Pagode na laje: samba e pagode. */
+    public static final String[] PAGODE = {
+            "Zeca Pagodinho - Deixa a Vida Me Levar", "Fundo de Quintal - O Show Tem Que Continuar", "Arlindo Cruz - Meu Lugar",
+            "Exaltasamba - Tá Vendo Aquela Lua", "Péricles - Até Que Durou", "Sorriso Maroto - Assim Você Mata o Papai",
+            "Turma do Pagode - Lancinho", "Thiaguinho - Buquê de Flores", "Revelação - Deixa Acontecer", "Raça Negra - Cheia de Manias"};
+
     /** Playlist de uma caixa que toca sozinha, pelo dono (Seu Zé, Carnaval, Arraiá). */
     public static String[] forOwner(String owner) {
         return switch (owner) {
             case "Carnaval" -> CARNAVAL;
             case "Arraiá" -> ARRAIA;
+            case "Praia" -> PRAIA;
+            case "Pagode" -> PAGODE;
             default -> TRACKS;
         };
     }

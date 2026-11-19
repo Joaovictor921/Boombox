@@ -73,6 +73,35 @@ public final class DjLeoHouse {
     private static final BlockPos ARRAIA_DOORSTEP = new BlockPos(0, 0, 5);
     private static volatile StructurePoolElement arraiaElement;
 
+    /** Barraca de praia (vilas perto do mar) e pagode na laje (algumas vilas). */
+    public static final String BEACH_TEMPLATE = BoomboxMod.MOD_ID + ":beach_hut", PAGODE_TEMPLATE = BoomboxMod.MOD_ID + ":pagode_laje";
+    private static final BlockPos BEACH_DOORSTEP = new BlockPos(0, 0, 4), PAGODE_DOORSTEP = new BlockPos(0, 0, 4);
+    private static volatile StructurePoolElement beachElement, pagodeElement;
+
+    /** Procura mar (água funda) em volta da vila; devolve o ponto de água mais perto do centro, ou null. */
+    private static BlockPos findSea(Structure.GenerationContext ctx, BlockPos center) {
+        var gen = ctx.chunkGenerator();
+        BlockPos best = null;
+        int found = 0;
+        double bestD = Double.MAX_VALUE;
+        for (int r = 24; r <= 80; r += 8) {
+            for (int a = 0; a < 16; a++) {
+                double ang = a * Math.PI / 8;
+                int x = center.getX() + (int) (Math.cos(ang) * r), z = center.getZ() + (int) (Math.sin(ang) * r);
+                int surface = gen.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, ctx.heightAccessor(), ctx.randomState());
+                int floor = gen.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, ctx.heightAccessor(), ctx.randomState());
+                if (surface - floor >= 3 && surface <= gen.getSeaLevel() + 1) {
+                    found++;
+                    if (r < bestD) {
+                        bestD = r;
+                        best = new BlockPos(x, surface, z);
+                    }
+                }
+            }
+        }
+        return found >= 4 ? best : null;
+    }
+
     /** Chamado depois que todas as peças da vila foram colocadas. */
     public static void addToVillage(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center) {
         List<StructurePiece> pieces = ((StructurePiecesBuilderAccessor) builder).boombox$pieces();
@@ -82,6 +111,19 @@ public final class DjLeoHouse {
         // 50% balada do DJ Leo, 50% bar do Seu Zé (sorteio fixo por vila: o mesmo mundo dá sempre o mesmo)
         boolean bar = rnd.nextBoolean();
         placeBeside(builder, ctx, center, element(bar), bar ? BAR_DOORSTEP : DOORSTEP, shuffler);
+        // vila perto do mar: barraca de praia do lado da água
+        BlockPos sea = findSea(ctx, center);
+        if (sea != null) {
+            StructurePoolElement e = beachElement;
+            if (e == null) beachElement = e = StructurePoolElement.single(BEACH_TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
+            placeBeside(builder, ctx, sea, e, BEACH_DOORSTEP, shuffler);
+        }
+        // 40% das vilas: pagode na laje
+        if (rnd.nextFloat() < 0.4f) {
+            StructurePoolElement e = pagodeElement;
+            if (e == null) pagodeElement = e = StructurePoolElement.single(PAGODE_TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
+            placeBeside(builder, ctx, center, e, PAGODE_DOORSTEP, shuffler);
+        }
         // em junho a vila também ganha um arraiá
         if (com.boombox.bar.ShowTime.isJune()) {
             StructurePoolElement a = arraiaElement;

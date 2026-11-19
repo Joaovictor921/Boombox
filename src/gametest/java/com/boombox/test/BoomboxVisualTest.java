@@ -325,11 +325,48 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             ctx.takeScreenshot("bar31_sentado");
             ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
             server.runOnServer(s -> s.getPlayerList().getPlayers().get(0).stopRiding());
-            // sinuca
-            ctx.runOnClient(mc -> mc.gui.setScreen(new com.boombox.client.SinucaScreen()));
-            ctx.waitTicks(20);
-            ctx.takeScreenshot("sinuca");
-            ctx.runOnClient(mc -> mc.gui.setScreen(null));
+            // ---- 3.2: sinuca 3D na própria mesa (parte 0 em 38,-60,46)
+            BlockPos mesa = new BlockPos(38, -60, 46);
+            look(ctx, server, new Vec3(37.0, -58.0, 48.6), 180f, 42f);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> com.boombox.bar.SinucaBlock.openHook.accept(mesa));
+            ctx.waitTicks(17);
+            ctx.takeScreenshot("sinuca_mira");
+            String mira = ctx.computeOnClient(mc -> String.format(Locale.ROOT, "ângulo=%.2f força=%.2f",
+                    com.boombox.client.BarClient.aimAngle(mesa), com.boombox.client.BarClient.aimPower()));
+            server.runOnServer(s -> {
+                if (s.overworld().getBlockEntity(mesa) instanceof com.boombox.bar.SinucaBlockEntity be) be.shoot(0.01, 1.0);
+            });
+            ctx.waitTicks(6);
+            ctx.takeScreenshot("sinuca_tacada");
+            ctx.waitTicks(200);
+            String sinuca = server.computeOnServer(s -> {
+                if (!(s.overworld().getBlockEntity(mesa) instanceof com.boombox.bar.SinucaBlockEntity be)) return "sem mesa";
+                int in = 0;
+                for (int i = 1; i < com.boombox.bar.SinucaBlockEntity.N; i++) if (be.in[i]) in++;
+                return "andando=" + be.moving + " encaçapadas=" + in + " pontos=" + be.myScore + " branca x=" + String.format(Locale.ROOT, "%.2f", be.x[0]) + " msg=" + be.message;
+            });
+            System.out.println("[BoomboxTest] sinuca 3D: " + mira + " | " + sinuca);
+            ctx.takeScreenshot("sinuca_depois");
+            ctx.runOnClient(mc -> com.boombox.bar.SinucaBlock.openHook.accept(mesa)); // larga o taco (tacada fora da vez não faz nada)
+
+            // churrasqueira (42,-60,49): espetinho, linguiça e pão de alho
+            String churras = server.computeOnServer(s -> {
+                if (!(s.overworld().getBlockEntity(new BlockPos(42, -60, 49)) instanceof com.boombox.bar.GrillBlockEntity g)) return "sem churrasqueira";
+                g.put(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BEEF));
+                g.put(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PORKCHOP));
+                g.put(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BREAD));
+                return "assando=" + g.isCooking();
+            });
+            look(ctx, server, new Vec3(40.6, -58.4, 47.2), -45f, 35f);
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("churrasco");
+            ctx.waitTicks(com.boombox.bar.GrillBlockEntity.COOK_TICKS);
+            String pronto = server.computeOnServer(s -> {
+                var g = (com.boombox.bar.GrillBlockEntity) s.overworld().getBlockEntity(new BlockPos(42, -60, 49));
+                return g.items.stream().filter(i -> !i.isEmpty()).map(i -> i.getItem().toString()).toList().toString();
+            });
+            System.out.println("[BoomboxTest] churrasco: " + churras + " depois=" + pronto);
 
             // seguranças: antes da meia-noite, sem pulseira, é empurrado; com pulseira, passa
             server.runCommand("time set 14000");
@@ -350,6 +387,26 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             look(ctx, server, new Vec3(HX - 5.5, HY + 2.2, HZ + 7.5), -90f, 8f);
             ctx.waitTicks(20);
             ctx.takeScreenshot("segurancas");
+
+            // ---- 3.2: camarote VIP (segurança do camarote barra quem não tem pulseira, até depois da meia-noite)
+            server.runCommand("clear @a boombox:vip_bracelet");
+            server.runCommand("gamemode survival @a");
+            server.runCommand("tp @a " + (HX + 6.5) + " " + (HY + 1) + " " + (HZ + 5.0) + " 0 0");
+            ctx.waitTicks(30);
+            double camSem = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getZ());
+            server.runCommand("give @a boombox:vip_bracelet");
+            server.runCommand("tp @a " + (HX + 6.5) + " " + (HY + 1) + " " + (HZ + 6.8) + " 0 0");
+            ctx.waitTicks(30);
+            double camCom = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getZ());
+            System.out.println("[BoomboxTest] camarote: sem pulseira z=" + String.format(Locale.ROOT, "%.1f", camSem)
+                    + " com pulseira z=" + String.format(Locale.ROOT, "%.1f", camCom));
+            server.runCommand("gamemode creative @a");
+            look(ctx, server, new Vec3(HX + 11.5, HY + 6.5, HZ + 7.5), 125f, 22f);
+            ctx.waitTicks(60);
+            ctx.takeScreenshot("camarote");
+            look(ctx, server, new Vec3(HX + 22.5, HY + 3.5, HZ + 6.5), -80f, 5f);
+            ctx.waitTicks(40);
+            ctx.takeScreenshot("bolhas");
 
             // fone de ouvido na cabeça (aparece para os outros)
             server.runCommand("item replace entity @p armor.head with boombox:headphones");
@@ -387,6 +444,27 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             look(ctx, server, new Vec3(HX - 9.5, HY + 9, HZ - 9.5), -45f, 22f);
             ctx.waitTicks(20);
             ctx.takeScreenshot("house_outside");
+
+            // ---- 3.2: praia, pagode na laje e réveillon
+            server.runCommand("place template boombox:beach_hut -40 -61 30");
+            server.runCommand("place template boombox:pagode_laje -40 -61 60");
+            ctx.waitTicks(20);
+            look(ctx, server, new Vec3(-44.5, -56.5, 25.5), -35f, 25f);
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("praia");
+            String pagode = server.computeOnServer(s -> s.overworld().getEntities(ModEntities.RAVER, e -> e.instrument() > 0).stream()
+                    .map(e -> e.instrument() + "@" + e.getMainHandItem().getItem()).toList().toString());
+            System.out.println("[BoomboxTest] pagode: " + pagode);
+            look(ctx, server, new Vec3(-44.5, -54.5, 55.5), -35f, 25f);
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("pagode_laje");
+            server.runCommand("time set midnight");
+            server.runCommand("reveillon");
+            look(ctx, server, new Vec3(-30.5, -59, 20.5), 0f, -35f);
+            ctx.waitTicks(36);
+            ctx.takeScreenshot("reveillon");
+            long fogos = server.computeOnServer(s -> (long) s.overworld().getEntitiesOfClass(net.minecraft.world.entity.projectile.FireworkRocketEntity.class, new net.minecraft.world.phys.AABB(-200, -100, -200, 200, 400, 200)).size());
+            System.out.println("[BoomboxTest] réveillon: foguetes no ar=" + fogos);
             server.runCommand("time set midnight");
 
             // ---- vilas de todos os tipos: cada uma deve ter um DJ Leo
@@ -404,6 +482,16 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 long bars = server.computeOnServer(s -> (long) s.overworld()
                         .getEntities(ModEntities.RAVER, e -> e.atBar() && Math.abs(e.position().z - zc) < 150).size());
                 System.out.println("[BoomboxTest] vila " + types[i] + ": " + leos.size() + " DJ Leo, " + bars + " fregueses de bar " + leos);
+                long musicos = server.computeOnServer(s -> (long) s.overworld()
+                        .getEntities(ModEntities.RAVER, e -> e.instrument() > 0 && Math.abs(e.position().z - zc) < 150).size());
+                long praia = server.computeOnServer(s -> {
+                    long n = 0;
+                    for (BlockPos q : BlockPos.betweenClosed(-100, -64, zc - 100, 100, -40, zc + 100)) {
+                        if (s.overworld().getBlockState(q).is(com.boombox.bar.BarBlocks.PARASOL)) n++;
+                    }
+                    return n;
+                });
+                System.out.println("[BoomboxTest] vila " + types[i] + ": músicos do pagode=" + musicos + " guarda-sóis=" + praia);
                 if (i == 0 && !leos.isEmpty()) {
                     Vec3 p = leos.get(0);
                     server.runCommand("time set noon");

@@ -106,6 +106,17 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Tacada na mesa de sinuca (ângulo nas coordenadas da mesa, força de 0 a 1). */
+    public record SinucaShot(BlockPos table, float angle, float power) implements CustomPacketPayload {
+        public static final Type<SinucaShot> TYPE = new Type<>(BoomboxMod.id("sinuca_shot"));
+        public static final StreamCodec<ByteBuf, SinucaShot> CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, SinucaShot::table,
+                ByteBufCodecs.FLOAT, SinucaShot::angle,
+                ByteBufCodecs.FLOAT, SinucaShot::power,
+                SinucaShot::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** Pedido no cardápio do Seu Zé. mode: 0 = paga, 1 = pendura, 2 = paga o fiado. */
     public record ZeOrder(int zeId, int item, int mode) implements CustomPacketPayload {
         public static final Type<ZeOrder> TYPE = new Type<>(BoomboxMod.id("ze_order"));
@@ -225,6 +236,7 @@ public final class Payloads {
         PayloadTypeRegistry.serverboundPlay().register(DjRequest.TYPE, DjRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(TrucoResult.TYPE, TrucoResult.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(ZeOrder.TYPE, ZeOrder.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SinucaShot.TYPE, SinucaShot.CODEC);
 
         PayloadTypeRegistry.clientboundPlay().register(BoomboxState.TYPE, BoomboxState.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(UploadNeeded.TYPE, UploadNeeded.CODEC);

@@ -6,7 +6,6 @@ import com.boombox.bar.FacingBlock;
 import com.boombox.bar.FootballMatch;
 import com.boombox.bar.LousaBlockEntity;
 import com.boombox.bar.PlasticTableBlockEntity;
-import com.boombox.bar.SinucaBlockEntity;
 import com.boombox.bar.TvBlockEntity;
 import com.boombox.client.BarClient;
 import com.boombox.client.ClientBoomboxManager;
@@ -237,71 +236,6 @@ public final class BarRenderers {
             ps.scale(scale, -scale, scale);
             collector.submitText(ps, -font.width(text) / 2f, 0, Component.literal(text).getVisualOrderText(), false,
                     Font.DisplayMode.POLYGON_OFFSET, 0xF000F0, goal ? 0xFFFFE040 : 0xFFFFFFFF, 0x80000000, 0);
-            ps.popPose();
-        }
-    }
-
-    // ------------------------------------------------------------ mesa de sinuca (2 blocos)
-    public static class Sinuca implements BlockEntityRenderer<SinucaBlockEntity, Sinuca.State> {
-        public static class State extends BlockEntityRenderState {
-            public Direction facing = Direction.NORTH;
-        }
-
-        public Sinuca(BlockEntityRendererProvider.Context ctx) {}
-
-        @Override
-        public State createRenderState() {
-            return new State();
-        }
-
-        @Override
-        public void extractRenderState(SinucaBlockEntity be, State s, float pt, Vec3 cam, ModelFeatureRenderer.CrumblingOverlay c) {
-            BlockEntityRenderer.super.extractRenderState(be, s, pt, cam, c);
-            s.facing = facing(be.getBlockState());
-        }
-
-        @Override
-        public boolean shouldRenderOffScreen() {
-            return true;
-        }
-
-        @Override
-        public void submit(State s, PoseStack ps, SubmitNodeCollector collector, CameraRenderState camera) {
-            ps.pushPose();
-            face(ps, s.facing);
-            int light = s.lightCoords;
-            // a outra metade fica em +X (à direita de quem olha a frente)
-            collector.submitCustomGeometry(ps, PartyGeometry.RENDER_TYPE, (pose, vc) -> {
-                Geo g = new Geo(pose, vc, light, OverlayTexture.NO_OVERLAY, 8);
-                g.color = 0xFF5A3418; // madeira
-                for (float[] l : new float[][]{{1.5f, 1.5f}, {29f, 1.5f}, {1.5f, 13f}, {29f, 13f}}) g.box(l[0], 0, l[1], l[0] + 1.5f, 10, l[1] + 1.5f, WHITE);
-                g.box(0, 10, 0, 32, 12, 16, WHITE);
-                g.box(0, 12, 0, 32, 13.4f, 1.2f, WHITE);
-                g.box(0, 12, 14.8f, 32, 13.4f, 16, WHITE);
-                g.box(0, 12, 0, 1.2f, 13.4f, 16, WHITE);
-                g.box(30.8f, 12, 0, 32, 13.4f, 16, WHITE);
-                g.color = 0xFF1A7A3A; // feltro
-                g.box(1.2f, 12, 1.2f, 30.8f, 12.3f, 14.8f, WHITE);
-                g.color = 0xFF080808; // caçapas
-                for (float[] p : new float[][]{{1.2f, 1.2f}, {15.3f, 1.2f}, {29.6f, 1.2f}, {1.2f, 13.6f}, {15.3f, 13.6f}, {29.6f, 13.6f}}) {
-                    g.box(p[0], 12.31f, p[1], p[0] + 1.2f, 12.35f, p[1] + 1.2f, WHITE);
-                }
-                // bolas arrumadas no triângulo e a branca
-                int[] colors = {0xFFE8C020, 0xFF2050D0, 0xFFD02020, 0xFF7A2BB0, 0xFF101010, 0xFFE07020, 0xFF20A040, 0xFF8A2020};
-                int k = 0;
-                for (int row = 0; row < 4 && k < 8; row++) {
-                    for (int i = 0; i <= row && k < 8; i++) {
-                        float bx = 21 + row * 0.95f, bz = 8 + (i - row / 2f) * 1.05f;
-                        g.color = colors[k++];
-                        g.box(bx - 0.45f, 12.3f, bz - 0.45f, bx + 0.45f, 13.2f, bz + 0.45f, WHITE);
-                    }
-                }
-                g.color = 0xFFF4F4F0;
-                g.box(8 - 0.45f, 12.3f, 8 - 0.45f, 8 + 0.45f, 13.2f, 8 + 0.45f, WHITE);
-                g.color = 0xFFC8A060; // taco em cima da mesa
-                g.box(4, 12.3f, 3, 18, 12.7f, 3.4f, WHITE);
-                g.reset();
-            });
             ps.popPose();
         }
     }

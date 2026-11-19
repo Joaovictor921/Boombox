@@ -102,6 +102,40 @@ public final class BarBlocks {
             BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.METAL).noOcclusion());
     public static final BlockEntityType<ConfettiCannonBlockEntity> CONFETTI_BE = be("confetti_cannon", ConfettiCannonBlockEntity::new, CONFETTI);
 
+    // ---------------- 3.2: churrasco, praia, pagode, camarote e bolhas
+    public static final Item ESPETINHO = item("espetinho", Item::new, new Item.Properties()
+            .food(new FoodProperties(7, 0.9f, false), eat(new MobEffectInstance(MobEffects.STRENGTH, 20 * 20, 0))));
+    public static final Item LINGUICA = item("linguica", Item::new, new Item.Properties()
+            .food(new FoodProperties(6, 0.8f, false), eat(new MobEffectInstance(MobEffects.SPEED, 20 * 15, 0))));
+    public static final Item PAO_DE_ALHO = item("pao_de_alho", Item::new, new Item.Properties()
+            .food(new FoodProperties(5, 0.7f, false), eat(new MobEffectInstance(MobEffects.REGENERATION, 20 * 6, 0))));
+    public static final Item AGUA_DE_COCO = item("agua_de_coco", Item::new, new Item.Properties().stacksTo(16)
+            .food(new FoodProperties(3, 0.4f, true), Consumable.builder().consumeSeconds(1.6f)
+                    .animation(ItemUseAnimation.DRINK).sound(SoundEvents.GENERIC_DRINK).hasConsumeParticles(false)
+                    .onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.WATER_BREATHING, 20 * 60, 0))).build()));
+    public static final Item PANDEIRO = item("pandeiro", p -> new InstrumentItem(p, SoundEvents.NOTE_BLOCK_SNARE), new Item.Properties().stacksTo(1));
+    public static final Item CAVAQUINHO = item("cavaquinho", p -> new InstrumentItem(p, SoundEvents.NOTE_BLOCK_BANJO), new Item.Properties().stacksTo(1));
+
+    public static final Block GRILL = block("grill", GrillBlock::new, BlockBehaviour.Properties.of().strength(1.5f).sound(SoundType.METAL).noOcclusion()
+            .lightLevel(s -> 4));
+    public static final BlockEntityType<GrillBlockEntity> GRILL_BE = be("grill", GrillBlockEntity::new, GRILL);
+    public static final Block SOFA = block("vip_sofa", p -> new SittableBlock(p,
+            net.minecraft.world.phys.shapes.Shapes.or(Block.box(0, 0, 0, 16, 7, 16), Block.box(0, 7, 13, 16, 16, 16)), 0.4),
+            BlockBehaviour.Properties.of().strength(0.8f).sound(SoundType.WOOL).noOcclusion());
+    public static final Block ICE_BUCKET = block("ice_bucket", IceBucketBlock::new, BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.METAL).noOcclusion());
+    public static final Block BUBBLE_MACHINE = block("bubble_machine", BubbleMachineBlock::new,
+            BlockBehaviour.Properties.of().strength(0.8f).sound(SoundType.METAL).noOcclusion());
+    public static final BlockEntityType<BubbleMachineBlockEntity> BUBBLE_BE = be("bubble_machine", BubbleMachineBlockEntity::new, BUBBLE_MACHINE);
+    public static final Block BEACH_CHAIR = block("beach_chair", p -> new SittableBlock(p, Block.box(1, 0, 1, 15, 6, 15), 0.25),
+            BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.WOOD).noOcclusion());
+    public static final Block PARASOL = block("parasol", p -> new Block(p) {
+                @Override
+                protected net.minecraft.world.phys.shapes.VoxelShape getShape(net.minecraft.world.level.block.state.BlockState s,
+                        net.minecraft.world.level.BlockGetter l, net.minecraft.core.BlockPos pos, net.minecraft.world.phys.shapes.CollisionContext c) {
+                    return Block.box(7, 0, 7, 9, 16, 9);
+                }
+            }, BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.WOOL).noOcclusion());
+
     public static void init() {
         // força o carregamento estático
     }

@@ -34,5 +34,17 @@
   "entity.boombox.bouncer": "Bouncer",
   "entity.boombox.trio": "Party Truck",
   "entity.boombox.seat": "Seat",
-  "item.boombox.bouncer_spawn_egg": "Bouncer Spawn Egg"
+  "item.boombox.bouncer_spawn_egg": "Bouncer Spawn Egg",
+  "item.boombox.espetinho": "Meat Skewer",
+  "item.boombox.linguica": "Grilled Sausage",
+  "item.boombox.pao_de_alho": "Garlic Bread",
+  "item.boombox.agua_de_coco": "Coconut Water",
+  "item.boombox.pandeiro": "Pandeiro",
+  "item.boombox.cavaquinho": "Cavaquinho",
+  "block.boombox.grill": "Grill",
+  "block.boombox.vip_sofa": "VIP Sofa",
+  "block.boombox.ice_bucket": "Ice Bucket",
+  "block.boombox.bubble_machine": "Bubble Machine",
+  "block.boombox.beach_chair": "Beach Chair",
+  "block.boombox.parasol": "Beach Umbrella"
 }

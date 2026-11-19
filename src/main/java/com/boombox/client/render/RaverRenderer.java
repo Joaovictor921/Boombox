@@ -26,6 +26,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         public float seed;
         public boolean bar;
         public boolean cards;
+        public int instrument;
     }
 
     private final float[] levels = new float[2];
@@ -48,6 +49,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         s.seed = (e.getId() * 0.618f) % 1f;
         s.bar = e.atBar();
         s.cards = e.playingCards();
+        s.instrument = e.instrument();
         net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
         s.dancing = playing != null && !s.bar;
@@ -121,6 +123,14 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         @Override
         public void setupAnim(VillagerRenderState state) {
             super.setupAnim(state);
+            if (state instanceof State m && m.instrument > 0) {
+                // pagode: pandeiro batendo rápido, cavaquinho "palhetando"
+                float t = m.ageInTicks + m.seed * 40f;
+                if (m.instrument == 1) arms.xRot -= 0.35f + 0.25f * (float) Math.abs(Math.sin(t * 1.2f));
+                else arms.zRot = 0.15f * (float) Math.sin(t * 2.4f);
+                head.xRot += 0.1f * (float) Math.sin(t * 0.6f);
+                return;
+            }
             if (state instanceof State c && c.bar && c.cards) {
                 // truco: de vez em quando levanta os braços e bate a carta na mesa
                 float cycle = (c.ageInTicks + c.seed * 300f) % 70f;

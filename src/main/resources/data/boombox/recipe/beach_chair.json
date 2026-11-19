@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "S  ",
+    "WWW",
+    "S S"
+  ],
+  "key": {
+    "S": "minecraft:stick",
+    "W": "minecraft:light_blue_wool"
+  },
+  "result": {
+    "id": "boombox:beach_chair",
+    "count": 1
+  }
+}

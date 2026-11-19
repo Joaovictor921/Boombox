@@ -37,6 +37,13 @@ public class Raver extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> CARDS = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
     /** Jogando sinuca: taco na mão, dá uma tacada de vez em quando. */
     private static final EntityDataAccessor<Boolean> POOL = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
+    /** Pagode: 1 = pandeiro, 2 = cavaquinho (0 = nenhum). */
+    private static final EntityDataAccessor<Integer> INSTRUMENT = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
+
+    public int instrument() {
+        return entityData.get(INSTRUMENT);
+    }
+
     /** Carnaval: segue o trio elétrico (some quando o trio vai embora). */
     private java.util.UUID followTarget;
 
@@ -72,6 +79,7 @@ public class Raver extends PathfinderMob {
         builder.define(BAR, false);
         builder.define(CARDS, false);
         builder.define(POOL, false);
+        builder.define(INSTRUMENT, 0);
     }
 
     private boolean tvNear(ServerLevel level) {
@@ -132,6 +140,17 @@ public class Raver extends PathfinderMob {
             int prof = getRandom().nextInt(4) == 0 ? 15 : getRandom().nextInt(PROFESSIONS.length);
             entityData.set(LOOK, type * 16 + prof);
         }
+        if (instrument() > 0) {
+            var want = instrument() == 1 ? com.boombox.bar.BarBlocks.PANDEIRO : com.boombox.bar.BarBlocks.CAVAQUINHO;
+            if (!getMainHandItem().is(want)) setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(want));
+            if (!hasHome()) setHomeTo(blockPosition(), 2);
+            if (tickCount % 6 == 0 && ServerBoomboxManager.isPlayingNear(level, position(), 16) && getRandom().nextInt(3) != 0) {
+                float[] scale = {0.6f, 0.75f, 0.84f, 1.0f, 1.12f, 1.26f};
+                playSound(instrument() == 1 ? SoundEvents.NOTE_BLOCK_SNARE.value() : SoundEvents.NOTE_BLOCK_BANJO.value(), 0.5f,
+                        scale[getRandom().nextInt(scale.length)]);
+            }
+            return;
+        }
         if (followTarget != null) {
             var t = level.getEntity(followTarget);
             if (t == null) {
@@ -181,6 +200,7 @@ public class Raver extends PathfinderMob {
         out.putBoolean("Bar", atBar());
         out.putBoolean("Cards", playingCards());
         out.putBoolean("Pool", playingPool());
+        out.putInt("Instrument", instrument());
     }
 
     @Override
@@ -190,6 +210,7 @@ public class Raver extends PathfinderMob {
         entityData.set(BAR, in.getBooleanOr("Bar", false));
         entityData.set(CARDS, in.getBooleanOr("Cards", false));
         entityData.set(POOL, in.getBooleanOr("Pool", false));
+        entityData.set(INSTRUMENT, in.getIntOr("Instrument", 0));
     }
 
     @Override

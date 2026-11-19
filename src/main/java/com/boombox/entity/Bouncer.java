@@ -31,6 +31,8 @@ public class Bouncer extends PathfinderMob {
     private final Map<UUID, Long> warned = new HashMap<>();
     /** Direção da rua ("fora"), guardada quando ele aparece (o corpo dele vira para olhar as pessoas). */
     private float outYaw = Float.NaN;
+    /** Segurança do camarote: sem pulseira não sobe nunca (nem depois da meia-noite). */
+    private boolean vipOnly;
 
     public Bouncer(EntityType<? extends Bouncer> type, Level level) {
         super(type, level);
@@ -67,7 +69,7 @@ public class Bouncer extends PathfinderMob {
         super.tick();
         if (!(level() instanceof ServerLevel sl) || tickCount % 4 != 0) return;
         if (Float.isNaN(outYaw)) outYaw = getYRot();
-        if (afterMidnight(sl)) return;
+        if (afterMidnight(sl) && !vipOnly) return;
         // para onde é "fora": a direção em que ele estava virado quando apareceu (para a rua)
         float yaw = outYaw * ((float) Math.PI / 180f);
         Vec3 out = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
@@ -83,7 +85,7 @@ public class Bouncer extends PathfinderMob {
             Long last = warned.get(p.getUUID());
             if (last == null || tickCount - last > 60) {
                 warned.put(p.getUUID(), (long) tickCount);
-                p.sendSystemMessage(Component.literal("§8<Segurança>§r Sem pulseira VIP não entra antes da meia-noite. "
+                p.sendSystemMessage(Component.literal((vipOnly ? "§8<Segurança>§r Camarote é só para VIP, parceiro. " : "§8<Segurança>§r Sem pulseira VIP não entra antes da meia-noite. ")
                         + "Quer a pulseira? São §62 barras de ouro§r."));
                 playSound(SoundEvents.VILLAGER_NO, 1f, 0.7f);
             }
@@ -112,12 +114,15 @@ public class Bouncer extends PathfinderMob {
     protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput out) {
         super.addAdditionalSaveData(out);
         if (!Float.isNaN(outYaw)) out.putFloat("OutYaw", outYaw);
+        out.putBoolean("VipOnly", vipOnly);
     }
 
     @Override
     protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput in) {
         super.readAdditionalSaveData(in);
         outYaw = in.getFloatOr("OutYaw", Float.NaN);
+        vipOnly = in.getBooleanOr("VipOnly", false);
+        if (vipOnly) setCustomName(Component.literal("Segurança do Camarote"));
     }
 
     @Override

@@ -17,7 +17,7 @@
           "condition": "minecraft:block_state_property",
           "block": "boombox:pool_table",
           "properties": {
-            "main": "true"
+            "part": "0"
           }
         }
       ]

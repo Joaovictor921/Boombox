@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ISI",
+    "IRI",
+    "III"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "S": "minecraft:slime_ball",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "boombox:bubble_machine",
+    "count": 1
+  }
+}

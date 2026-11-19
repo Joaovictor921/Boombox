@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "NLN",
+    "PLP",
+    "NPN"
+  ],
+  "key": {
+    "N": "minecraft:iron_nugget",
+    "L": "minecraft:leather",
+    "P": "minecraft:oak_planks"
+  },
+  "result": {
+    "id": "boombox:pandeiro",
+    "count": 1
+  }
+}

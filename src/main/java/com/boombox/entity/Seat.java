@@ -33,7 +33,7 @@ public class Seat extends Entity {
         // levantou da cadeira (ou a cadeira foi quebrada): o assento some
         if (!level().isClientSide() && tickCount > 2 && (getPassengers().isEmpty()
                 || !(level().getBlockState(net.minecraft.core.BlockPos.containing(getX(), getY() + 0.4, getZ())).getBlock()
-                instanceof com.boombox.bar.PlasticChairBlock))) {
+                instanceof com.boombox.bar.SeatMarker))) {
             ejectPassengers();
             discard();
         }

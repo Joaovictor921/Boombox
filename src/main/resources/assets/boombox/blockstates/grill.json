@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/grill"
+    },
+    "facing=east": {
+      "model": "boombox:block/grill",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/grill",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/grill",
+      "y": 270
+    }
+  }
+}

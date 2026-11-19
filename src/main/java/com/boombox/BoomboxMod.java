@@ -74,6 +74,15 @@ public class BoomboxMod implements ModInitializer {
                     return ok ? 1 : 0;
                 })));
 
+        // /reveillon: solta os fogos de ano novo agora (para testar ou comemorar fora de época)
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, env) ->
+                dispatcher.register(net.minecraft.commands.Commands.literal("reveillon").executes(c -> {
+                    var server = c.getSource().getServer();
+                    server.getPlayerList().broadcastSystemMessage(Component.literal("§e§l✦ FELIZ ANO NOVO! ✦"), false);
+                    for (int i = 0; i < 12; i++) ServerBoomboxManager.newYearFireworks(server);
+                    return 1;
+                })));
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 ServerBoomboxManager.sendAllTo(handler.getPlayer()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
@@ -84,6 +93,7 @@ public class BoomboxMod implements ModInitializer {
             if (server.getTickCount() % 5 == 0) ServerBoomboxManager.tickPlayers(server);
             if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickDancers(server);
             if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickShow(server);
+            ServerBoomboxManager.tickNewYear(server);
             if (server.getTickCount() % 2400 == 0) com.boombox.entity.Trio.maybeStart(server); // carnaval de vez em quando
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());

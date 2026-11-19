@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/vip_sofa"
+    },
+    "facing=east": {
+      "model": "boombox:block/vip_sofa",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/vip_sofa",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/vip_sofa",
+      "y": 270
+    }
+  }
+}

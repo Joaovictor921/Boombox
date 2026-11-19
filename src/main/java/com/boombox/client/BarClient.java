@@ -36,14 +36,59 @@ public final class BarClient {
         BlockEntityRendererRegistry.register(BarBlocks.TABLE_BE, BarRenderers.Table::new);
         BlockEntityRendererRegistry.register(BarBlocks.LOUSA_BE, BarRenderers.Lousa::new);
         BlockEntityRendererRegistry.register(BarBlocks.TV_BE, BarRenderers.Tv::new);
-        BlockEntityRendererRegistry.register(BarBlocks.SINUCA_BE, BarRenderers.Sinuca::new);
+        BlockEntityRendererRegistry.register(BarBlocks.SINUCA_BE, com.boombox.client.render.BarRenderers32.Sinuca::new);
+        BlockEntityRendererRegistry.register(BarBlocks.GRILL_BE, com.boombox.client.render.BarRenderers32.Grill::new);
+        BlockEntityRendererRegistry.register(BarBlocks.BUBBLE_BE, com.boombox.client.render.BarRenderers32.Bubbles::new);
+        com.boombox.bar.BubbleMachineBlock.clientTicker = BarClient::bubbles;
         BlockEntityRendererRegistry.register(BarBlocks.DANCE_FLOOR_BE, BarRenderers.DanceFloor::new);
         EntityRendererRegistry.register(ModEntities.SEAT, NoopRenderer::new);
         EntityRendererRegistry.register(ModEntities.BOUNCER, BarRenderers.BouncerRenderer::new);
         EntityRendererRegistry.register(ModEntities.TRIO, BarRenderers.TrioRenderer::new);
         ConfettiCannonBlock.clientTicker = BarClient::confetti;
         SeuZe.openMenuHook = id -> Minecraft.getInstance().gui.setScreen(new ZeMenuScreen(id));
-        SinucaBlock.openHook = pos -> Minecraft.getInstance().gui.setScreen(new SinucaScreen());
+        SinucaBlock.openHook = BarClient::sinucaClick;
+    }
+
+    // ------------------------------------------------------------ sinuca: pegar o taco, mirar e tacar
+    private static BlockPos aimTable;
+    private static int aimTicks;
+
+    /** Clique na mesa: o primeiro pega o taco; o segundo dá a tacada com a força da barra. */
+    private static void sinucaClick(BlockPos main) {
+        Minecraft mc = Minecraft.getInstance();
+        if (main.equals(aimTable)) {
+            double a = aimAngle(main);
+            if (!Double.isNaN(a)) {
+                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                        new com.boombox.net.Payloads.SinucaShot(main, (float) a, aimPower()));
+            }
+            aimTable = null;
+            return;
+        }
+        aimTable = main.immutable();
+        aimTicks = 0;
+    }
+
+    /** Força da tacada: sobe e desce sozinha; clique na hora certa. */
+    public static float aimPower() {
+        int t = aimTicks % 60;
+        return t < 30 ? t / 30f : (60 - t) / 30f;
+    }
+
+    /** Para onde o taco aponta (ângulo nas coordenadas da mesa), seguindo o olhar; NaN se não está mirando nesta mesa. */
+    public static double aimAngle(BlockPos main) {
+        Minecraft mc = Minecraft.getInstance();
+        if (aimTable == null || !aimTable.equals(main) || mc.player == null || mc.level == null) return Double.NaN;
+        if (!(mc.level.getBlockEntity(main) instanceof com.boombox.bar.SinucaBlockEntity be)) return Double.NaN;
+        var st = mc.level.getBlockState(main);
+        if (!st.hasProperty(SinucaBlock.FACING)) return Double.NaN;
+        net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition(), look = mc.player.getLookAngle();
+        double planeY = main.getY() + 13.2 / 16;
+        if (Math.abs(look.y) < 1e-4) return Double.NaN;
+        double t = (planeY - eye.y) / look.y;
+        if (t < 0) return Double.NaN;
+        double[] l = SinucaBlock.toLocal(main, st.getValue(SinucaBlock.FACING), eye.add(look.scale(t)));
+        return Math.atan2(l[1] - be.z[0], l[0] - be.x[0]);
     }
 
     public static boolean stepped(BlockPos pos) {
@@ -54,9 +99,64 @@ public final class BarClient {
     public static void tick(Minecraft mc) {
         STEPPED.clear();
         if (mc.level == null || mc.player == null) return;
+        if (aimTable != null) {
+            aimTicks++;
+            if (mc.player.isShiftKeyDown() || mc.player.blockPosition().distSqr(aimTable) > 7 * 7
+                    || !(mc.level.getBlockEntity(aimTable) instanceof com.boombox.bar.SinucaBlockEntity)) {
+                aimTable = null;
+                mc.player.sendOverlayMessage(net.minecraft.network.chat.Component.literal("Taco guardado"));
+            } else {
+                int bars = Math.round(aimPower() * 20);
+                var be = (com.boombox.bar.SinucaBlockEntity) mc.level.getBlockEntity(aimTable);
+                String score = be.againstBot ? "  §fVocê " + be.myScore + " x " + be.hisScore + " Aldeão" : "  §f" + be.myScore + " pts";
+                mc.player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+                        "§aForça §2" + "|".repeat(bars) + "§8" + "|".repeat(20 - bars) + score + "  §7(clique: tacar, agachar: soltar o taco)"));
+            }
+        }
         for (Entity e : mc.level.entitiesForRendering()) {
             if (e.distanceToSqr(mc.player) > 32 * 32 || !e.onGround()) continue;
             STEPPED.add(BlockPos.containing(e.getX(), e.getY() - 0.2, e.getZ()).asLong());
+        }
+    }
+
+    /** Máquina de bolhas: solta bolhas com música perto; elas sobem balançando e estouram ao bater em algo. */
+    private static void bubbles(Level level, BlockPos pos, BlockState state, com.boombox.bar.BubbleMachineBlockEntity be) {
+        var r = level.getRandom();
+        boolean on = ClientBoomboxManager.playingNear(Minecraft.getInstance(), Vec3.atCenterOf(pos), 24) != null;
+        if (on && be.bubbles.size() < 40 && r.nextInt(4) == 0) {
+            var d = state.getValue(com.boombox.bar.BubbleMachineBlock.FACING);
+            var b = new com.boombox.bar.BubbleMachineBlockEntity.Bubble();
+            b.x = 0.5 + d.getStepX() * 0.6;
+            b.y = 0.55;
+            b.z = 0.5 + d.getStepZ() * 0.6;
+            b.vx = d.getStepX() * 0.05 + (r.nextDouble() - 0.5) * 0.03;
+            b.vy = 0.012 + r.nextDouble() * 0.015;
+            b.vz = d.getStepZ() * 0.05 + (r.nextDouble() - 0.5) * 0.03;
+            b.size = 0.08f + r.nextFloat() * 0.12f;
+            b.hue = r.nextFloat();
+            b.life = 120 + r.nextInt(160);
+            be.bubbles.add(b);
+        }
+        var it = be.bubbles.iterator();
+        while (it.hasNext()) {
+            var b = it.next();
+            b.age++;
+            b.x += b.vx;
+            b.y += b.vy;
+            b.z += b.vz;
+            b.vx = b.vx * 0.96 + (r.nextDouble() - 0.5) * 0.004;
+            b.vz = b.vz * 0.96 + (r.nextDouble() - 0.5) * 0.004;
+            b.vy = b.vy * 0.98 + 0.0004;
+            double wx = pos.getX() + b.x, wy = pos.getY() + b.y, wz = pos.getZ() + b.z;
+            BlockPos at = BlockPos.containing(wx, wy, wz);
+            boolean hit = !level.getBlockState(at).getCollisionShape(level, at).isEmpty()
+                    || !level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(wx - b.size, wy - b.size, wz - b.size, wx + b.size, wy + b.size, wz + b.size)).isEmpty();
+            if (hit || b.age > b.life) {
+                // ploc! estourou
+                for (int i = 0; i < 4; i++) level.addParticle(ParticleTypes.BUBBLE_POP, wx, wy, wz, (r.nextDouble() - 0.5) * 0.1, 0.02, (r.nextDouble() - 0.5) * 0.1);
+                if (hit && r.nextInt(3) == 0) level.playLocalSound(wx, wy, wz, SoundEvents.BUBBLE_POP, SoundSource.AMBIENT, 0.4f, 1.6f, false);
+                it.remove();
+            }
         }
     }
 

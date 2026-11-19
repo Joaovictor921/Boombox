@@ -34,5 +34,17 @@
   "entity.boombox.bouncer": "Segurança",
   "entity.boombox.trio": "Trio Elétrico",
   "entity.boombox.seat": "Assento",
-  "item.boombox.bouncer_spawn_egg": "Ovo Gerador de Segurança"
+  "item.boombox.bouncer_spawn_egg": "Ovo Gerador de Segurança",
+  "item.boombox.espetinho": "Espetinho",
+  "item.boombox.linguica": "Linguiça Assada",
+  "item.boombox.pao_de_alho": "Pão de Alho",
+  "item.boombox.agua_de_coco": "Água de Coco",
+  "item.boombox.pandeiro": "Pandeiro",
+  "item.boombox.cavaquinho": "Cavaquinho",
+  "block.boombox.grill": "Churrasqueira",
+  "block.boombox.vip_sofa": "Sofá do Camarote",
+  "block.boombox.ice_bucket": "Balde de Gelo",
+  "block.boombox.bubble_machine": "Máquina de Bolhas",
+  "block.boombox.beach_chair": "Cadeira de Praia",
+  "block.boombox.parasol": "Guarda-Sol"
 }

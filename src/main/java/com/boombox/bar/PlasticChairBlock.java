@@ -14,7 +14,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /** Cadeira de plástico de boteco: clique para sentar. */
-public class PlasticChairBlock extends FacingBlock {
+public class PlasticChairBlock extends FacingBlock implements SeatMarker {
     private static final VoxelShape SEAT = Block.box(2, 0, 2, 14, 8, 14);
 
     public PlasticChairBlock(Properties properties) {

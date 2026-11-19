@@ -1,32 +1,92 @@
 {
   "variants": {
-    "facing=north,main=true": {
+    "facing=north,part=0": {
       "model": "boombox:block/pool_table"
     },
-    "facing=north,main=false": {
+    "facing=north,part=1": {
       "model": "boombox:block/pool_table"
     },
-    "facing=east,main=true": {
+    "facing=north,part=2": {
+      "model": "boombox:block/pool_table"
+    },
+    "facing=north,part=3": {
+      "model": "boombox:block/pool_table"
+    },
+    "facing=north,part=4": {
+      "model": "boombox:block/pool_table"
+    },
+    "facing=north,part=5": {
+      "model": "boombox:block/pool_table"
+    },
+    "facing=east,part=0": {
       "model": "boombox:block/pool_table",
       "y": 90
     },
-    "facing=east,main=false": {
+    "facing=east,part=1": {
       "model": "boombox:block/pool_table",
       "y": 90
     },
-    "facing=south,main=true": {
+    "facing=east,part=2": {
+      "model": "boombox:block/pool_table",
+      "y": 90
+    },
+    "facing=east,part=3": {
+      "model": "boombox:block/pool_table",
+      "y": 90
+    },
+    "facing=east,part=4": {
+      "model": "boombox:block/pool_table",
+      "y": 90
+    },
+    "facing=east,part=5": {
+      "model": "boombox:block/pool_table",
+      "y": 90
+    },
+    "facing=south,part=0": {
       "model": "boombox:block/pool_table",
       "y": 180
     },
-    "facing=south,main=false": {
+    "facing=south,part=1": {
       "model": "boombox:block/pool_table",
       "y": 180
     },
-    "facing=west,main=true": {
+    "facing=south,part=2": {
+      "model": "boombox:block/pool_table",
+      "y": 180
+    },
+    "facing=south,part=3": {
+      "model": "boombox:block/pool_table",
+      "y": 180
+    },
+    "facing=south,part=4": {
+      "model": "boombox:block/pool_table",
+      "y": 180
+    },
+    "facing=south,part=5": {
+      "model": "boombox:block/pool_table",
+      "y": 180
+    },
+    "facing=west,part=0": {
       "model": "boombox:block/pool_table",
       "y": 270
     },
-    "facing=west,main=false": {
+    "facing=west,part=1": {
+      "model": "boombox:block/pool_table",
+      "y": 270
+    },
+    "facing=west,part=2": {
+      "model": "boombox:block/pool_table",
+      "y": 270
+    },
+    "facing=west,part=3": {
+      "model": "boombox:block/pool_table",
+      "y": 270
+    },
+    "facing=west,part=4": {
+      "model": "boombox:block/pool_table",
+      "y": 270
+    },
+    "facing=west,part=5": {
       "model": "boombox:block/pool_table",
       "y": 270
     }
