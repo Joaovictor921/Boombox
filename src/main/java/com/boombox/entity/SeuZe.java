@@ -1,5 +1,7 @@
 package com.boombox.entity;
 
+import com.boombox.Achievements;
+
 import com.boombox.ModBlocks;
 import com.boombox.bar.BarBlocks;
 import net.minecraft.network.chat.Component;
@@ -49,6 +51,10 @@ public class SeuZe extends PathfinderMob {
 
     private final Map<UUID, Integer> debt = new LinkedHashMap<>();
     private final Map<UUID, String> names = new LinkedHashMap<>();
+    /** Caderneta dos fregueses: dias (do jogo) em que veio ao bar, último dia, compras e último dia em que foi cumprimentado. */
+    private final Map<UUID, int[]> regulars = new LinkedHashMap<>();
+    /** A partir de quantos dias vindo ao bar o freguês é "fiel" (desconto) e "de carteirinha". */
+    public static final int LOYAL_DAYS = 3, VIP_DAYS = 7;
 
     public SeuZe(EntityType<? extends SeuZe> type, Level level) {
         super(type, level);
@@ -97,6 +103,7 @@ public class SeuZe extends PathfinderMob {
     public void tick() {
         super.tick();
         if (!level().isClientSide() && !hasHome()) setHomeTo(blockPosition(), 1); // não sai de trás do balcão
+        if (level() instanceof ServerLevel sl && tickCount % 20 == 0) greetRegulars(sl);
     }
 
     @Override
@@ -134,6 +141,44 @@ public class SeuZe extends PathfinderMob {
         };
     }
 
+    private int[] card(UUID id) {
+        return regulars.computeIfAbsent(id, k -> new int[]{0, -1, 0, -1});
+    }
+
+    /** Dias vindos ao bar (para outros lugares do mod, ex.: teste). */
+    public int visitDays(UUID id) {
+        int[] c = regulars.get(id);
+        return c == null ? 0 : c[0];
+    }
+
+    /** Anota a visita do dia e cumprimenta pelo nome quem já é de casa. */
+    private void greetRegulars(ServerLevel sl) {
+        int day = (int) (sl.getOverworldClockTime() / 24000L);
+        for (ServerPlayer p : sl.getEntitiesOfClass(ServerPlayer.class, getBoundingBox().inflate(6))) {
+            int[] c = card(p.getUUID());
+            names.put(p.getUUID(), p.getName().getString());
+            if (c[1] != day) {
+                c[0]++;
+                c[1] = day;
+            }
+            if (c[3] == day) continue;
+            c[3] = day;
+            String name = p.getName().getString();
+            getLookControl().setLookAt(p);
+            if (c[0] >= VIP_DAYS) {
+                say(p, "Olha quem chegou, " + name + "! Freguês de carteirinha! O de sempre? A cada 3 pedidos, um é por conta da casa.");
+                Achievements.award(p, "fregues_fiel");
+            } else if (c[0] >= LOYAL_DAYS) {
+                say(p, "Ô, " + name + "! Já virou freguês, hein? Pra você tem desconto: a cada 4 pedidos, um é de graça.");
+            } else if (c[0] == 1) {
+                say(p, "Boa noite, freguês! Primeira vez aqui? Senta aí que a gelada tá trincando.");
+            } else {
+                say(p, "E aí, " + name + ", voltou! Mais umas vindas e você entra na caderneta dos fiéis.");
+            }
+            playSound(SoundEvents.VILLAGER_AMBIENT, 1f, 0.8f);
+        }
+    }
+
     private void say(Player p, String msg) {
         p.sendSystemMessage(Component.literal("§6<Seu Zé>§r " + msg));
     }
@@ -164,6 +209,17 @@ public class SeuZe extends PathfinderMob {
             playSound(SoundEvents.VILLAGER_NO, 1f, 0.8f);
             return;
         }
+        // freguês fiel: a cada 4 (ou 3, de carteirinha) pedidos, um é por conta da casa
+        int[] card = card(p.getUUID());
+        int every = card[0] >= VIP_DAYS ? 3 : card[0] >= LOYAL_DAYS ? 4 : 0;
+        if (every > 0 && (card[2] + 1) % every == 0) {
+            card[2]++;
+            ItemStack gift = new ItemStack(menuItem(item));
+            if (!p.getInventory().add(gift)) spawnAtLocation((ServerLevel) level(), gift);
+            say(p, "Essa é por conta da casa, " + p.getName().getString() + "! Freguês fiel é outra coisa.");
+            playSound(SoundEvents.VILLAGER_CELEBRATE, 1f, 0.8f);
+            return;
+        }
         if (mode == 0) {
             if (!free && countEmeralds(p) < price) {
                 say(p, "Isso custa " + price + " esmeralda(s). Se quiser, eu penduro...");
@@ -179,6 +235,7 @@ public class SeuZe extends PathfinderMob {
             names.put(p.getUUID(), p.getName().getString());
             syncDebts();
         }
+        card[2]++;
         ItemStack out = new ItemStack(menuItem(item));
         if (!p.getInventory().add(out)) spawnAtLocation((ServerLevel) level(), out);
         say(p, mode == 0 ? "Tá aqui: " + MENU[item] + ", saindo!" : MENU[item] + " pendurado(a). Tô anotando na lousa, hein!");
@@ -192,6 +249,9 @@ public class SeuZe extends PathfinderMob {
         debt.forEach((id, v) -> b.append(id).append('=').append(names.getOrDefault(id, "?").replace(";", "").replace("=", ""))
                 .append('=').append(v).append(';'));
         out.putString("Fiado", b.toString());
+        StringBuilder c = new StringBuilder();
+        regulars.forEach((id, v) -> c.append(id).append('=').append(v[0]).append(',').append(v[1]).append(',').append(v[2]).append(',').append(v[3]).append(';'));
+        out.putString("Caderneta", c.toString());
     }
 
     @Override
@@ -208,7 +268,21 @@ public class SeuZe extends PathfinderMob {
                 debt.put(id, Integer.parseInt(f[2]));
             } catch (IllegalArgumentException ignored) {}
         }
+        regulars.clear();
+        for (String part : in.getStringOr("Caderneta", "").split(";")) {
+            String[] f = part.split("=");
+            if (f.length != 2) continue;
+            try {
+                String[] v = f[1].split(",");
+                regulars.put(UUID.fromString(f[0]), new int[]{Integer.parseInt(v[0]), Integer.parseInt(v[1]), Integer.parseInt(v[2]), Integer.parseInt(v[3])});
+            } catch (RuntimeException ignored) {}
+        }
         syncDebts();
+    }
+
+    /** Teste/comando: marca quantos dias o jogador já veio. */
+    public void setVisitDays(UUID id, int days) {
+        card(id)[0] = days;
     }
 
     @Override

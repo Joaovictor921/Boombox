@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/cup_shelf"
+    },
+    "facing=east": {
+      "model": "boombox:block/cup_shelf",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/cup_shelf",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/cup_shelf",
+      "y": 270
+    }
+  }
+}

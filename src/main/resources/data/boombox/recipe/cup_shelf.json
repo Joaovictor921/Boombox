@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    " P ",
+    "PPP"
+  ],
+  "key": {
+    "P": "minecraft:dark_oak_slab"
+  },
+  "result": {
+    "id": "boombox:cup_shelf",
+    "count": 1
+  }
+}

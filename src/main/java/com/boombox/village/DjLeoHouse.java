@@ -48,7 +48,7 @@ public final class DjLeoHouse {
     /** Morro: aceita até esse desnível se não houver lugar melhor (o terreno da vila se ajusta em volta). */
     private static final int MAX_SLOPE_FALLBACK = 7;
 
-    private static volatile StructurePoolElement element, barElement;
+    private static volatile StructurePoolElement element, barElement, smallElement;
 
     private DjLeoHouse() {}
 
@@ -102,6 +102,15 @@ public final class DjLeoHouse {
         return found >= 4 ? best : null;
     }
 
+    private static final String[] EXTRAS = {"quermesse", "feira", "varzea"};
+    private static final StructurePoolElement[] extraElements = new StructurePoolElement[EXTRAS.length];
+
+    private static StructurePoolElement extra(int i) {
+        StructurePoolElement e = extraElements[i];
+        if (e == null) extraElements[i] = e = StructurePoolElement.single(BoomboxMod.MOD_ID + ":" + EXTRAS[i]).apply(StructureTemplatePool.Projection.RIGID);
+        return e;
+    }
+
     /** Chamado depois que todas as peças da vila foram colocadas. */
     public static void addToVillage(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center) {
         List<StructurePiece> pieces = ((StructurePiecesBuilderAccessor) builder).boombox$pieces();
@@ -110,7 +119,12 @@ public final class DjLeoHouse {
         Random shuffler = new Random(rnd.nextLong());
         // 50% balada do DJ Leo, 50% bar do Seu Zé (sorteio fixo por vila: o mesmo mundo dá sempre o mesmo)
         boolean bar = rnd.nextBoolean();
-        placeBeside(builder, ctx, center, element(bar), bar ? BAR_DOORSTEP : DOORSTEP, shuffler);
+        if (!placeBeside(builder, ctx, center, element(bar), bar ? BAR_DOORSTEP : DOORSTEP, shuffler) && !bar) {
+            // a balada com lounge é grande: se não couber, vai a versão sem a área externa
+            StructurePoolElement small = smallElement;
+            if (small == null) smallElement = small = StructurePoolElement.single(TEMPLATE + "_compact").apply(StructureTemplatePool.Projection.RIGID);
+            placeBeside(builder, ctx, center, small, DOORSTEP, shuffler);
+        }
         // vila perto do mar: barraca de praia do lado da água
         BlockPos sea = findSea(ctx, center);
         if (sea != null) {
@@ -124,6 +138,10 @@ public final class DjLeoHouse {
             if (e == null) pagodeElement = e = StructurePoolElement.single(PAGODE_TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
             placeBeside(builder, ctx, center, e, PAGODE_DOORSTEP, shuffler);
         }
+        // 3.3: quermesse (35%), feira de domingo (40%) e campinho de várzea (35%)
+        if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(0), new BlockPos(0, 0, 6), shuffler);
+        if (rnd.nextFloat() < 0.4f) placeBeside(builder, ctx, center, extra(1), new BlockPos(0, 0, 5), shuffler);
+        if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 12), shuffler);
         // em junho a vila também ganha um arraiá
         if (com.boombox.bar.ShowTime.isJune()) {
             StructurePoolElement a = arraiaElement;

@@ -212,6 +212,13 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Drink Neon: a tela fica colorida por "ticks" ticks. */
+    public record NeonVision(int ticks) implements CustomPacketPayload {
+        public static final Type<NeonVision> TYPE = new Type<>(BoomboxMod.id("neon_vision"));
+        public static final StreamCodec<ByteBuf, NeonVision> CODEC = ByteBufCodecs.VAR_INT.map(NeonVision::new, NeonVision::ticks);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** Pedaço de arquivo do servidor. total &lt; 0 = arquivo não existe. */
     public record FileChunk(String sha1, long offset, long total, byte[] data) implements CustomPacketPayload {
         public static final Type<FileChunk> TYPE = new Type<>(BoomboxMod.id("file_chunk"));
@@ -242,6 +249,7 @@ public final class Payloads {
         PayloadTypeRegistry.clientboundPlay().register(UploadNeeded.TYPE, UploadNeeded.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(FileReady.TYPE, FileReady.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(FileChunk.TYPE, FileChunk.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(NeonVision.TYPE, NeonVision.CODEC);
     }
 
     public static boolean isSha1(String s) {

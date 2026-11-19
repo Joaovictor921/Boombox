@@ -33,6 +33,10 @@ public class Bouncer extends PathfinderMob {
     private float outYaw = Float.NaN;
     /** Segurança do camarote: sem pulseira não sobe nunca (nem depois da meia-noite). */
     private boolean vipOnly;
+    /** Este segurança organiza a fila de aldeões na porta (só um por balada). */
+    private boolean queueBoss;
+    private final java.util.List<UUID> line = new java.util.ArrayList<>();
+    private int nextAdmit;
 
     public Bouncer(EntityType<? extends Bouncer> type, Level level) {
         super(type, level);
@@ -49,6 +53,60 @@ public class Bouncer extends PathfinderMob {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(1, new LookAtPlayerGoal(this, Player.class, 8f, 1f));
+    }
+
+    /**
+     * Fila na porta: de noite (e mais ainda em noite de show) chegam aldeões e fazem fila do lado de fora; o segurança
+     * deixa entrar um de cada vez.
+     */
+    private void tickQueue(ServerLevel sl) {
+        float yaw = outYaw * ((float) Math.PI / 180f);
+        Vec3 out = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+        // meio da porta: entre os dois seguranças da entrada
+        Vec3 door = position();
+        for (Bouncer b : sl.getEntitiesOfClass(Bouncer.class, getBoundingBox().inflate(6), b -> b != this && !b.vipOnly)) {
+            door = position().lerp(b.position(), 0.5);
+        }
+        line.removeIf(id -> !(sl.getEntity(id) instanceof Raver r) || !r.isAlive() || r.queueSpot == null);
+        boolean night = sl.isDarkOutside();
+        boolean anyone = sl.players().stream().anyMatch(p -> p.distanceToSqr(this) < 64 * 64);
+        if (!night || !anyone) return;
+        boolean show = com.boombox.bar.ShowTime.isShowNow();
+        // chega gente nova (no máximo 6 na fila)
+        if (line.size() < (show ? 6 : 4) && sl.getRandom().nextInt(show ? 6 : 14) == 0) {
+            Raver r = ModEntities.RAVER.create(sl, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+            if (r != null) {
+                Vec3 from = door.add(out.scale(14 + sl.getRandom().nextInt(4))).add(out.z * (sl.getRandom().nextDouble() - 0.5) * 6, 0, -out.x * (sl.getRandom().nextDouble() - 0.5) * 6);
+                int y = sl.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(from.x), (int) Math.floor(from.z));
+                r.snapTo(from.x, y, from.z, 0, 0);
+                r.setGlow(sl.getRandom().nextInt(3) == 0);
+                r.queueSpot = Vec3.ZERO;
+                sl.addFreshEntity(r);
+                line.add(r.getUUID());
+            }
+        }
+        // cada um no seu lugar da fila
+        for (int i = 0; i < line.size(); i++) {
+            if (sl.getEntity(line.get(i)) instanceof Raver r) {
+                r.queueSpot = door.add(out.scale(2.2 + i * 1.1));
+                r.queueLook = door;
+            }
+        }
+        // libera o primeiro de vez em quando (se ainda cabe gente lá dentro)
+        if (--nextAdmit <= 0 && !line.isEmpty() && sl.getEntity(line.get(0)) instanceof Raver first && first.position().distanceTo(first.queueSpot) < 1.5) {
+            int inside = sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(24), r -> r.queueSpot == null && r.role() == 0).size();
+            if (inside < 26) {
+                line.remove(0);
+                first.queueSpot = null;
+                first.settle = 160;
+                Vec3 in = door.subtract(out.scale(5 + sl.getRandom().nextInt(6)));
+                first.getNavigation().moveTo(in.x, in.y, in.z, 0.6);
+                playSound(SoundEvents.VILLAGER_YES, 1f, 0.7f);
+                nextAdmit = show ? 30 : 60; // ticks/4: ~6 s em show, ~12 s normal
+            } else {
+                nextAdmit = 100;
+            }
+        }
     }
 
     /** Já passou da meia-noite (entrada liberada para todos)? */
@@ -69,6 +127,7 @@ public class Bouncer extends PathfinderMob {
         super.tick();
         if (!(level() instanceof ServerLevel sl) || tickCount % 4 != 0) return;
         if (Float.isNaN(outYaw)) outYaw = getYRot();
+        if (queueBoss) tickQueue(sl);
         if (afterMidnight(sl) && !vipOnly) return;
         // para onde é "fora": a direção em que ele estava virado quando apareceu (para a rua)
         float yaw = outYaw * ((float) Math.PI / 180f);
@@ -115,6 +174,7 @@ public class Bouncer extends PathfinderMob {
         super.addAdditionalSaveData(out);
         if (!Float.isNaN(outYaw)) out.putFloat("OutYaw", outYaw);
         out.putBoolean("VipOnly", vipOnly);
+        out.putBoolean("QueueBoss", queueBoss);
     }
 
     @Override
@@ -122,6 +182,7 @@ public class Bouncer extends PathfinderMob {
         super.readAdditionalSaveData(in);
         outYaw = in.getFloatOr("OutYaw", Float.NaN);
         vipOnly = in.getBooleanOr("VipOnly", false);
+        queueBoss = in.getBooleanOr("QueueBoss", false);
         if (vipOnly) setCustomName(Component.literal("Segurança do Camarote"));
     }
 

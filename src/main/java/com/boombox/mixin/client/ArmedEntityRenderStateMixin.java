@@ -22,5 +22,8 @@ public abstract class ArmedEntityRenderStateMixin {
         if (!(entity instanceof Player)) return;
         if (BoomboxItem.isBoombox(state.rightHandItemStack)) state.rightHandItemState.clear();
         if (BoomboxItem.isBoombox(state.leftHandItemStack)) state.leftHandItemState.clear();
+        // pulseira de luz: o item some da mão e a BraceletLayer desenha a pulseira no pulso
+        if (state.rightHandItemStack.is(com.boombox.bar.BarBlocks.GLOW_BRACELET)) state.rightHandItemState.clear();
+        if (state.leftHandItemStack.is(com.boombox.bar.BarBlocks.GLOW_BRACELET)) state.leftHandItemState.clear();
     }
 }

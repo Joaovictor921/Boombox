@@ -8,7 +8,11 @@
     "client.HumanoidModelMixin",
     "client.SpecialModelRenderersAccessor",
     "client.ParrotMixin",
-    "client.CameraShakeMixin"
+    "client.CameraShakeMixin",
+    "client.PoolCameraMixin",
+    "client.PoolInputMixin",
+    "client.PoolClickMixin",
+    "client.PoolHideMixin"
   ],
   "injectors": {
     "defaultRequire": 1

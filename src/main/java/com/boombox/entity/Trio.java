@@ -55,6 +55,11 @@ public class Trio extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
+        if (level() instanceof net.minecraft.server.level.ServerLevel sl && tickCount % 40 == 0) {
+            for (var p : sl.getEntitiesOfClass(net.minecraft.server.level.ServerPlayer.class, getBoundingBox().inflate(20))) {
+                com.boombox.bar.Cups.give(p, com.boombox.bar.Cups.CARNAVAL);
+            }
+        }
         if (!level().isClientSide() && tickCount > LIFETIME) {
             getPassengers().forEach(p -> p.discard());
             discard(); // os aldeões que seguem somem sozinhos quando o trio vai embora

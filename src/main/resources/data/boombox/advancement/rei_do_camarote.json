@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:vip_sofa"
+    },
+    "title": "Rei do Camarote",
+    "description": "Sente no sofá do camarote com a pulseira VIP",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

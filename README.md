@@ -22,6 +22,55 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.3
+**Sinuca de verdade**:
+- **Regras de bola 8**: a primeira bola encaçapada depois da saída define quem fica com as **lisas** (1 a 7) e quem fica
+  com as **listradas** (9 a 15). Encaçapou bola sua, joga de novo. **Falta** (matar a branca, não acertar nada ou tocar
+  primeiro na bola do outro) passa a vez. A **8 é a última**: matar a 8 antes da hora perde a partida.
+- **Câmera na mesa**, como num jogo de sinuca 3D: clique na mesa e a câmera vai para trás da branca. O mouse mira (e
+  sobe/desce a câmera), **segure o botão direito** para puxar o taco e **solte** para tacar. Enquanto as bolas andam a
+  câmera mostra a mesa de cima. Linha de mira com a "bola fantasma" e a direção da bola atingida. Agachar sai.
+- **Bolas redondas** com número e faixa, que **giram** quando rolam, e física melhor (rolamento, tabela, batidas).
+
+**Bar do Seu Zé**:
+- **Mesa de plástico** arrumada: as bebidas e comidas ficam em cima do tampo (nada atravessando).
+- **Tio Tonho, o bêbado do bar**: fica a noite toda no balcão e, no fim da noite, vai embora cambaleando e cantando.
+- **Caderneta de fregueses fiéis**: o Seu Zé anota os dias em que você vem, te chama pelo nome e dá **desconto**
+  (a cada 4 pedidos, um é de graça; de carteirinha, a cada 3).
+
+**Balada do DJ Leo**:
+- **Drink Neon**: depois de beber, a tela fica colorida, mudando de cor no ritmo da música, por uns segundos.
+- **Fila na porta**: à noite os aldeões fazem fila do lado de fora e o segurança deixa entrar um de cada vez (mais
+  gente em noite de show).
+- **Pulseira de Luz**: segure na mão secundária e ela aparece no pulso, piscando com a música. Muitos aldeões da
+  balada também usam.
+- **Lounge**: deck do lado de fora com **piscina de LED**, espreguiçadeiras, guarda-sóis e balde de gelo.
+
+**Mundo**:
+- **Aniversário na vila**: de vez em quando um aldeão faz aniversário, com bolo, brigadeiro, balões e parabéns
+  (ou use **/aniversario**).
+- **Quermesse**: igrejinha com barraquinhas de **pescaria**, **argolas** (prêmios!) e **correio elegante**
+  (clique em alguém com o bilhete para mandar um recado anônimo).
+- **Feira de domingo**: barracas de fruta, pastel e peixe, com feirantes gritando as ofertas (só vende no domingo).
+- **Futebol de várzea**: campo de terra grande (com muro em volta, linhas, grandes áreas, bandeirinhas e banco) e gols
+  com traves e **rede de verdade**. Dois times de 5 aldeões (**azul** e **vermelho**, com goleiro) jogam de dia, com
+  juiz de verdade: **saída de bola** no meio, **lateral** quando sai pelo lado, **tiro de meta** e **escanteio** pela
+  linha de fundo, **falta** nas disputas (e se você bater num jogador) e, depois do **gol**, recomeça do meio.
+- **Você joga também**: clique com o botão direito na bola para entrar no time azul (de novo: vermelho; de novo:
+  sai). Você ganha a camisa do time; bata na bola para chutar (correndo chuta mais forte) e encoste nela para
+  conduzir. O placar aparece na tela.
+- **Barraqueiro na praia**: a barraca de praia tem um barraqueiro que vende água de coco, Gelada do Zé, espetinho,
+  pastel, drink neon, cadeira de praia e guarda-sol (tela de trocas normal).
+
+**Copos e conquistas**:
+- **Copos de lembrança** de cada evento (Carnaval, Arraiá, Réveillon, Show, Aniversário, Quermesse, Feira, Várzea e
+  Churrasco) para guardar na **Prateleira de Copos**.
+- **Conquistas novas**: Matou a 8, Matou a 8 de primeira, Rei do Camarote, Churrasqueiro de Mão Cheia (100 espetinhos),
+  Virou o Ano na Vila, Freguês de Carteirinha, Craque da Várzea e Colecionador de Copos.
+- As estruturas novas só aparecem em chunks gerados depois de instalar a 3.3.
+
+![Prévia 3.3](https://raw.githubusercontent.com/Joaovictor921/Boombox/main/docs/preview-3.3.png)
+
 ## Novidades da 3.2
 **Bar do Seu Zé**:
 - **Churrasco de domingo**: a **Churrasqueira** assa carne de vaca, carneiro ou frango em **Espetinho** (força),

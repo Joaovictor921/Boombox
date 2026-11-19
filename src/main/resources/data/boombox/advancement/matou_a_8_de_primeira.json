@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:ender_eye"
+    },
+    "title": "Matou a 8 de primeira",
+    "description": "Ganhe uma partida de sinuca sem o adversário dar nenhuma tacada",
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

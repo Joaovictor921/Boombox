@@ -1,0 +1,71 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "carnaval": {
+      "trigger": "minecraft:impossible"
+    },
+    "arraia": {
+      "trigger": "minecraft:impossible"
+    },
+    "reveillon": {
+      "trigger": "minecraft:impossible"
+    },
+    "show": {
+      "trigger": "minecraft:impossible"
+    },
+    "aniversario": {
+      "trigger": "minecraft:impossible"
+    },
+    "quermesse": {
+      "trigger": "minecraft:impossible"
+    },
+    "feira": {
+      "trigger": "minecraft:impossible"
+    },
+    "varzea": {
+      "trigger": "minecraft:impossible"
+    },
+    "churrasco": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "carnaval"
+    ],
+    [
+      "arraia"
+    ],
+    [
+      "reveillon"
+    ],
+    [
+      "show"
+    ],
+    [
+      "aniversario"
+    ],
+    [
+      "quermesse"
+    ],
+    [
+      "feira"
+    ],
+    [
+      "varzea"
+    ],
+    [
+      "churrasco"
+    ]
+  ],
+  "display": {
+    "icon": {
+      "id": "boombox:copo_show"
+    },
+    "title": "Colecionador de Copos",
+    "description": "Junte os 9 copos de lembrança dos eventos",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

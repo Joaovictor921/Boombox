@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:espetinho"
+    },
+    "title": "Churrasqueiro de Mão Cheia",
+    "description": "Asse 100 espetinhos na churrasqueira",
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

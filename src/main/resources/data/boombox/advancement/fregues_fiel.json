@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:beer"
+    },
+    "title": "Freguês de Carteirinha",
+    "description": "Volte ao bar do Seu Zé em 7 dias diferentes",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

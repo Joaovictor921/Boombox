@@ -32,6 +32,7 @@ public class BoomboxClient implements ClientModInitializer {
         BlockEntityRendererRegistry.register(ModBlocks.DISCO_BALL_BE, com.boombox.client.render.DiscoBallRenderer::new);
         com.boombox.SmokeMachineBlock.clientTicker = SmokeMachines::tick;
         BarClient.register();
+        PartyClient33.register();
         com.boombox.entity.DjLeo.openRequestHook = id -> Minecraft.getInstance().gui.setScreen(new DjRequestScreen(id));
         com.boombox.entity.Raver.openTrucoHook = id -> Minecraft.getInstance().gui.setScreen(new TrucoScreen(id));
         com.boombox.entity.MountedSpeaker.openMenuHook = id -> Minecraft.getInstance().gui.setScreen(new BoomboxScreen(Target.entity(id)));
@@ -47,6 +48,7 @@ public class BoomboxClient implements ClientModInitializer {
         LivingEntityRenderLayerRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {
             if (renderer instanceof AvatarRenderer<?> avatar) {
                 helper.register(new HeldBoomboxLayer(avatar));
+                helper.register(new com.boombox.client.render.Renderers33.BraceletLayer(avatar));
             }
         });
 
@@ -63,6 +65,7 @@ public class BoomboxClient implements ClientModInitializer {
             ClientBoomboxManager.tick(mc);
             VideoManager.tick();
             BarClient.tick(mc);
+            PartyClient33.tick(mc);
             ClientFiles.tick();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {

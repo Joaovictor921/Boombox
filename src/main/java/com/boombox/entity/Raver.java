@@ -40,6 +40,34 @@ public class Raver extends PathfinderMob {
     /** Pagode: 1 = pandeiro, 2 = cavaquinho (0 = nenhum). */
     private static final EntityDataAccessor<Integer> INSTRUMENT = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
 
+    /** 3.3: papel especial (bêbado, feirante, boleiro) — ver RaverRoles. */
+    private static final EntityDataAccessor<Integer> ROLE = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
+    /** Pulseira de luz no braço (pisca com a música). */
+    private static final EntityDataAccessor<Boolean> GLOW = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
+    /** Só no servidor: lugares e alvos dos papéis. */
+    net.minecraft.core.BlockPos barHome, houseSpot, fieldHome;
+    java.util.UUID ball;
+    public int stall;
+    public net.minecraft.world.phys.Vec3 queueSpot, queueLook;
+    /** Depois de entrar na balada: alguns ticks andando antes de escolher o "canto" dele. */
+    public int settle;
+
+    public int role() {
+        return entityData.get(ROLE);
+    }
+
+    public void setRole(int role) {
+        entityData.set(ROLE, role);
+    }
+
+    public boolean glow() {
+        return entityData.get(GLOW);
+    }
+
+    public void setGlow(boolean g) {
+        entityData.set(GLOW, g);
+    }
+
     public int instrument() {
         return entityData.get(INSTRUMENT);
     }
@@ -80,6 +108,8 @@ public class Raver extends PathfinderMob {
         builder.define(CARDS, false);
         builder.define(POOL, false);
         builder.define(INSTRUMENT, 0);
+        builder.define(ROLE, 0);
+        builder.define(GLOW, false);
     }
 
     private boolean tvNear(ServerLevel level) {
@@ -140,6 +170,7 @@ public class Raver extends PathfinderMob {
             int prof = getRandom().nextInt(4) == 0 ? 15 : getRandom().nextInt(PROFESSIONS.length);
             entityData.set(LOOK, type * 16 + prof);
         }
+        if (RaverRoles.tick(this, level)) return;
         if (instrument() > 0) {
             var want = instrument() == 1 ? com.boombox.bar.BarBlocks.PANDEIRO : com.boombox.bar.BarBlocks.CAVAQUINHO;
             if (!getMainHandItem().is(want)) setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(want));
@@ -158,7 +189,7 @@ public class Raver extends PathfinderMob {
             } else if (tickCount % 10 == 0 && distanceTo(t) > 4) {
                 getNavigation().moveTo(t, 0.8);
             }
-        } else if (!hasHome()) setHomeTo(blockPosition(), atBar() ? 3 : 6);
+        } else if (!hasHome() && settle == 0) setHomeTo(blockPosition(), atBar() ? 3 : 6);
         // gol na TV do bar: todo mundo perto comemora
         if (atBar() && tickCount % 20 == 0 && com.boombox.bar.FootballMatch.sinceGoal(level.getGameTime()) < 20 && tvNear(level)) {
             celebrate(true);
@@ -201,6 +232,10 @@ public class Raver extends PathfinderMob {
         out.putBoolean("Cards", playingCards());
         out.putBoolean("Pool", playingPool());
         out.putInt("Instrument", instrument());
+        out.putInt("Role", role());
+        out.putBoolean("Glow", glow());
+        out.putInt("Stall", stall);
+        if (queueSpot != null) out.putBoolean("Queued", true);
     }
 
     @Override
@@ -211,6 +246,29 @@ public class Raver extends PathfinderMob {
         entityData.set(CARDS, in.getBooleanOr("Cards", false));
         entityData.set(POOL, in.getBooleanOr("Pool", false));
         entityData.set(INSTRUMENT, in.getIntOr("Instrument", 0));
+        entityData.set(ROLE, in.getIntOr("Role", 0));
+        entityData.set(GLOW, in.getBooleanOr("Glow", false));
+        stall = in.getIntOr("Stall", 0);
+        // estava na fila quando o mundo foi salvo: a fila se refaz sozinha
+        if (in.getBooleanOr("Queued", false)) queueSpot = net.minecraft.world.phys.Vec3.ZERO;
+        // o bêbado também é freguês do bar (cerveja na mão e truco)
+        if (role() == RaverRoles.DRUNK) entityData.set(BAR, true);
+    }
+
+    @Override
+    public boolean hurtServer(ServerLevel level, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        // várzea: bater num boleiro é falta (e não machuca)
+        if ((role() == RaverRoles.TEAM_A || role() == RaverRoles.TEAM_B) && source.getEntity() instanceof Player p) {
+            for (Ball b : level.getEntitiesOfClass(Ball.class, getBoundingBox().inflate(40))) {
+                int t = b.teamOf(this);
+                if (t >= 0) b.foul(t);
+                p.sendOverlayMessage(net.minecraft.network.chat.Component.literal("§cFalta! §fNada de bater no adversário."));
+            }
+            playSound(SoundEvents.VILLAGER_HURT, 1f, 1f);
+            return false;
+        }
+        // barraqueiro e afins não brigam
+        return super.hurtServer(level, source, amount);
     }
 
     @Override

@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:firework_rocket"
+    },
+    "title": "Virou o Ano na Vila",
+    "description": "Esteja numa vila na virada do ano",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

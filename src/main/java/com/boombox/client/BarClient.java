@@ -46,49 +46,8 @@ public final class BarClient {
         EntityRendererRegistry.register(ModEntities.TRIO, BarRenderers.TrioRenderer::new);
         ConfettiCannonBlock.clientTicker = BarClient::confetti;
         SeuZe.openMenuHook = id -> Minecraft.getInstance().gui.setScreen(new ZeMenuScreen(id));
-        SinucaBlock.openHook = BarClient::sinucaClick;
-    }
-
-    // ------------------------------------------------------------ sinuca: pegar o taco, mirar e tacar
-    private static BlockPos aimTable;
-    private static int aimTicks;
-
-    /** Clique na mesa: o primeiro pega o taco; o segundo dá a tacada com a força da barra. */
-    private static void sinucaClick(BlockPos main) {
-        Minecraft mc = Minecraft.getInstance();
-        if (main.equals(aimTable)) {
-            double a = aimAngle(main);
-            if (!Double.isNaN(a)) {
-                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                        new com.boombox.net.Payloads.SinucaShot(main, (float) a, aimPower()));
-            }
-            aimTable = null;
-            return;
-        }
-        aimTable = main.immutable();
-        aimTicks = 0;
-    }
-
-    /** Força da tacada: sobe e desce sozinha; clique na hora certa. */
-    public static float aimPower() {
-        int t = aimTicks % 60;
-        return t < 30 ? t / 30f : (60 - t) / 30f;
-    }
-
-    /** Para onde o taco aponta (ângulo nas coordenadas da mesa), seguindo o olhar; NaN se não está mirando nesta mesa. */
-    public static double aimAngle(BlockPos main) {
-        Minecraft mc = Minecraft.getInstance();
-        if (aimTable == null || !aimTable.equals(main) || mc.player == null || mc.level == null) return Double.NaN;
-        if (!(mc.level.getBlockEntity(main) instanceof com.boombox.bar.SinucaBlockEntity be)) return Double.NaN;
-        var st = mc.level.getBlockState(main);
-        if (!st.hasProperty(SinucaBlock.FACING)) return Double.NaN;
-        net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition(), look = mc.player.getLookAngle();
-        double planeY = main.getY() + 13.2 / 16;
-        if (Math.abs(look.y) < 1e-4) return Double.NaN;
-        double t = (planeY - eye.y) / look.y;
-        if (t < 0) return Double.NaN;
-        double[] l = SinucaBlock.toLocal(main, st.getValue(SinucaBlock.FACING), eye.add(look.scale(t)));
-        return Math.atan2(l[1] - be.z[0], l[0] - be.x[0]);
+        SinucaBlock.openHook = PoolClient::click;
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(PoolClient::startTick);
     }
 
     public static boolean stepped(BlockPos pos) {
@@ -99,20 +58,7 @@ public final class BarClient {
     public static void tick(Minecraft mc) {
         STEPPED.clear();
         if (mc.level == null || mc.player == null) return;
-        if (aimTable != null) {
-            aimTicks++;
-            if (mc.player.isShiftKeyDown() || mc.player.blockPosition().distSqr(aimTable) > 7 * 7
-                    || !(mc.level.getBlockEntity(aimTable) instanceof com.boombox.bar.SinucaBlockEntity)) {
-                aimTable = null;
-                mc.player.sendOverlayMessage(net.minecraft.network.chat.Component.literal("Taco guardado"));
-            } else {
-                int bars = Math.round(aimPower() * 20);
-                var be = (com.boombox.bar.SinucaBlockEntity) mc.level.getBlockEntity(aimTable);
-                String score = be.againstBot ? "  §fVocê " + be.myScore + " x " + be.hisScore + " Aldeão" : "  §f" + be.myScore + " pts";
-                mc.player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
-                        "§aForça §2" + "|".repeat(bars) + "§8" + "|".repeat(20 - bars) + score + "  §7(clique: tacar, agachar: soltar o taco)"));
-            }
-        }
+        PoolClient.endTick(mc);
         for (Entity e : mc.level.entitiesForRendering()) {
             if (e.distanceToSqr(mc.player) > 32 * 32 || !e.onGround()) continue;
             STEPPED.add(BlockPos.containing(e.getX(), e.getY() - 0.2, e.getZ()).asLong());

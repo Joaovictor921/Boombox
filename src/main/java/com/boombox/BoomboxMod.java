@@ -35,6 +35,7 @@ public class BoomboxMod implements ModInitializer {
         ModBlocks.init();
         com.boombox.entity.ModEntities.init();
         com.boombox.bar.BarBlocks.init();
+        Achievements.registerStats();
         Payloads.register();
         ServerBoomboxManager.registerReceivers();
         ServerFiles.registerReceivers();
@@ -74,12 +75,22 @@ public class BoomboxMod implements ModInitializer {
                     return ok ? 1 : 0;
                 })));
 
+        // /aniversario: festa de aniversário de aldeão agora, na vila mais perto
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, env) ->
+                dispatcher.register(net.minecraft.commands.Commands.literal("aniversario").executes(c -> {
+                    var p = c.getSource().getPlayerOrException();
+                    boolean ok = com.boombox.bar.Birthday.start(p.level(), p);
+                    if (!ok) c.getSource().sendFailure(Component.literal("Nenhum aldeão por perto (ou já tem uma festa acontecendo)."));
+                    return ok ? 1 : 0;
+                })));
+
         // /reveillon: solta os fogos de ano novo agora (para testar ou comemorar fora de época)
         net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, env) ->
                 dispatcher.register(net.minecraft.commands.Commands.literal("reveillon").executes(c -> {
                     var server = c.getSource().getServer();
                     server.getPlayerList().broadcastSystemMessage(Component.literal("§e§l✦ FELIZ ANO NOVO! ✦"), false);
                     for (int i = 0; i < 12; i++) ServerBoomboxManager.newYearFireworks(server);
+                    ServerBoomboxManager.newYearGifts(server);
                     return 1;
                 })));
 
@@ -94,6 +105,7 @@ public class BoomboxMod implements ModInitializer {
             if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickDancers(server);
             if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickShow(server);
             ServerBoomboxManager.tickNewYear(server);
+            com.boombox.bar.Birthday.tick(server);
             if (server.getTickCount() % 2400 == 0) com.boombox.entity.Trio.maybeStart(server); // carnaval de vez em quando
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());

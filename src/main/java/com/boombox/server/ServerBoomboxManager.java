@@ -95,8 +95,19 @@ public final class ServerBoomboxManager {
             if (sec == 0 && lastNewYearSecond != 100) {
                 lastNewYearSecond = 100;
                 server.getPlayerList().broadcastSystemMessage(Component.literal("§e§l✦ FELIZ ANO NOVO! ✦ §r§6Feliz " + now.getYear() + "!"), false);
+                newYearGifts(server);
             }
             if (server.getTickCount() % 8 == 0) newYearFireworks(server);
+        }
+    }
+
+    /** Virada: copo de lembrança para todos e conquista para quem está numa vila. */
+    public static void newYearGifts(MinecraftServer server) {
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            com.boombox.bar.Cups.give(p, com.boombox.bar.Cups.REVEILLON);
+            if (!p.level().getEntitiesOfClass(net.minecraft.world.entity.npc.villager.Villager.class, p.getBoundingBox().inflate(64)).isEmpty()) {
+                com.boombox.Achievements.award(p, "virou_o_ano");
+            }
         }
     }
 
@@ -147,6 +158,9 @@ public final class ServerBoomboxManager {
             ServerLevel level = server.overworld();
             for (var dj : level.getEntities(com.boombox.entity.ModEntities.DJ_LEO, d -> true)) {
                 if (level.getNearestPlayer(dj, 64) == null) continue;
+                for (ServerPlayer p : level.getEntitiesOfClass(ServerPlayer.class, dj.getBoundingBox().inflate(32))) {
+                    com.boombox.bar.Cups.give(p, com.boombox.bar.Cups.SHOW);
+                }
                 var r = level.getRandom();
                 for (int i = 0; i < 3; i++) {
                     double x = dj.getX() + r.nextInt(17) - 8, y = dj.getY() + 12 + r.nextInt(6), z = dj.getZ() + r.nextInt(17) - 8;

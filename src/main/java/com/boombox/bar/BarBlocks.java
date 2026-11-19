@@ -62,7 +62,14 @@ public final class BarBlocks {
             .food(new FoodProperties(5, 0.6f, false), eat(new MobEffectInstance(MobEffects.SPEED, 20 * 20, 0))));
     public static final Item COXINHA = item("coxinha", Item::new, new Item.Properties()
             .food(new FoodProperties(6, 0.8f, false), eat(new MobEffectInstance(MobEffects.HASTE, 20 * 30, 0))));
-    public static final Item QUENTAO = item("quentao", Item::new, new Item.Properties().stacksTo(16)
+    public static final Item QUENTAO = item("quentao", p -> new Item(p) {
+                @Override
+                public net.minecraft.world.item.ItemStack finishUsingItem(net.minecraft.world.item.ItemStack stack, net.minecraft.world.level.Level level,
+                                                                         net.minecraft.world.entity.LivingEntity e) {
+                    if (e instanceof net.minecraft.server.level.ServerPlayer sp && ShowTime.isJune()) Cups.give(sp, Cups.ARRAIA);
+                    return super.finishUsingItem(stack, level, e);
+                }
+            }, new Item.Properties().stacksTo(16)
             .food(new FoodProperties(2, 0.3f, true), Consumable.builder().consumeSeconds(1.6f)
                     .animation(ItemUseAnimation.DRINK).sound(SoundEvents.GENERIC_DRINK).hasConsumeParticles(false)
                     .onConsume(new ApplyStatusEffectsConsumeEffect(java.util.List.of(
@@ -135,6 +142,26 @@ public final class BarBlocks {
                     return Block.box(7, 0, 7, 9, 16, 9);
                 }
             }, BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.WOOL).noOcclusion());
+
+    // ---------------- 3.3: festas da vila, balada e copos de lembrança
+    public static final Item BRIGADEIRO = item("brigadeiro", Item::new, new Item.Properties()
+            .food(new FoodProperties(2, 0.3f, true), Consumable.builder().consumeSeconds(0.8f).build()));
+    public static final Item PASTEL = item("pastel", Item::new, new Item.Properties()
+            .food(new FoodProperties(6, 0.6f, false)));
+    public static final Item DRINK_NEON = item("drink_neon", NeonDrinkItem::new, new Item.Properties().stacksTo(16)
+            .food(new FoodProperties(1, 0.1f, true), Consumable.builder().consumeSeconds(1.6f)
+                    .animation(ItemUseAnimation.DRINK).sound(SoundEvents.GENERIC_DRINK).hasConsumeParticles(false)
+                    .onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.SPEED, 20 * 20, 0))).build()));
+    public static final Item GLOW_BRACELET = item("glow_bracelet", Item::new, new Item.Properties().stacksTo(1));
+    public static final Item CORREIO = item("correio_elegante", CorreioItem::new, new Item.Properties().stacksTo(16));
+    public static final Item[] CUPS = new Item[Cups.IDS.length];
+    static {
+        for (int i = 0; i < CUPS.length; i++) CUPS[i] = item("copo_" + Cups.IDS[i], Item::new, new Item.Properties().stacksTo(1));
+    }
+    public static final Block GOAL = block("goal", GoalBlock::new, BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.WOOL).noOcclusion());
+    public static final Block STALL = block("stall", StallBlock::new, BlockBehaviour.Properties.of().strength(1.5f).sound(SoundType.WOOD).noOcclusion());
+    public static final Block CUP_SHELF = block("cup_shelf", CupShelfBlock::new, BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.WOOD).noOcclusion());
+    public static final BlockEntityType<CupShelfBlockEntity> CUP_SHELF_BE = be("cup_shelf", CupShelfBlockEntity::new, CUP_SHELF);
 
     public static void init() {
         // força o carregamento estático

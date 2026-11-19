@@ -64,6 +64,8 @@ public final class BarRenderers {
     public static class Table implements BlockEntityRenderer<PlasticTableBlockEntity, Table.State> {
         public static class State extends BlockEntityRenderState {
             public final List<ItemStackRenderState> items = new ArrayList<>();
+            /** Item "em pé" (garrafa, bloco) ou deitado em cima da mesa (comida, papel). */
+            public final List<Boolean> standing = new ArrayList<>();
         }
 
         private final ItemModelResolver items;
@@ -81,12 +83,15 @@ public final class BarRenderers {
         public void extractRenderState(PlasticTableBlockEntity be, State s, float pt, Vec3 cam, ModelFeatureRenderer.CrumblingOverlay c) {
             BlockEntityRenderer.super.extractRenderState(be, s, pt, cam, c);
             s.items.clear();
+            s.standing.clear();
             for (int i = 0; i < be.items.size(); i++) {
                 ItemStackRenderState r = new ItemStackRenderState();
-                if (!be.items.get(i).isEmpty()) {
-                    items.updateForTopItem(r, be.items.get(i), ItemDisplayContext.GROUND, be.getLevel(), null, (int) be.getBlockPos().asLong() + i);
+                var stack = be.items.get(i);
+                if (!stack.isEmpty()) {
+                    items.updateForTopItem(r, stack, ItemDisplayContext.FIXED, be.getLevel(), null, (int) be.getBlockPos().asLong() + i);
                 }
                 s.items.add(r);
+                s.standing.add(stack.is(com.boombox.ModBlocks.BEER) || stack.getItem() instanceof net.minecraft.world.item.BlockItem);
             }
         }
 
@@ -97,8 +102,19 @@ public final class BarRenderers {
                 ItemStackRenderState r = s.items.get(i);
                 if (r.isEmpty()) continue;
                 ps.pushPose();
-                ps.translate(spots[i][0], 0.94f, spots[i][1]);
-                ps.rotateDegrees(Axis.YP, i * 37f);
+                // tampo da mesa em 15/16: o fundo do item fica encostado nele (nada atravessando)
+                if (s.standing.get(i)) {
+                    float sc = 0.42f;
+                    ps.translate(spots[i][0], 15f / 16f + sc * 0.5f, spots[i][1]);
+                    ps.rotateDegrees(Axis.YP, i * 37f);
+                    ps.scale(sc, sc, sc);
+                } else {
+                    float sc = 0.36f;
+                    ps.translate(spots[i][0], 15f / 16f + 0.012f, spots[i][1]);
+                    ps.rotateDegrees(Axis.YP, i * 37f);
+                    ps.rotateDegrees(Axis.XP, 90f);
+                    ps.scale(sc, sc, sc);
+                }
                 r.submit(ps, collector, s.lightCoords, OverlayTexture.NO_OVERLAY, 0);
                 ps.popPose();
             }

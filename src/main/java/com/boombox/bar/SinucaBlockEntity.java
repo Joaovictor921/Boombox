@@ -20,29 +20,54 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.AABB;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
 /**
- * O jogo de sinuca da mesa, rodando no servidor (todo mundo vê as mesmas bolas). 15 bolas + a branca; lisas valem 1,
- * a 8 (preta) vale 3 e matar a branca dá 1 ponto para o outro. Com aldeões jogando sinuca perto, você joga contra eles
- * (vez de cada um); sem ninguém, é treino. Quando a mesa esvazia, as bolas voltam ao triângulo.
+ * Sinuca de bola 8, rodando no servidor (todo mundo vê as mesmas bolas). Regras de bar:
+ * <ul>
+ *     <li>Na saída a mesa está aberta; a primeira bola encaçapada depois dela define quem fica com as
+ *     <b>lisas</b> (1 a 7) e quem fica com as <b>listradas</b> (9 a 15).</li>
+ *     <li>Encaçapou bola sua sem falta, joga de novo; senão passa a vez.</li>
+ *     <li>Falta: matar a branca, não acertar nenhuma bola, ou tocar primeiro numa bola que não é sua
+ *     (ou na 8 antes da hora). A branca volta para a cabeceira e a vez passa.</li>
+ *     <li>A 8 é a última: quem encaçapa a 8 depois de limpar as suas, sem falta, ganha. Matar a 8 antes
+ *     (ou com falta) perde a partida. Na saída, a 8 que cai volta para o lugar.</li>
+ * </ul>
+ * Lado 0 e lado 1: o primeiro jogador a tacar fica com o lado da vez; com aldeões jogando sinuca perto,
+ * o lado 1 é do aldeão.
  */
 public class SinucaBlockEntity extends BlockEntity {
     public static final int N = 16;
-    public static final double R = 0.045, MARGIN = 0.16, POCKET = 0.1, FRICTION = 0.975;
+    public static final double R = 0.04, MARGIN = 0.16, POCKET = 0.1;
     public static final double X_MAX = SinucaBlock.LENGTH, Z_MAX = SinucaBlock.WIDTH;
+    public static final double HEAD_X = 0.75, FOOT_X = 2.1;
+    public static final String BOT = "Aldeão";
     public static final double[][] POCKETS = {
             {MARGIN, MARGIN}, {X_MAX / 2, MARGIN - 0.03}, {X_MAX - MARGIN, MARGIN},
             {MARGIN, Z_MAX - MARGIN}, {X_MAX / 2, Z_MAX - MARGIN + 0.03}, {X_MAX - MARGIN, Z_MAX - MARGIN}};
 
     public final double[] x = new double[N], z = new double[N], vx = new double[N], vz = new double[N];
     public final boolean[] in = new boolean[N];
-    public boolean botTurn, moving, againstBot;
-    public int myScore, hisScore;
+    /** Cliente: posições da sincronia anterior (para as bolas andarem lisinho). */
+    public final double[] px = new double[N], pz = new double[N];
+    public boolean moving, againstBot;
+    /** Grupo de cada lado: 0 = mesa aberta, 1 = lisas, 2 = listradas. */
+    public final int[] group = new int[2];
+    /** Nome de quem joga em cada lado ("" = ainda livre). */
+    public final String[] names = {"", ""};
+    public int turn, winner = -1;
+    public boolean breakShot = true;
+    /** Tacadas de cada lado na partida (para "matou a 8 de primeira"). */
+    private final int[] shots = new int[2];
     public String message = "Clique na mesa para pegar o taco";
     private int wait;
-    private boolean potted, foul;
+    // durante a tacada
+    private int firstHit = -1;
+    private boolean cuePotted;
+    private final List<Integer> pottedNow = new ArrayList<>();
     private final Random rnd = new Random();
 
     public SinucaBlockEntity(BlockPos pos, BlockState state) {
@@ -50,48 +75,101 @@ public class SinucaBlockEntity extends BlockEntity {
         rack();
     }
 
-    /** Arruma as bolas: branca na cabeceira, as 15 no triângulo com a 8 no meio. */
+    /** Lisas (1) ou listradas (2); a 8 e a branca não têm grupo. */
+    public static int groupOf(int ball) {
+        return ball >= 1 && ball <= 7 ? 1 : ball >= 9 ? 2 : 0;
+    }
+
+    public int remaining(int grp) {
+        int n = 0;
+        for (int i = 1; i < N; i++) if (!in[i] && groupOf(i) == grp) n++;
+        return n;
+    }
+
+    /** Arruma as bolas: branca na cabeceira, as 15 no triângulo com a 8 no meio e uma lisa e uma listrada nos cantos de trás. */
     public void rack() {
-        x[0] = 0.75;
+        x[0] = HEAD_X;
         z[0] = Z_MAX / 2;
         int[] order = {1, 9, 2, 10, 8, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15};
+        // embaralha mantendo a 1 na ponta, a 8 no meio e cantos de trás com grupos diferentes
+        List<Integer> rest = new ArrayList<>(List.of(2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15));
+        java.util.Collections.shuffle(rest, rnd);
         int k = 0;
+        for (int i = 0; i < 15; i++) {
+            if (i == 0) order[i] = 1;
+            else if (i == 4) order[i] = 8;
+            else order[i] = rest.get(k++);
+        }
+        // cantos da última fileira (posições 10 e 14): uma lisa e uma listrada
+        if (groupOf(order[10]) == groupOf(order[14])) {
+            for (int i = 11; i < 14; i++) {
+                if (groupOf(order[i]) != groupOf(order[14])) {
+                    int t = order[i]; order[i] = order[10]; order[10] = t;
+                    break;
+                }
+            }
+        }
+        k = 0;
         for (int row = 0; row < 5; row++) {
             for (int i = 0; i <= row; i++) {
                 int b = order[k++];
-                x[b] = 2.05 + row * (R * 1.8);
-                z[b] = Z_MAX / 2 + (i - row / 2.0) * (R * 2.05);
+                x[b] = FOOT_X + row * (R * 1.74);
+                z[b] = Z_MAX / 2 + (i - row / 2.0) * (R * 2.01);
             }
         }
         for (int i = 0; i < N; i++) {
             vx[i] = vz[i] = 0;
             in[i] = false;
+            px[i] = x[i];
+            pz[i] = z[i];
         }
         moving = false;
-        myScore = hisScore = 0;
-        botTurn = false;
+        group[0] = group[1] = 0;
+        names[0] = "";
+        names[1] = againstBot ? BOT : "";
+        turn = 0;
+        winner = -1;
+        breakShot = true;
+        shots[0] = shots[1] = 0;
     }
 
     /** Tacada: ângulo nas coordenadas da mesa e força de 0 a 1. */
     public void shoot(double angle, double power) {
-        if (moving || in[0]) return;
-        double speed = 0.03 + Math.max(0, Math.min(1, power)) * 0.17; // blocos por tick
+        if (moving || in[0] || winner >= 0) return;
+        double speed = 0.02 + Math.max(0, Math.min(1, power)) * 0.2; // blocos por tick
         vx[0] = Math.cos(angle) * speed;
         vz[0] = Math.sin(angle) * speed;
         moving = true;
-        potted = foul = false;
-        if (level != null) level.playSound(null, worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS, 0.8f, 1.8f);
+        shots[turn]++;
+        firstHit = -1;
+        cuePotted = false;
+        pottedNow.clear();
+        if (level != null) level.playSound(null, worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS, 0.4f + (float) power * 0.6f, 1.8f);
         changed();
+    }
+
+    /** Nome de quem deve jogar agora ("" = qualquer um pode assumir esse lado). */
+    public String turnName() {
+        return names[turn];
     }
 
     /** Pedido de tacada de um jogador (só na vez dele). */
     public void playerShot(ServerPlayer p, double angle, double power) {
         if (moving) return;
-        if (againstBot && botTurn) {
-            p.sendOverlayMessage(Component.literal("§eEspera, é a vez do aldeão!"));
+        if (winner >= 0) {
+            p.sendOverlayMessage(Component.literal("§eA partida acabou; as bolas já voltam ao triângulo."));
             return;
         }
-        message = "Tacada de " + p.getName().getString();
+        String me = p.getName().getString();
+        if (againstBot && names[1].isEmpty()) names[1] = BOT;
+        if (names[turn].isEmpty()) {
+            // lado livre: quem tacar fica com ele (sozinho na mesa, você joga dos dois lados, como treino)
+            names[turn] = me;
+        } else if (!names[turn].equals(me)) {
+            p.sendOverlayMessage(Component.literal("§eEspera, é a vez de " + names[turn] + "!"));
+            return;
+        }
+        message = "Tacada de " + me;
         shoot(angle, power);
     }
 
@@ -106,59 +184,56 @@ public class SinucaBlockEntity extends BlockEntity {
             boolean bot = !sl.getEntitiesOfClass(Raver.class, new AABB(pos).inflate(8), Raver::playingPool).isEmpty();
             if (bot != be.againstBot) {
                 be.againstBot = bot;
+                if (bot && be.names[1].isEmpty()) be.names[1] = BOT;
                 be.changed();
             }
         }
         if (be.moving) {
-            for (int s = 0; s < 8; s++) be.physics(sl, 1.0 / 8);
+            for (int s = 0; s < 8; s++) be.physics(sl);
             boolean still = true;
-            for (int i = 0; i < N; i++) if (!be.in[i] && (Math.abs(be.vx[i]) > 0.0008 || Math.abs(be.vz[i]) > 0.0008)) still = false;
-            if (still) be.endShot();
+            for (int i = 0; i < N; i++) if (!be.in[i] && (be.vx[i] != 0 || be.vz[i] != 0)) still = false;
+            if (still) be.endShot(sl);
             be.changed();
             return;
         }
-        if (be.wait > 0 && --be.wait == 0 && allIn(be)) {
+        if (be.wait > 0 && --be.wait == 0) {
             be.rack();
             be.message = "Bolas no triângulo. Nova partida!";
             be.changed();
         }
-        if (be.againstBot && be.botTurn && be.wait == 0 && level.getGameTime() % 50 == 0) be.botShot();
+        if (be.winner < 0 && be.wait == 0 && BOT.equals(be.names[be.turn]) && be.againstBot && level.getGameTime() % 50 == 0) be.botShot();
     }
 
-    private static boolean allIn(SinucaBlockEntity be) {
-        for (int i = 1; i < N; i++) if (!be.in[i]) return false;
-        return true;
-    }
-
-    private void physics(ServerLevel sl, double dt) {
-        double f = Math.pow(FRICTION, dt);
+    /** Um passo de 1/8 de tick. Atrito de rolamento (desacelera sempre um pouco) + perda nas tabelas e batidas. */
+    private void physics(ServerLevel sl) {
+        double dt = 1.0 / 8;
         for (int i = 0; i < N; i++) {
             if (in[i]) continue;
             x[i] += vx[i] * dt;
             z[i] += vz[i] * dt;
-            vx[i] *= f;
-            vz[i] *= f;
+            double sp = Math.hypot(vx[i], vz[i]);
+            if (sp > 0) {
+                double ns = Math.max(0, sp * Math.pow(0.988, dt) - 0.0009 * dt);
+                if (ns < 0.0006) ns = 0;
+                vx[i] *= ns / sp;
+                vz[i] *= ns / sp;
+            }
             for (double[] p : POCKETS) {
                 if (Math.hypot(x[i] - p[0], z[i] - p[1]) < POCKET) {
                     in[i] = true;
                     vx[i] = vz[i] = 0;
                     sl.playSound(null, worldPosition, SoundEvents.WOOD_HIT, SoundSource.BLOCKS, 0.7f, 0.8f);
-                    if (i == 0) foul = true;
-                    else {
-                        potted = true;
-                        int pts = i == 8 ? 3 : 1;
-                        if (againstBot && botTurn) hisScore += pts;
-                        else myScore += pts;
-                    }
+                    if (i == 0) cuePotted = true;
+                    else pottedNow.add(i);
                     break;
                 }
             }
             if (in[i]) continue;
-            // tabelas (perdem um pouco de força na batida)
-            if (x[i] < MARGIN) { x[i] = MARGIN; vx[i] = -vx[i] * 0.8; }
-            if (x[i] > X_MAX - MARGIN) { x[i] = X_MAX - MARGIN; vx[i] = -vx[i] * 0.8; }
-            if (z[i] < MARGIN) { z[i] = MARGIN; vz[i] = -vz[i] * 0.8; }
-            if (z[i] > Z_MAX - MARGIN) { z[i] = Z_MAX - MARGIN; vz[i] = -vz[i] * 0.8; }
+            // tabelas (perdem força na batida)
+            if (x[i] < MARGIN) { x[i] = MARGIN; vx[i] = -vx[i] * 0.75; cushion(sl, vx[i]); }
+            if (x[i] > X_MAX - MARGIN) { x[i] = X_MAX - MARGIN; vx[i] = -vx[i] * 0.75; cushion(sl, vx[i]); }
+            if (z[i] < MARGIN) { z[i] = MARGIN; vz[i] = -vz[i] * 0.75; cushion(sl, vz[i]); }
+            if (z[i] > Z_MAX - MARGIN) { z[i] = Z_MAX - MARGIN; vz[i] = -vz[i] * 0.75; cushion(sl, vz[i]); }
         }
         for (int i = 0; i < N; i++) {
             if (in[i]) continue;
@@ -171,56 +246,157 @@ public class SinucaBlockEntity extends BlockEntity {
                 x[j] += nx * overlap / 2; z[j] += nz * overlap / 2;
                 double rel = (vx[i] - vx[j]) * nx + (vz[i] - vz[j]) * nz;
                 if (rel > 0) {
-                    vx[i] -= rel * nx; vz[i] -= rel * nz;
-                    vx[j] += rel * nx; vz[j] += rel * nz;
-                    if (rel > 0.02) sl.playSound(null, worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS, 0.4f, 2f);
+                    double imp = rel * 0.97; // bolas quase perfeitamente elásticas
+                    vx[i] -= imp * nx; vz[i] -= imp * nz;
+                    vx[j] += imp * nx; vz[j] += imp * nz;
+                    if (firstHit < 0 && (i == 0 || j == 0)) firstHit = i == 0 ? j : i;
+                    if (rel > 0.01) sl.playSound(null, worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS, (float) Math.min(1, rel * 6), 2f);
                 }
             }
         }
     }
 
-    private void endShot() {
-        moving = false;
-        for (int i = 0; i < N; i++) vx[i] = vz[i] = 0;
-        if (foul) {
-            if (againstBot && !botTurn) hisScore++;
-            else myScore++;
-            in[0] = false;
-            x[0] = 0.75;
-            z[0] = Z_MAX / 2;
-            message = "A branca caiu!";
-        }
-        if (allIn(this)) {
-            message = !againstBot ? "Mesa limpa! " + myScore + " pontos"
-                    : myScore > hisScore ? "Você ganhou! " + myScore + " x " + hisScore
-                    : myScore < hisScore ? "O aldeão ganhou. " + myScore + " x " + hisScore : "Empate! " + myScore + " x " + hisScore;
-            wait = 100;
-            botTurn = false;
-            return;
-        }
-        if (againstBot && (!potted || foul)) botTurn = !botTurn;
-        if (!foul) message = againstBot ? (botTurn ? "Vez do aldeão..." : "Sua vez") : (potted ? "Boa!" : "Sua vez");
+    private void cushion(ServerLevel sl, double v) {
+        if (Math.abs(v) > 0.03) sl.playSound(null, worldPosition, SoundEvents.WOOL_HIT, SoundSource.BLOCKS, 0.5f, 0.8f);
     }
 
-    /** O aldeão mira na bola mais fácil para uma caçapa, com um pouco de erro. */
+    private String side(int s) {
+        return names[s].isEmpty() ? (s == 0 ? "Jogador 1" : "Jogador 2") : names[s];
+    }
+
+    public static String groupName(int g) {
+        return g == 1 ? "lisas" : g == 2 ? "listradas" : "mesa aberta";
+    }
+
+    private void endShot(ServerLevel sl) {
+        moving = false;
+        int me = turn, opp = 1 - turn;
+        boolean foul = cuePotted || firstHit < 0;
+        String why = cuePotted ? "matou a branca" : firstHit < 0 ? "não acertou nenhuma bola" : "";
+        if (!foul && !breakShot) {
+            if (group[me] != 0) {
+                boolean on8 = remaining(group[me]) == 0 && !pottedNow.stream().anyMatch(b -> groupOf(b) == group[me]);
+                if (firstHit == 8 && !on8) { foul = true; why = "tocou primeiro na 8"; }
+                else if (firstHit != 8 && groupOf(firstHit) != group[me]) { foul = true; why = "tocou primeiro na bola do outro"; }
+            } else if (firstHit == 8) {
+                foul = true;
+                why = "tocou primeiro na 8";
+            }
+        }
+        boolean potted8 = pottedNow.contains(8);
+        if (potted8) {
+            if (breakShot && !foul) {
+                // 8 na saída: volta para o lugar dela
+                in[8] = false;
+                x[8] = FOOT_X + 2 * R * 1.74;
+                z[8] = Z_MAX / 2;
+                unstack(8);
+                message = "A 8 caiu na saída e voltou para o lugar.";
+            } else {
+                boolean cleared = group[me] != 0 && remaining(group[me]) == 0;
+                winner = cleared && !foul ? me : opp;
+                message = winner == me ? side(me) + " matou a 8 e ganhou a partida!"
+                        : side(me) + " matou a 8 antes da hora" + (foul ? " (com falta)" : "") + ". " + side(opp) + " ganhou!";
+                sl.playSound(null, worldPosition, winner == me ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_NO, SoundSource.BLOCKS, 1f, 1f);
+                if (winner == me && !names[me].equals(BOT)) {
+                    ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(names[me]);
+                    if (p != null) {
+                        com.boombox.Achievements.award(p, "matou_a_8");
+                        // limpou a mesa sem o outro tacar nenhuma vez
+                        if (shots[opp] == 0 && !names[opp].equals(names[me])) com.boombox.Achievements.award(p, "matou_a_8_de_primeira");
+                    }
+                }
+                wait = 120;
+                return;
+            }
+        }
+        // mesa aberta: a primeira bola encaçapada (sem falta, fora da saída) define os grupos
+        if (group[me] == 0 && !foul && !breakShot) {
+            for (int b : pottedNow) {
+                if (groupOf(b) != 0) {
+                    group[me] = groupOf(b);
+                    group[opp] = 3 - group[me];
+                    message = side(me) + " fica com as " + groupName(group[me]) + "!";
+                    break;
+                }
+            }
+        }
+        boolean pottedOwn = pottedNow.stream().anyMatch(b -> b != 8 && (group[me] == 0 || groupOf(b) == group[me]));
+        if (cuePotted) {
+            in[0] = false;
+            x[0] = HEAD_X;
+            z[0] = Z_MAX / 2;
+            unstack(0);
+        }
+        if (foul) {
+            turn = opp;
+            message = "Falta: " + side(me) + " " + why + ". Vez de " + side(opp) + ".";
+        } else if (pottedOwn) {
+            if (!message.contains("fica com")) message = "Boa, " + side(me) + "! Joga de novo.";
+        } else {
+            turn = opp;
+            message = "Vez de " + side(opp) + ".";
+        }
+        breakShot = false;
+        // treino sozinho na mesa: o lado da vez continua com você
+        if (!againstBot && names[turn].isEmpty() && !names[1 - turn].equals(BOT)) names[turn] = names[1 - turn];
+    }
+
+    /** Afasta a bola recolocada de outras que estejam no mesmo lugar. */
+    private void unstack(int b) {
+        for (int tries = 0; tries < 40; tries++) {
+            boolean ok = true;
+            for (int i = 0; i < N; i++) {
+                if (i == b || in[i]) continue;
+                if (Math.hypot(x[i] - x[b], z[i] - z[b]) < 2 * R) { ok = false; break; }
+            }
+            if (ok) return;
+            x[b] += (b == 0 ? -1 : 1) * R * 0.7;
+            if (x[b] < MARGIN || x[b] > X_MAX - MARGIN) { x[b] = b == 0 ? HEAD_X : FOOT_X; z[b] += R * 2.2; }
+        }
+    }
+
+    /** O aldeão mira na bola mais fácil do grupo dele para uma caçapa, com um pouco de erro. */
     private void botShot() {
-        double best = -1e9, ang = 0;
+        int g = group[turn];
+        boolean on8 = g != 0 && remaining(g) == 0;
+        double best = -1e9, ang = 0, dist = 1;
         for (int b = 1; b < N; b++) {
             if (in[b]) continue;
+            if (on8 ? b != 8 : (b == 8 || (g != 0 && groupOf(b) != g))) continue;
             for (double[] p : POCKETS) {
-                double px = p[0] - x[b], pz = p[1] - z[b], pl = Math.hypot(px, pz);
-                double gx = x[b] - px / pl * 2 * R, gz = z[b] - pz / pl * 2 * R;
+                double qx = p[0] - x[b], qz = p[1] - z[b], ql = Math.hypot(qx, qz);
+                double gx = x[b] - qx / ql * 2 * R, gz = z[b] - qz / ql * 2 * R;
                 double cx = gx - x[0], cz = gz - z[0], cl = Math.hypot(cx, cz);
-                double align = (cx * px + cz * pz) / (cl * pl + 1e-6);
-                double score = align * 2 - (cl + pl) / 3;
+                double align = (cx * qx + cz * qz) / (cl * ql + 1e-6);
+                if (align < 0.2) continue;
+                double score = align * 2 - (cl + ql) / 3 - (blocked(x[0], z[0], gx, gz, b) ? 3 : 0);
                 if (score > best) {
                     best = score;
-                    ang = Math.atan2(cz, cx) + (rnd.nextDouble() - 0.5) * 0.06;
+                    ang = Math.atan2(cz, cx);
+                    dist = cl + ql;
                 }
             }
         }
+        if (best == -1e9) ang = rnd.nextDouble() * Math.PI * 2;
+        ang += (rnd.nextDouble() - 0.5) * (breakShot ? 0.05 : 0.045);
         message = "Tacada do aldeão";
-        shoot(ang, 0.35 + rnd.nextDouble() * 0.4);
+        shoot(ang, breakShot ? 0.9 : Math.min(1, 0.25 + dist * 0.22 + rnd.nextDouble() * 0.1));
+    }
+
+    /** Alguma bola no caminho reto entre a branca e o ponto de contato? */
+    private boolean blocked(double ax, double az, double bx, double bz, int target) {
+        double dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+        if (len < 1e-6) return false;
+        dx /= len; dz /= len;
+        for (int i = 1; i < N; i++) {
+            if (i == target || in[i]) continue;
+            double t = (x[i] - ax) * dx + (z[i] - az) * dz;
+            if (t <= 0 || t >= len) continue;
+            double perp = Math.abs((x[i] - ax) * dz - (z[i] - az) * dx);
+            if (perp < 2 * R) return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------ salvar / mandar para o cliente
@@ -245,10 +421,18 @@ public class SinucaBlockEntity extends BlockEntity {
     protected void loadAdditional(ValueInput in_) {
         super.loadAdditional(in_);
         String b = in_.getStringOr("Balls", "");
-        if (!b.isEmpty()) decode(b);
-        myScore = in_.getIntOr("Me", 0);
-        hisScore = in_.getIntOr("Him", 0);
-        botTurn = in_.getBooleanOr("BotTurn", false);
+        if (!b.isEmpty()) {
+            System.arraycopy(x, 0, px, 0, N);
+            System.arraycopy(z, 0, pz, 0, N);
+            decode(b);
+        }
+        group[0] = in_.getIntOr("G0", 0);
+        group[1] = in_.getIntOr("G1", 0);
+        names[0] = in_.getStringOr("P0", "");
+        names[1] = in_.getStringOr("P1", "");
+        turn = in_.getIntOr("Turn", 0);
+        winner = in_.getIntOr("Winner", -1);
+        breakShot = in_.getBooleanOr("Break", true);
         againstBot = in_.getBooleanOr("AgainstBot", false);
         moving = in_.getBooleanOr("Moving", false);
         message = in_.getStringOr("Msg", message);
@@ -258,9 +442,13 @@ public class SinucaBlockEntity extends BlockEntity {
     protected void saveAdditional(ValueOutput out) {
         super.saveAdditional(out);
         out.putString("Balls", encode());
-        out.putInt("Me", myScore);
-        out.putInt("Him", hisScore);
-        out.putBoolean("BotTurn", botTurn);
+        out.putInt("G0", group[0]);
+        out.putInt("G1", group[1]);
+        out.putString("P0", names[0]);
+        out.putString("P1", names[1]);
+        out.putInt("Turn", turn);
+        out.putInt("Winner", winner);
+        out.putBoolean("Break", breakShot);
         out.putBoolean("AgainstBot", againstBot);
         out.putBoolean("Moving", moving);
         out.putString("Msg", message);

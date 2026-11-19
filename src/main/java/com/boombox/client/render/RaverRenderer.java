@@ -27,6 +27,9 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         public boolean bar;
         public boolean cards;
         public int instrument;
+        public boolean glow;
+        public int role;
+        public float hicSway;
     }
 
     private final float[] levels = new float[2];
@@ -35,6 +38,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         super(ctx, new Model(ctx.bakeLayer(ModelLayers.VILLAGER)), 0.5f);
         addLayer(new Clothes(this));
         addLayer(new Beer(this)); // cerveja na mão (no bar)
+        addLayer(new Extras(this)); // camisa do time da várzea e pulseira de luz
     }
 
     @Override
@@ -50,6 +54,8 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         s.bar = e.atBar();
         s.cards = e.playingCards();
         s.instrument = e.instrument();
+        s.glow = e.glow();
+        s.role = e.role();
         net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
         s.dancing = playing != null && !s.bar;
@@ -107,6 +113,37 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         }
     }
 
+    private static final Identifier SHIRT = com.boombox.BoomboxMod.id("textures/entity/raver_shirt.png");
+
+    /** Camisa do time (azul ou vermelho) por cima da roupa e pulseira de luz nos braços cruzados. */
+    private static class Extras extends RenderLayer<State, Model> {
+        Extras(RenderLayerParent<State, Model> parent) {
+            super(parent);
+        }
+
+        @Override
+        public void submit(PoseStack ps, SubmitNodeCollector collector, int light, State s, float yRot, float xRot) {
+            if (s.isInvisible) return;
+            if (s.role == com.boombox.entity.RaverRoles.TEAM_A || s.role == com.boombox.entity.RaverRoles.TEAM_B) {
+                renderColoredCutoutModel(getParentModel(), SHIRT, ps, collector, light, s,
+                        s.role == com.boombox.entity.RaverRoles.TEAM_A ? 0xFF2D5BE0 : 0xFFE03030, 3);
+            }
+            if (s.glow) {
+                int color = com.boombox.client.render.Renderers33.braceletColor(new net.minecraft.world.phys.Vec3(s.x, s.y, s.z), s.seed);
+                ps.pushPose();
+                getParentModel().arms().translateAndRotate(ps);
+                collector.submitCustomGeometry(ps, PartyGeometry.RENDER_TYPE, (pose, vc) -> {
+                    Geo g = new Geo(pose, vc, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 8);
+                    g.glow(color);
+                    g.box(-8.3f, 1.7f, -2.3f, -6.6f, 6.3f, 2.3f, 9);
+                    g.box(6.6f, 1.7f, -2.3f, 8.3f, 6.3f, 2.3f, 9);
+                    g.reset();
+                });
+                ps.popPose();
+            }
+        }
+    }
+
     /** Modelo de aldeão com a dança: cabeça balançando, braços para cima e corpo gingando. */
     public static class Model extends VillagerModel {
         private final ModelPart head, arms, body, rightLeg, leftLeg;
@@ -118,6 +155,10 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
             body = root.getChild("body");
             rightLeg = root.getChild("right_leg");
             leftLeg = root.getChild("left_leg");
+        }
+
+        public ModelPart arms() {
+            return arms;
         }
 
         @Override

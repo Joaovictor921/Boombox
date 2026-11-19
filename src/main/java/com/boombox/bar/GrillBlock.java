@@ -50,6 +50,13 @@ public class GrillBlock extends FacingBlock implements EntityBlock {
         if (!(level.getBlockEntity(pos) instanceof GrillBlockEntity be)) return InteractionResult.PASS;
         if (level instanceof ServerLevel sl) {
             ItemStack food = be.takeReady();
+            if (!food.isEmpty() && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                if (food.is(BarBlocks.ESPETINHO)) {
+                    sp.awardStat(com.boombox.Achievements.ESPETINHOS);
+                    if (com.boombox.Achievements.stat(sp, com.boombox.Achievements.ESPETINHOS) >= 100) com.boombox.Achievements.award(sp, "assou_100");
+                }
+                if (GrillBlockEntity.isSunday()) Cups.give(sp, Cups.CHURRASCO);
+            }
             if (!food.isEmpty() && !player.getInventory().add(food)) player.spawnAtLocation(sl, food);
         }
         return InteractionResult.SUCCESS;
