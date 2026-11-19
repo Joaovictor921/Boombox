@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " P ",
+    "IGI",
+    "III"
+  ],
+  "key": {
+    "P": "minecraft:paper",
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:gunpowder"
+  },
+  "result": {
+    "id": "boombox:confetti_cannon",
+    "count": 1
+  }
+}

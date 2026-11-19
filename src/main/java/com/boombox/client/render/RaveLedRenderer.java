@@ -200,7 +200,7 @@ public class RaveLedRenderer implements BlockEntityRenderer<RaveLedBlockEntity, 
         // ---- feixes e fumaça (em coordenadas do mundo, a partir do canto do bloco)
         Quaternionf camRot = camera.orientation == null ? new Quaternionf() : new Quaternionf(camera.orientation);
         // camada de desenho depois de tudo (telões, caixas, entidades): o laser na frente aparece na frente
-        collector.order(BEAM_ORDER).submitCustomGeometry(ps, BEAM, (pose, vc) -> {
+        collector.order(BEAM_ORDER).submitCustomGeometry(ps, BeamRenderType.beam(), (pose, vc) -> {
             Light l = new Light(pose, vc);
             float ox = s.origin[0], oy = s.origin[1], oz = s.origin[2];
             Vector3f right = camRot.transform(new Vector3f(1, 0, 0));

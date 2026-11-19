@@ -39,6 +39,19 @@ public final class ModEntities {
     public static final EntityType<MountedSpeaker> MOUNTED_SPEAKER = Registry.register(BuiltInRegistries.ENTITY_TYPE, MOUNTED_KEY,
             EntityType.Builder.<MountedSpeaker>of(MountedSpeaker::new, MobCategory.MISC).sized(0.8f, 1.2f).clientTrackingRange(10).build(MOUNTED_KEY));
 
+    private static <T extends net.minecraft.world.entity.Entity> EntityType<T> reg(String name, EntityType.Builder<T> b) {
+        ResourceKey<EntityType<?>> key = ResourceKey.create(Registries.ENTITY_TYPE, BoomboxMod.id(name));
+        return Registry.register(BuiltInRegistries.ENTITY_TYPE, key, b.build(key));
+    }
+
+    public static final EntityType<Seat> SEAT = reg("seat", EntityType.Builder.<Seat>of(Seat::new, MobCategory.MISC).sized(0.2f, 0.2f));
+    public static final EntityType<Bouncer> BOUNCER = reg("bouncer",
+            EntityType.Builder.<Bouncer>of(Bouncer::new, MobCategory.MISC).sized(0.6f, 1.95f).eyeHeight(1.62f));
+    public static final EntityType<Trio> TRIO = reg("trio", EntityType.Builder.<Trio>of(Trio::new, MobCategory.MISC).sized(2.2f, 1.6f));
+    private static final ResourceKey<Item> BOUNCER_EGG_KEY = ResourceKey.create(Registries.ITEM, BoomboxMod.id("bouncer_spawn_egg"));
+    public static final Item BOUNCER_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, BOUNCER_EGG_KEY,
+            new SpawnEggItem(new Item.Properties().setId(BOUNCER_EGG_KEY).spawnEgg(BOUNCER)));
+
     private ModEntities() {}
 
     public static void init() {
@@ -49,5 +62,8 @@ public final class ModEntities {
         FabricDefaultAttributeRegistry.register(SEU_ZE, SeuZe.createAttributes());
         ModBlocks.ALL_ITEMS.add(SEU_ZE_SPAWN_EGG);
         ModBlocks.ALL_ITEMS.add(ModBlocks.BEER);
+        FabricDefaultAttributeRegistry.register(BOUNCER, Bouncer.createAttributes());
+        FabricDefaultAttributeRegistry.register(TRIO, Trio.createAttributes());
+        ModBlocks.ALL_ITEMS.add(BOUNCER_SPAWN_EGG);
     }
 }

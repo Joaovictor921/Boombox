@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "PBP",
+    "PPP"
+  ],
+  "key": {
+    "P": "minecraft:stick",
+    "B": "minecraft:black_concrete"
+  },
+  "result": {
+    "id": "boombox:fiado_board",
+    "count": 1
+  }
+}

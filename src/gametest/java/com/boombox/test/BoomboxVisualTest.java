@@ -176,7 +176,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             // ---- bar do Seu Zé: a caixinha tem que começar sozinha com uma música da playlist do bar
             server.runCommand("place template boombox:ze_bar 30 -61 40");
             look(ctx, server, new Vec3(33.5, -60, 44.5), -90f, 4f);
-            BlockPos barSpeaker = new BlockPos(37, -59, 42);
+            BlockPos barSpeaker = new BlockPos(40, -59, 42);
             int bw = server.waitFor(s -> s.overworld().getBlockEntity(barSpeaker) instanceof BoomboxBlockEntity be && be.song().hasSong(), 20 * 180);
             String barSong = server.computeOnServer(s -> s.overworld().getBlockEntity(barSpeaker) instanceof BoomboxBlockEntity be
                     ? be.song().title() + " | fila=" + be.song().queue().stream().map(q -> q.title()).toList() : "sem caixa");
@@ -197,7 +197,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 var z = zes.get(0);
                 pl.teleportTo(z.getX() - 2, z.getY(), z.getZ());
                 pl.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD));
-                pl.interactOn(z, net.minecraft.world.InteractionHand.MAIN_HAND, z.position());
+                ((com.boombox.entity.SeuZe) z).order(pl, 0, 0); // compra uma cerveja pelo cardápio
                 int slot = -1;
                 for (int i = 0; i < pl.getInventory().getContainerSize(); i++) if (pl.getInventory().getItem(i).is(com.boombox.ModBlocks.BEER)) slot = i;
                 if (slot < 0) return "Seu Zé não deu a cerveja";
@@ -285,6 +285,104 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 return b.toString();
             });
             System.out.println("[BoomboxTest] conquistas: " + adv);
+
+            // ======================= 3.1 =======================
+            // fiado: pendura duas coisas, vê na lousa, paga
+            String fiado = server.computeOnServer(s -> {
+                var level = s.overworld();
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var zeh = (com.boombox.entity.SeuZe) level.getEntities(ModEntities.SEU_ZE, e -> true).get(0);
+                pl.teleportTo(zeh.getX() - 2, zeh.getY(), zeh.getZ());
+                pl.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+                zeh.order(pl, 2, 1);
+                zeh.order(pl, 1, 1);
+                String depois = zeh.debtsForDisplay().toString();
+                var table = level.getBlockEntity(new BlockPos(33, -60, 42)) instanceof com.boombox.bar.PlasticTableBlockEntity t
+                        ? t.items.stream().filter(i -> !i.isEmpty()).count() : -1;
+                return "fiado na lousa=" + depois + " coisas na mesa=" + table;
+            });
+            System.out.println("[BoomboxTest] 3.1 bar: " + fiado);
+            server.runCommand("time set midnight");
+            look(ctx, server, new Vec3(35.5, -59.4, 47.5), -120f, 8f);
+            ctx.waitTicks(40);
+            ctx.takeScreenshot("bar31_dentro");
+            look(ctx, server, new Vec3(39.5, -59.4, 43.0), -60f, -2f);
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("bar31_lousa");
+            look(ctx, server, new Vec3(36.5, -59.4, 46.0), 0f, 10f);
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("bar31_tv");
+            // sentar na cadeira
+            String sit = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                com.boombox.entity.Seat.sit(s.overworld(), new BlockPos(32, -60, 42), pl, 0.45, net.minecraft.core.Direction.EAST);
+                return "sentado=" + pl.isPassenger();
+            });
+            System.out.println("[BoomboxTest] cadeira: " + sit);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("bar31_sentado");
+            ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+            server.runOnServer(s -> s.getPlayerList().getPlayers().get(0).stopRiding());
+            // sinuca
+            ctx.runOnClient(mc -> mc.gui.setScreen(new com.boombox.client.SinucaScreen()));
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("sinuca");
+            ctx.runOnClient(mc -> mc.gui.setScreen(null));
+
+            // seguranças: antes da meia-noite, sem pulseira, é empurrado; com pulseira, passa
+            server.runCommand("time set 14000");
+            String bouncer = server.computeOnServer(s -> {
+                var level = s.overworld();
+                var bs = level.getEntities(ModEntities.BOUNCER, e -> true);
+                return bs.size() + " seguranças";
+            });
+            server.runCommand("tp @a " + (HX - 1.5) + " " + (HY + 1) + " " + (HZ + 7.5) + " -90 0");
+            ctx.waitTicks(30);
+            double semPulseira = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getX());
+            server.runCommand("give @a boombox:vip_bracelet");
+            server.runCommand("tp @a " + (HX - 1.5) + " " + (HY + 1) + " " + (HZ + 7.5) + " -90 0");
+            ctx.waitTicks(30);
+            double comPulseira = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getX());
+            System.out.println("[BoomboxTest] " + bouncer + ": sem pulseira x=" + String.format(Locale.ROOT, "%.1f", semPulseira)
+                    + " com pulseira x=" + String.format(Locale.ROOT, "%.1f", comPulseira) + " (começou em " + (HX - 1.5) + ")");
+            look(ctx, server, new Vec3(HX - 5.5, HY + 2.2, HZ + 7.5), -90f, 8f);
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("segurancas");
+
+            // fone de ouvido na cabeça (aparece para os outros)
+            server.runCommand("item replace entity @p armor.head with boombox:headphones");
+            server.runCommand("item replace entity @p weapon.mainhand with boombox:boombox");
+            look(ctx, server, new Vec3(HX - 8.5, HY + 1, HZ - 6.5), 0f, 0f);
+            ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("fone");
+            ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+
+            // carnaval
+            server.runCommand("time set noon");
+            String carnaval = server.computeOnServer(s -> {
+                var level = s.overworld();
+                boolean ok = com.boombox.entity.Trio.start(level, new Vec3(0, -60, -40));
+                var trios = level.getEntities(ModEntities.TRIO, e -> true);
+                return "começou=" + ok + " trio com paredão=" + (!trios.isEmpty() && !trios.get(0).getPassengers().isEmpty());
+            });
+            ctx.waitTicks(100);
+            long followers = server.computeOnServer(s -> (long) s.overworld().getEntities(ModEntities.RAVER,
+                    e -> e.position().distanceTo(new Vec3(0, -60, -40)) < 20).size());
+            System.out.println("[BoomboxTest] carnaval: " + carnaval + " foliões=" + followers);
+            var trioPos = server.computeOnServer(s -> s.overworld().getEntities(ModEntities.TRIO, e -> true).get(0).position());
+            look(ctx, server, trioPos.add(-9, 4, -9), -45f, 14f);
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("carnaval");
+
+            // arraiá
+            server.runCommand("place template boombox:arraia -40 -61 0");
+            ctx.waitTicks(20);
+            look(ctx, server, new Vec3(-43.5, -57, -4.5), -40f, 22f);
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("arraia");
 
             look(ctx, server, new Vec3(HX - 9.5, HY + 9, HZ - 9.5), -45f, 22f);
             ctx.waitTicks(20);

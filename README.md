@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-3.0.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,44 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.1
+**Bar do Seu Zé** (agora maior):
+- **Cardápio do Seu Zé**: clique nele e escolha entre Gelada do Zé, **Torresmo** (velocidade), **Coxinha** (pressa) e
+  **Quentão** (regeneração + resistência ao fogo). Pague com esmeralda ou **pendure no fiado**.
+- **Fiado de verdade**: o que você deve fica anotado na **Lousa do Fiado** (nome e valor, escrito a giz). Passou de
+  6 esmeraldas, o Seu Zé não vende mais até você pagar (botão "Pagar o fiado" no cardápio).
+- **Sinuca**: mesa de 2 blocos. Clique nela para jogar contra um aldeão: mire com o mouse, segure para dar força e
+  solte. As bolas rolam, batem nas tabelas e caem nas 6 caçapas (colorida 1 ponto, preta 3; matou a branca, ponto do
+  outro). Os aldeões do bar também jogam (taco na mão e tacadas de vez em quando).
+- **TV de Tubo com futebol**: passa um jogo animado (Zé FC x Vila) com placar e minuto; quando sai gol a tela pisca,
+  aparece "GOOOL!" e os fregueses comemoram. Todo mundo vê o mesmo jogo.
+- **Cadeiras de plástico** (amarela, vermelha e azul) e **Mesa de Plástico** vermelha, no estilo de boteco: clique na
+  cadeira para **sentar**; clique na mesa com qualquer item para **pôr em cima** (até 4), e com a mão vazia para tirar.
+- **Gelada do Zé em 3D**: garrafa âmbar com rótulo vermelho, no chão, na mão, na mesa e com os fregueses.
+  (As cadeiras, a mesa e a garrafa seguem o estilo de boteco, mas com a marca do próprio bar, sem marcas de cerveja de verdade.)
+
+**Balada do DJ Leo:**
+- **Seguranças na porta**: antes da meia-noite (do jogo) só entra quem tem a **Pulseira VIP do DJ Leo** (o segurança
+  vende por 2 barras de ouro); depois da meia-noite a entrada é liberada. Quem já está dentro sai à vontade.
+- **Canhão de Confete**: nas batidas mais fortes solta papel picado colorido, e a cada 4 rajadas, fogos.
+- **Pista de Dança**: cada bloco acende numa cor, muda em ondas, pisca com o grave e fica branco quando alguém pisa.
+- **Show no fim de semana**: sábado e domingo, das 21h às 22h (relógio do computador/servidor), o DJ Leo faz um show:
+  aviso no chat às 20h45 e na hora, playlist especial de sets ao vivo, fogos em cima da balada, mais fumaça e mais
+  confete. Durante o show a balada abre mesmo se for dia no jogo.
+
+**Caixas e música:**
+- **Fone de Ouvido** (vai na cabeça e aparece para os outros): com ele, a caixa que você segura toca **só para você**.
+
+**Mundo:**
+- **Carnaval**: de vez em quando, de dia, um **trio elétrico** (caminhãozinho com paredão em cima) aparece numa vila
+  onde você está e passeia tocando marchinha e axé, com aldeões dançando atrás. Dura 5 minutos. Para chamar na hora:
+  comando **/carnaval**.
+- **Festa junina**: vilas geradas em **junho** (relógio do computador) ganham um **arraiá**: fogueira, bandeirinhas,
+  barraquinha com quentão e uma caixinha tocando forró (Luiz Gonzaga, Dominguinhos, Elba Ramalho...).
+- Prévia: [docs/preview-3.1.png](docs/preview-3.1.png).
+- **Luzes com shaders**: com um shader pack do **Iris** ligado, os lasers e os pontinhos do globo passam a usar o tipo
+  de luz do próprio jogo (que os shaders sabem desenhar), em vez de sumirem.
 
 ## Novidades da 3.0
 - **Seu Zé**: o dono do bar, com skin própria (regata, bigodão grisalho, correntinha e chinelo), fica atrás do balcão.

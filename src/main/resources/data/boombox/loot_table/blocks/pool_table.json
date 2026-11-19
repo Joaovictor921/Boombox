@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "boombox:pool_table"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        },
+        {
+          "condition": "minecraft:block_state_property",
+          "block": "boombox:pool_table",
+          "properties": {
+            "main": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "random_sequence": "boombox:blocks/pool_table"
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW",
+    "P P"
+  ],
+  "key": {
+    "W": "minecraft:green_wool",
+    "P": "minecraft:dark_oak_planks"
+  },
+  "result": {
+    "id": "boombox:pool_table",
+    "count": 1
+  }
+}

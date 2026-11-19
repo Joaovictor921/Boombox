@@ -56,6 +56,7 @@ public final class SmokeMachines {
             double d = Math.sqrt(Vec3.atCenterOf(e.getKey()).distanceToSqr(p));
             best = Math.max(best, (float) Math.max(0, 1 - d / HAZE_RADIUS));
         }
+        if (com.boombox.bar.ShowTime.isShowNow()) best = Math.max(best, 0.5f); // show: fumaça extra
         return Math.min(1f, best * 1.4f);
     }
 

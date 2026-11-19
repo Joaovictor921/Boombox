@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/plastic_chair_blue"
+    },
+    "facing=east": {
+      "model": "boombox:block/plastic_chair_blue",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/plastic_chair_blue",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/plastic_chair_blue",
+      "y": 270
+    }
+  }
+}

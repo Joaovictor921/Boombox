@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GRG",
+    "BLB",
+    "GRG"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "R": "minecraft:redstone",
+    "B": "minecraft:blue_dye",
+    "L": "minecraft:glowstone"
+  },
+  "result": {
+    "id": "boombox:dance_floor",
+    "count": 4
+  }
+}

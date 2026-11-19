@@ -35,6 +35,19 @@ public class Raver extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> BAR = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
     /** Jogando truco na mesa: cartas na mão, bate na mesa e comemora. */
     private static final EntityDataAccessor<Boolean> CARDS = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
+    /** Jogando sinuca: taco na mão, dá uma tacada de vez em quando. */
+    private static final EntityDataAccessor<Boolean> POOL = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
+    /** Carnaval: segue o trio elétrico (some quando o trio vai embora). */
+    private java.util.UUID followTarget;
+
+    public void follow(java.util.UUID trio) {
+        followTarget = trio;
+    }
+
+    public boolean playingPool() {
+        return entityData.get(POOL);
+    }
+
     /** Preenchido pelo cliente: abre a mesa de truco contra este aldeão (id da entidade). */
     public static java.util.function.IntConsumer openTrucoHook;
     public static final String[] TYPES = {"plains", "desert", "savanna", "snow", "taiga", "jungle", "swamp"};
@@ -58,6 +71,19 @@ public class Raver extends PathfinderMob {
         builder.define(LOOK, -1);
         builder.define(BAR, false);
         builder.define(CARDS, false);
+        builder.define(POOL, false);
+    }
+
+    private boolean tvNear(ServerLevel level) {
+        for (var p : net.minecraft.core.BlockPos.betweenClosed(blockPosition().offset(-10, -3, -10), blockPosition().offset(10, 4, 10))) {
+            if (level.getBlockState(p).is(com.boombox.bar.BarBlocks.TV)) return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean removeWhenFarAway(double distance) {
+        return false;
     }
 
     public boolean atBar() {
@@ -106,10 +132,25 @@ public class Raver extends PathfinderMob {
             int prof = getRandom().nextInt(4) == 0 ? 15 : getRandom().nextInt(PROFESSIONS.length);
             entityData.set(LOOK, type * 16 + prof);
         }
-        if (!hasHome()) setHomeTo(blockPosition(), atBar() ? 3 : 6);
+        if (followTarget != null) {
+            var t = level.getEntity(followTarget);
+            if (t == null) {
+                if (tickCount > 60) discard(); // acabou o carnaval
+            } else if (tickCount % 10 == 0 && distanceTo(t) > 4) {
+                getNavigation().moveTo(t, 0.8);
+            }
+        } else if (!hasHome()) setHomeTo(blockPosition(), atBar() ? 3 : 6);
+        // gol na TV do bar: todo mundo perto comemora
+        if (atBar() && tickCount % 20 == 0 && com.boombox.bar.FootballMatch.sinceGoal(level.getGameTime()) < 20 && tvNear(level)) {
+            celebrate(true);
+            if (getRandom().nextInt(3) == 0) level.players().stream().filter(p -> p.distanceTo(this) < 12).forEach(p ->
+                    p.sendOverlayMessage(net.minecraft.network.chat.Component.literal("§a§lGOOOOOL!")));
+        }
         if (atBar()) {
             // no bar: cerveja na mão (garrafa de mel) e um gole de vez em quando
-            var want = playingCards() ? net.minecraft.world.item.Items.PAPER : net.minecraft.world.item.Items.HONEY_BOTTLE;
+            var want = playingPool() ? net.minecraft.world.item.Items.STICK
+                    : playingCards() ? net.minecraft.world.item.Items.PAPER : com.boombox.ModBlocks.BEER;
+            if (playingPool() && getRandom().nextInt(120) == 0) playSound(SoundEvents.STONE_HIT, 0.6f, 1.6f); // tacada
             if (!getMainHandItem().is(want)) setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(want));
             if (playingCards()) {
                 // bate a carta na mesa e, de vez em quando, comemora a vaza
@@ -139,6 +180,7 @@ public class Raver extends PathfinderMob {
         out.putInt("Look", look());
         out.putBoolean("Bar", atBar());
         out.putBoolean("Cards", playingCards());
+        out.putBoolean("Pool", playingPool());
     }
 
     @Override
@@ -147,6 +189,7 @@ public class Raver extends PathfinderMob {
         entityData.set(LOOK, in.getIntOr("Look", -1));
         entityData.set(BAR, in.getBooleanOr("Bar", false));
         entityData.set(CARDS, in.getBooleanOr("Cards", false));
+        entityData.set(POOL, in.getBooleanOr("Pool", false));
     }
 
     @Override
@@ -164,10 +207,6 @@ public class Raver extends PathfinderMob {
         return SoundEvents.VILLAGER_DEATH;
     }
 
-    @Override
-    public boolean removeWhenFarAway(double distance) {
-        return false;
-    }
 
     @Override
     public boolean requiresCustomPersistence() {

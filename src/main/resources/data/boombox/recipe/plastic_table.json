@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CCC",
+    "C C",
+    "C C"
+  ],
+  "key": {
+    "C": "minecraft:red_concrete"
+  },
+  "result": {
+    "id": "boombox:plastic_table",
+    "count": 1
+  }
+}

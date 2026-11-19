@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/old_tv"
+    },
+    "facing=east": {
+      "model": "boombox:block/old_tv",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/old_tv",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/old_tv",
+      "y": 270
+    }
+  }
+}

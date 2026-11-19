@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LIL",
+    "B B"
+  ],
+  "key": {
+    "L": "minecraft:leather",
+    "I": "minecraft:iron_ingot",
+    "B": "minecraft:black_wool"
+  },
+  "result": {
+    "id": "boombox:headphones",
+    "count": 1
+  }
+}

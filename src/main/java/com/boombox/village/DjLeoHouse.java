@@ -42,7 +42,7 @@ public final class DjLeoHouse {
             "village/plains/town_centers", "village/desert/town_centers", "village/savanna/town_centers",
             "village/snowy/town_centers", "village/taiga/town_centers");
     /** Degrau da porta no molde (a porta fica no lado oeste, x = 0). */
-    private static final BlockPos DOORSTEP = new BlockPos(0, 0, 7), BAR_DOORSTEP = new BlockPos(0, 0, 4);
+    private static final BlockPos DOORSTEP = new BlockPos(0, 0, 7), BAR_DOORSTEP = new BlockPos(0, 0, 5);
     /** Desnível máximo do terreno embaixo da casa. */
     private static final int MAX_SLOPE = 3;
     /** Morro: aceita até esse desnível se não houver lugar melhor (o terreno da vila se ajusta em volta). */
@@ -68,20 +68,36 @@ public final class DjLeoHouse {
         return startPool.unwrapKey().map(k -> VILLAGE_STARTS.contains(k.identifier().getPath())).orElse(false);
     }
 
+    /** Arraiá da festa junina (só em vilas geradas em junho, pelo relógio do computador). */
+    public static final String ARRAIA_TEMPLATE = BoomboxMod.MOD_ID + ":arraia";
+    private static final BlockPos ARRAIA_DOORSTEP = new BlockPos(0, 0, 5);
+    private static volatile StructurePoolElement arraiaElement;
+
     /** Chamado depois que todas as peças da vila foram colocadas. */
     public static void addToVillage(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center) {
         List<StructurePiece> pieces = ((StructurePiecesBuilderAccessor) builder).boombox$pieces();
         if (pieces.isEmpty()) return;
-        var manager = ctx.structureTemplateManager();
-        var gen = ctx.chunkGenerator();
-        var heights = ctx.heightAccessor();
-        var randomState = ctx.randomState();
         RandomSource rnd = RandomSource.create(ctx.seed() ^ center.asLong() ^ 0x5EEDD1E0L);
         Random shuffler = new Random(rnd.nextLong());
         // 50% balada do DJ Leo, 50% bar do Seu Zé (sorteio fixo por vila: o mesmo mundo dá sempre o mesmo)
         boolean bar = rnd.nextBoolean();
-        StructurePoolElement house = element(bar);
-        BlockPos doorstep = bar ? BAR_DOORSTEP : DOORSTEP;
+        placeBeside(builder, ctx, center, element(bar), bar ? BAR_DOORSTEP : DOORSTEP, shuffler);
+        // em junho a vila também ganha um arraiá
+        if (com.boombox.bar.ShowTime.isJune()) {
+            StructurePoolElement a = arraiaElement;
+            if (a == null) arraiaElement = a = StructurePoolElement.single(ARRAIA_TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
+            placeBeside(builder, ctx, center, a, ARRAIA_DOORSTEP, shuffler);
+        }
+    }
+
+    /** Coloca a peça encostada numa rua da vila, num lugar livre e de preferência plano. */
+    private static boolean placeBeside(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center,
+                                       StructurePoolElement house, BlockPos doorstep, Random shuffler) {
+        List<StructurePiece> pieces = ((StructurePiecesBuilderAccessor) builder).boombox$pieces();
+        var manager = ctx.structureTemplateManager();
+        var gen = ctx.chunkGenerator();
+        var heights = ctx.heightAccessor();
+        var randomState = ctx.randomState();
 
         List<PoolElementStructurePiece> streets = new ArrayList<>();
         for (StructurePiece p : pieces) {
@@ -126,7 +142,7 @@ public final class DjLeoHouse {
                 if (slope < 0) continue; // água
                 if (slope <= MAX_SLOPE) {
                     builder.addPiece(new PoolElementStructurePiece(manager, house, origin, 0, rot, box, LiquidSettings.IGNORE_WATERLOGGING));
-                    return;
+                    return true;
                 }
                 if (slope < bestSlope) {
                     bestSlope = slope;
@@ -138,7 +154,9 @@ public final class DjLeoHouse {
         }
         if (bestBox != null && bestSlope <= MAX_SLOPE_FALLBACK) {
             builder.addPiece(new PoolElementStructurePiece(manager, house, bestOrigin, 0, bestRot, bestBox, LiquidSettings.IGNORE_WATERLOGGING));
+            return true;
         }
+        return false;
     }
 
     private static double dist(BoundingBox b, BlockPos c) {

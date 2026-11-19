@@ -31,5 +31,36 @@ public final class BeamRenderType {
                     .sortOnUpload()
                     .createRenderSetup());
 
+    private static Boolean irisPresent;
+    private static java.lang.reflect.Method irisInUse;
+    private static Object irisApi;
+
+    /**
+     * Tipo de desenho dos feixes agora. Com um shader pack do Iris ligado, usa o tipo do raio do próprio jogo
+     * (que os shaders já sabem desenhar e fazer brilhar); o nosso tipo especial ficaria invisível nos shaders.
+     */
+    public static RenderType beam() {
+        return shadersOn() ? net.minecraft.client.renderer.rendertype.RenderTypes.lightning() : BEAM;
+    }
+
+    private static boolean shadersOn() {
+        if (irisPresent == null) {
+            try {
+                Class<?> c = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
+                irisApi = c.getMethod("getInstance").invoke(null);
+                irisInUse = c.getMethod("isShaderPackInUse");
+                irisPresent = true;
+            } catch (Throwable t) {
+                irisPresent = false;
+            }
+        }
+        if (!irisPresent) return false;
+        try {
+            return (boolean) irisInUse.invoke(irisApi);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private BeamRenderType() {}
 }

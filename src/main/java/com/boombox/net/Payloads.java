@@ -106,6 +106,17 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Pedido no cardápio do Seu Zé. mode: 0 = paga, 1 = pendura, 2 = paga o fiado. */
+    public record ZeOrder(int zeId, int item, int mode) implements CustomPacketPayload {
+        public static final Type<ZeOrder> TYPE = new Type<>(BoomboxMod.id("ze_order"));
+        public static final StreamCodec<ByteBuf, ZeOrder> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, ZeOrder::zeId,
+                ByteBufCodecs.VAR_INT, ZeOrder::item,
+                ByteBufCodecs.VAR_INT, ZeOrder::mode,
+                ZeOrder::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** Fim de uma partida de truco contra um aldeão do bar. */
     public record TrucoResult(int opponentId, boolean won) implements CustomPacketPayload {
         public static final Type<TrucoResult> TYPE = new Type<>(BoomboxMod.id("truco_result"));
@@ -213,6 +224,7 @@ public final class Payloads {
         PayloadTypeRegistry.serverboundPlay().register(FileRequest.TYPE, FileRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DjRequest.TYPE, DjRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(TrucoResult.TYPE, TrucoResult.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(ZeOrder.TYPE, ZeOrder.CODEC);
 
         PayloadTypeRegistry.clientboundPlay().register(BoomboxState.TYPE, BoomboxState.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(UploadNeeded.TYPE, UploadNeeded.CODEC);

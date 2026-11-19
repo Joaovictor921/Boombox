@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "C  ",
+    "CCC",
+    "C C"
+  ],
+  "key": {
+    "C": "minecraft:blue_concrete"
+  },
+  "result": {
+    "id": "boombox:plastic_chair_blue",
+    "count": 2
+  }
+}

@@ -89,6 +89,8 @@ public final class ClientBoomboxManager {
     private static final Map<String, Payloads.BoomboxState> LEO_IDLE = new HashMap<>();
     /** Quando cada caixa do DJ Leo pediu músicas pela última vez (para não pedir sem parar). */
     private static final Map<String, Long> LEO_ASKED = new HashMap<>();
+    /** Show do fim de semana: sets ao vivo. */
+    private static final String[] SHOW_SEARCHES = {"set eletrofunk ao vivo", "show rave funk ao vivo", "set automotivo ao vivo festival"};
     /** O que o DJ Leo gosta de tocar (sorteia uma pesquisa). */
     private static final String[] LEO_SEARCHES = {
             "eletrofunk rave", "funk rave mix", "automotivo rave funk", "brega funk 2025",
@@ -124,7 +126,7 @@ public final class ClientBoomboxManager {
         String k = p.key();
         SETTINGS_OF.put(k, p.settings());
         State old = STATES.get(k);
-        if (p.settings().autoPlays() && !p.song().hasSong() && p.holder() == null) LEO_IDLE.put(k, p);
+        if (p.settings().autoPlays() && !p.song().hasSong() && !k.startsWith("p|")) LEO_IDLE.put(k, p);
         else LEO_IDLE.remove(k);
         if (!p.song().hasSong()) {
             STATES.remove(k);
@@ -484,12 +486,14 @@ public final class ClientBoomboxManager {
             lastLeoSearch = now;
             LEO_ASKED.put(p.key(), now);
             String key = p.key();
-            String query = LEO_SEARCHES[(int) (Math.random() * LEO_SEARCHES.length)];
+            String pickQuery = LEO_SEARCHES[(int) (Math.random() * LEO_SEARCHES.length)];
             long delay = (long) (Math.random() * 1500);
             if (p.settings().ze()) {
-                askZePlaylist(mc, key, List.of(), "", delay);
+                askZePlaylist(mc, key, ZePlaylist.forOwner(p.settings().ownerName()), List.of(), "", delay);
                 continue;
             }
+            if (com.boombox.bar.ShowTime.isShowNow()) pickQuery = SHOW_SEARCHES[(int) (Math.random() * SHOW_SEARCHES.length)];
+            final String query = pickQuery;
             Tools.EXEC.submit(() -> {
                 try {
                     Thread.sleep(delay);
@@ -515,13 +519,13 @@ public final class ClientBoomboxManager {
      * Bar do Seu Zé: procura no YouTube algumas músicas da playlist do bar e manda para o servidor
      * (forUrl vazio = caixa parada; senão = fila automática da música que está tocando).
      */
-    private static void askZePlaylist(Minecraft mc, String key, List<String> recent, String forUrl, long delay) {
+    private static void askZePlaylist(Minecraft mc, String key, String[] playlist, List<String> recent, String forUrl, long delay) {
         Tools.EXEC.submit(() -> {
             try {
                 Thread.sleep(delay);
                 Tools.ensureReady().get();
                 List<QueueItem> items = new ArrayList<>();
-                for (String track : ZePlaylist.pick(6, recent)) {
+                for (String track : ZePlaylist.pick(playlist, 6, recent)) {
                     List<YouTube.Result> found = YouTube.search(track, 1);
                     if (!found.isEmpty()) {
                         YouTube.Result r = found.get(0);
@@ -576,7 +580,7 @@ public final class ClientBoomboxManager {
             for (State m : members) m.suggested = true;
             List<String> recent = new ArrayList<>(st.song.history().size() + 1);
             recent.add(st.song.title());
-            askZePlaylist(mc, st.key, recent, st.song.url(), (long) (Math.random() * 2500));
+            askZePlaylist(mc, st.key, ZePlaylist.forOwner(st.settings.ownerName()), recent, st.song.url(), (long) (Math.random() * 2500));
             return;
         }
         if (YouTube.videoId(st.song.url()) == null) return;

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IRI",
+    "TGT",
+    "TTT"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "T": "minecraft:white_terracotta",
+    "G": "minecraft:glass_pane"
+  },
+  "result": {
+    "id": "boombox:old_tv",
+    "count": 1
+  }
+}

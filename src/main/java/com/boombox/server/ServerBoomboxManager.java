@@ -39,7 +39,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * todos os jogadores quando algo muda. Cada cliente decide sozinho se está perto o bastante para ouvir.
  */
 public final class ServerBoomboxManager {
-    public record Entry(String dim, BlockPos pos, UUID holder, SongData song, int type, int group, SpeakerSettings settings) {}
+    /** priv = com fone de ouvido: só quem segura a caixa ouve. */
+    public record Entry(String dim, BlockPos pos, UUID holder, SongData song, int type, int group, SpeakerSettings settings, boolean priv) {}
 
     /** Caixas sincronizadas: tocam sempre a mesma coisa ao mesmo tempo (mesma música, fila e volume). */
     private record Group(String dim, Set<BlockPos> members) {}
@@ -72,7 +73,49 @@ public final class ServerBoomboxManager {
 
     /** A balada do DJ Leo só funciona de noite (no fim de tarde já começa). */
     public static boolean raveOpen(ServerLevel level) {
-        return level.isDarkOutside();
+        return level.isDarkOutside() || com.boombox.bar.ShowTime.isShowNow();
+    }
+
+    private static boolean showWas;
+    private static int lastSoonAnnounce = -1;
+
+    /** Show do DJ Leo no fim de semana (relógio do computador): aviso, troca de playlist e fogos. */
+    public static void tickShow(MinecraftServer server) {
+        boolean show = com.boombox.bar.ShowTime.isShowNow();
+        int day = java.time.LocalDate.now().getDayOfYear();
+        if (com.boombox.bar.ShowTime.isShowSoon() && lastSoonAnnounce != day) {
+            lastSoonAnnounce = day;
+            server.getPlayerList().broadcastSystemMessage(Component.literal(
+                    "§d§l♪ Hoje tem show do DJ Leo às " + com.boombox.bar.ShowTime.SHOW_HOUR + "h! §r§dCola na balada mais perto."), false);
+        }
+        if (show && !showWas) {
+            server.getPlayerList().broadcastSystemMessage(Component.literal(
+                    "§d§l♪ COMEÇOU O SHOW DO DJ LEO! §r§dFogos, fumaça e playlist especial até as " + (com.boombox.bar.ShowTime.SHOW_HOUR + 1) + "h."), false);
+            // as caixas do DJ Leo trocam para a playlist do show
+            for (Map.Entry<String, Entry> en : ACTIVE.entrySet()) {
+                Entry e = en.getValue();
+                if (!e.settings().leo() || e.holder() != null) continue;
+                ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, Identifier.parse(e.dim())));
+                if (level == null || !(level.getBlockEntity(e.pos()) instanceof BoomboxBlockEntity be)) continue;
+                Holder h = blockHolder(level, e.pos(), be);
+                h.set(be.song().withQueue(List.of()).stopped());
+                h.sync();
+            }
+        }
+        showWas = show;
+        if (show && server.getTickCount() % 160 == 0) {
+            ServerLevel level = server.overworld();
+            for (var dj : level.getEntities(com.boombox.entity.ModEntities.DJ_LEO, d -> true)) {
+                if (level.getNearestPlayer(dj, 64) == null) continue;
+                var r = level.getRandom();
+                for (int i = 0; i < 3; i++) {
+                    double x = dj.getX() + r.nextInt(17) - 8, y = dj.getY() + 12 + r.nextInt(6), z = dj.getZ() + r.nextInt(17) - 8;
+                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK, x, y, z, 60, 0.2, 0.2, 0.2, 0.25);
+                    level.playSound(null, x, y, z, net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_LARGE_BLAST,
+                            net.minecraft.sounds.SoundSource.AMBIENT, 3f, 0.9f + r.nextFloat() * 0.2f);
+                }
+            }
+        }
     }
     private static final double MAX_USE_DISTANCE_SQ = 10 * 10;
 
@@ -263,6 +306,14 @@ public final class ServerBoomboxManager {
             net.minecraft.world.item.ItemStack prize = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD);
             if (!player.getInventory().add(prize)) r.spawnAtLocation(player.level(), prize);
             player.sendSystemMessage(Component.literal("§a<Aldeão>§r Ganhou, ganhou... Toma a esmeralda. Vai lá no Seu Zé tomar uma!"));
+        });
+
+        // pedido no cardápio do Seu Zé
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.ZeOrder.TYPE, (payload, ctx) -> {
+            ServerPlayer player = ctx.player();
+            if (player.level().getEntity(payload.zeId()) instanceof com.boombox.entity.SeuZe ze) {
+                ze.order(player, payload.item(), payload.mode());
+            }
         });
 
         // sugestões da fila automática (vêm de algum cliente que está ouvindo)
@@ -502,7 +553,7 @@ public final class ServerBoomboxManager {
 
     static void syncEntity(ServerLevel level, com.boombox.entity.MountedSpeaker ms) {
         update(level.getServer(), Payloads.entityKey(ms.getUUID()),
-                new Entry(dim(level), BlockPos.ZERO, ms.getUUID(), ms.song(), ms.speakerType().ordinal(), 0, ms.settings()));
+                new Entry(dim(level), BlockPos.ZERO, ms.getUUID(), ms.song(), ms.speakerType().ordinal(), 0, ms.settings(), false));
     }
 
     public static void removeEntity(ServerLevel level, com.boombox.entity.MountedSpeaker ms) {
@@ -534,7 +585,7 @@ public final class ServerBoomboxManager {
             return;
         }
         int type = level.getBlockState(pos).getBlock() instanceof BoomboxBlock b ? b.type().ordinal() : 0;
-        update(level.getServer(), key, new Entry(dim(level), pos.immutable(), null, song, type, group, settings));
+        update(level.getServer(), key, new Entry(dim(level), pos.immutable(), null, song, type, group, settings, false));
     }
 
     /** Tick da boombox no chão: passa para a próxima quando a música acaba. */
@@ -701,7 +752,8 @@ public final class ServerBoomboxManager {
         if (song == null || player.isSpectator()) {
             remove(server, key);
         } else {
-            update(server, key, new Entry(dim(player.level()), BlockPos.ZERO, player.getUUID(), song, type, 0, settings));
+            update(server, key, new Entry(dim(player.level()), BlockPos.ZERO, player.getUUID(), song, type, 0, settings,
+                    player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(com.boombox.bar.BarBlocks.HEADPHONES)));
         }
     }
 
@@ -751,7 +803,7 @@ public final class ServerBoomboxManager {
 
     private static void remove(MinecraftServer server, String key) {
         Entry old = ACTIVE.remove(key);
-        if (old != null) broadcast(server, key, new Entry(old.dim(), old.pos(), old.holder(), SongData.EMPTY, old.type(), 0, SpeakerSettings.DEFAULT));
+        if (old != null) broadcast(server, key, new Entry(old.dim(), old.pos(), old.holder(), SongData.EMPTY, old.type(), 0, SpeakerSettings.DEFAULT, false));
     }
 
     private static Payloads.BoomboxState toPayload(String key, Entry e, long now) {
@@ -760,10 +812,14 @@ public final class ServerBoomboxManager {
 
     private static void broadcast(MinecraftServer server, String key, Entry e) {
         if (server == null) return;
-        Payloads.BoomboxState payload = toPayload(key, e, System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        Payloads.BoomboxState payload = toPayload(key, e, now);
+        // com fone: os outros jogadores recebem "parada" (não ouvem)
+        Payloads.BoomboxState silent = e.priv() ? toPayload(key, new Entry(e.dim(), e.pos(), e.holder(), SongData.EMPTY, e.type(), 0,
+                SpeakerSettings.DEFAULT, true), now) : payload;
         for (ServerPlayer p : PlayerLookup.all(server)) {
             if (ServerPlayNetworking.canSend(p, Payloads.BoomboxState.TYPE)) {
-                ServerPlayNetworking.send(p, payload);
+                ServerPlayNetworking.send(p, e.priv() && !p.getUUID().equals(e.holder()) ? silent : payload);
             }
         }
     }
@@ -771,7 +827,9 @@ public final class ServerBoomboxManager {
     public static void sendAllTo(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, Payloads.BoomboxState.TYPE)) return;
         long now = System.currentTimeMillis();
-        ACTIVE.forEach((k, e) -> ServerPlayNetworking.send(player, toPayload(k, e, now)));
+        ACTIVE.forEach((k, e) -> {
+            if (!e.priv() || player.getUUID().equals(e.holder())) ServerPlayNetworking.send(player, toPayload(k, e, now));
+        });
     }
 
     public static void clear() {

@@ -34,6 +34,7 @@ public class BoomboxMod implements ModInitializer {
     public void onInitialize() {
         ModBlocks.init();
         com.boombox.entity.ModEntities.init();
+        com.boombox.bar.BarBlocks.init();
         Payloads.register();
         ServerBoomboxManager.registerReceivers();
         ServerFiles.registerReceivers();
@@ -64,6 +65,15 @@ public class BoomboxMod implements ModInitializer {
             return net.minecraft.world.InteractionResult.SUCCESS;
         });
 
+        // /carnaval: chama um trio elétrico na hora, perto de você
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, env) ->
+                dispatcher.register(net.minecraft.commands.Commands.literal("carnaval").executes(c -> {
+                    var p = c.getSource().getPlayerOrException();
+                    boolean ok = com.boombox.entity.Trio.start(p.level(), p.position());
+                    if (!ok) c.getSource().sendFailure(Component.literal("Já tem um carnaval passando por perto!"));
+                    return ok ? 1 : 0;
+                })));
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 ServerBoomboxManager.sendAllTo(handler.getPlayer()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
@@ -73,6 +83,8 @@ public class BoomboxMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (server.getTickCount() % 5 == 0) ServerBoomboxManager.tickPlayers(server);
             if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickDancers(server);
+            if (server.getTickCount() % 20 == 0) ServerBoomboxManager.tickShow(server);
+            if (server.getTickCount() % 2400 == 0) com.boombox.entity.Trio.maybeStart(server); // carnaval de vez em quando
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());
 

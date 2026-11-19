@@ -130,7 +130,7 @@ public class DiscoBallRenderer implements BlockEntityRenderer<DiscoBallBlockEnti
         ps.popPose();
         if (s.brightness <= 0.02f) return;
         // pontinhos de luz (somam luz, desenhados depois de tudo)
-        collector.order(1000).submitCustomGeometry(ps, BeamRenderType.BEAM, (pose, vc) -> {
+        collector.order(1000).submitCustomGeometry(ps, BeamRenderType.beam(), (pose, vc) -> {
             for (int i = 0; i < DOTS; i++) {
                 if (s.hit[i]) dot(vc, pose, s.dots[i], 0.13f, s.color, 0.9f * s.brightness);
             }
