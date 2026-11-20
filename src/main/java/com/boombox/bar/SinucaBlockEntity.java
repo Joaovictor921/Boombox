@@ -53,6 +53,13 @@ public class SinucaBlockEntity extends BlockEntity {
     public final boolean[] in = new boolean[N];
     /** Cliente: posições da sincronia anterior (para as bolas andarem lisinho). */
     public final double[] px = new double[N], pz = new double[N];
+    /** Cliente: quando chegou a última atualização (nanoTime). As bolas vão de px até x em 1 tick e param lá. */
+    public long syncNanos;
+
+    /** Cliente: quanto (0 a 1) já andou de px até x desde a última atualização. */
+    public double syncAlpha() {
+        return syncNanos == 0 ? 1 : Math.max(0, Math.min(1, (System.nanoTime() - syncNanos) / 50_000_000.0));
+    }
     public boolean moving, againstBot;
     /** Grupo de cada lado: 0 = mesa aberta, 1 = lisas, 2 = listradas. */
     public final int[] group = new int[2];
@@ -422,9 +429,14 @@ public class SinucaBlockEntity extends BlockEntity {
         super.loadAdditional(in_);
         String b = in_.getStringOr("Balls", "");
         if (!b.isEmpty()) {
-            System.arraycopy(x, 0, px, 0, N);
-            System.arraycopy(z, 0, pz, 0, N);
+            // começa do ponto em que a bola está sendo desenhada agora (sem pulo para trás)
+            double a = syncAlpha();
+            for (int i = 0; i < N; i++) {
+                px[i] = px[i] + (x[i] - px[i]) * a;
+                pz[i] = pz[i] + (z[i] - pz[i]) * a;
+            }
             decode(b);
+            if (level == null || level.isClientSide()) syncNanos = System.nanoTime();
         }
         group[0] = in_.getIntOr("G0", 0);
         group[1] = in_.getIntOr("G1", 0);

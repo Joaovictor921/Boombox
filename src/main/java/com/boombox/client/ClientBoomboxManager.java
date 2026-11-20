@@ -633,10 +633,16 @@ public final class ClientBoomboxManager {
             return new Vec3(st.pos.getX() + 0.5, st.pos.getY() + 0.4, st.pos.getZ() + 0.5);
         }
         Player p = mc.level.getPlayerByUUID(st.holder);
+        // caixa com você (na mão, ou no mesmo barco/carrinho): o som sai do seu ouvido. Usar a posição do
+        // tick fazia a fonte pular na frente/atrás da câmera quando você anda rápido, e a música "cortava"
+        Vec3 ear = mc.gameRenderer.mainCamera().position();
         if (p == null) {
             var e = MOUNTED.get(st.holder); // paredão andando no barco/carrinho
-            return e == null ? null : e.position().add(0, 0.7, 0);
+            if (e == null) return null;
+            if (e.getVehicle() != null && e.getVehicle() == mc.player.getVehicle()) return ear;
+            return e.position().add(0, 0.7, 0);
         }
+        if (p == mc.player) return ear;
         // boombox: ao lado da cabeça; caixas de festa: na altura da mão / atrás do jogador
         return st.type == SpeakerType.BOOMBOX ? p.getEyePosition() : p.position().add(0, 0.7, 0);
     }

@@ -79,9 +79,11 @@ public final class BarRenderers32 {
             var bs = be.getBlockState();
             s.facing = bs.hasProperty(FacingBlock.FACING) ? bs.getValue(FacingBlock.FACING) : Direction.NORTH;
             int n = SinucaBlockEntity.N;
+            // antes usava o partial tick: sem atualização nova, repetia o último movimento todo tick (bolas piscando)
+            double al = be.syncAlpha();
             for (int i = 0; i < n; i++) {
-                s.x[i] = be.px[i] + (be.x[i] - be.px[i]) * pt;
-                s.z[i] = be.pz[i] + (be.z[i] - be.pz[i]) * pt;
+                s.x[i] = be.px[i] + (be.x[i] - be.px[i]) * al;
+                s.z[i] = be.pz[i] + (be.z[i] - be.pz[i]) * al;
             }
             System.arraycopy(be.in, 0, s.in, 0, n);
             // rolamento: gira cada bola em volta do eixo perpendicular ao caminho (ângulo = distância / raio)

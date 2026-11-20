@@ -271,13 +271,14 @@ public final class AudioStream {
                 boolean moved = physicsAt == null || Math.abs(physicsAt[0] - x) + Math.abs(physicsAt[1] - y) + Math.abs(physicsAt[2] - z) > 1.5;
                 if (ticks++ % 4 == 0 || moved) {
                     Vec3 p = SoundPhysicsCompat.process(source, x, y, z);
-                    physicsPos = p == null ? null : new double[]{p.x, p.y, p.z};
+                    // guarda só o desvio (som contornando parede): andando de barco a fonte não fica para trás
+                    physicsPos = p == null ? null : new double[]{p.x - x, p.y - y, p.z - z};
                     physicsAt = new double[]{x, y, z};
                 }
             } else {
                 applyLowpass(highs);
             }
-            if (physicsPos != null) AL10.alSource3f(source, AL10.AL_POSITION, (float) physicsPos[0], (float) physicsPos[1], (float) physicsPos[2]);
+            if (physicsPos != null) AL10.alSource3f(source, AL10.AL_POSITION, (float) (x + physicsPos[0]), (float) (y + physicsPos[1]), (float) (z + physicsPos[2]));
             else AL10.alSource3f(source, AL10.AL_POSITION, (float) x, (float) y, (float) z);
             AL10.alSourcef(source, AL10.AL_GAIN, gain);
             if (radiusSupported == null) radiusSupported = AL10.alIsExtensionPresent("AL_EXT_SOURCE_RADIUS");
