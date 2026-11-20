@@ -14,6 +14,7 @@ public final class PartyClient34 {
 
     public static void register() {
         BlockEntityRendererRegistry.register(Blocks34.NEON_SIGN_BE, Renderers34.Neon::new);
+        BlockEntityRendererRegistry.register(Blocks34.PLACAR_BE, com.boombox.client.render.Renderers35.Placar::new);
         EntityRendererRegistry.register(ModEntities.VOLLEYBALL, Renderers34.VolleyballRenderer::new);
         EntityRendererRegistry.register(ModEntities.POOL_FLOAT, Renderers34.FloatRenderer::new);
         NeonSignBlock.openHook = pos -> Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.setScreen(new NeonScreen(pos)));

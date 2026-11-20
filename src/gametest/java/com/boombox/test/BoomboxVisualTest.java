@@ -43,10 +43,23 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             server.runCommand("weather clear");
             if ("fut".equals(System.getenv("BOOMBOX_QUICK"))) {
                 server.runCommand("time set noon");
-                server.runCommand("forceload add 70 30 130 80");
-                look(ctx, server, new Vec3(100.5, -48, 33.5), 0f, 50f);
+                server.runCommand("forceload add 70 30 150 90");
+                look(ctx, server, new Vec3(110.5, -40, 30.5), 0f, 45f);
                 ctx.waitTicks(60);
                 server.runCommand("place template boombox:varzea 80 -61 40");
+                ctx.waitTicks(60);
+                String setup = server.computeOnServer(s -> {
+                    var bs = s.overworld().getEntities(ModEntities.BALL, e -> true);
+                    if (bs.isEmpty()) return "sem bola";
+                    var b = bs.get(0);
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Bonde do Teste", 0xF0D020);
+                    long org = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.ORG_FUT).size();
+                    long jog = s.overworld().getEntities(ModEntities.RAVER, r -> b.teamOf(r) >= 0).size();
+                    return "time A=" + b.teamName(0) + " (cor " + Integer.toHexString(b.teamColor(0)) + ") x " + b.teamName(1) + " (cor " + Integer.toHexString(b.teamColor(1))
+                            + ") jogador no time=" + b.teamOf(pl) + " organizadores=" + org + " aldeões jogando=" + jog + " " + b.info();
+                });
+                System.out.println("[BoomboxTest] fut setup: " + setup);
                 java.util.Map<Integer, Vec3> last = new java.util.HashMap<>();
                 for (int i = 0; i < 45; i++) {
                     ctx.waitTicks(20);
@@ -68,8 +81,83 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                                 + " parados=" + still + "/" + rs.size() + "";
                     });
                     System.out.println("[BoomboxTest] fut " + i + ": " + st);
+                    if (i == 20) {
+                        // a pessoa encosta na bola (gruda no pé), anda um pouco e chuta
+                        String pe = server.computeOnServer(s -> {
+                            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+                            var pl = s.getPlayerList().getPlayers().get(0);
+                            b.forcePlay();
+                            pl.teleportTo(b.getX(), b.getY(), b.getZ() - 0.3);
+                            return "";
+                        });
+                        ctx.waitTicks(4);
+                        String pe2 = server.computeOnServer(s -> {
+                            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+                            var pl = s.getPlayerList().getPlayers().get(0);
+                            boolean grudou = b.owner() == pl;
+                            pl.teleportTo(pl.getX() + 1.5, pl.getY(), pl.getZ());
+                            return "grudou=" + grudou;
+                        });
+                        ctx.waitTicks(3);
+                        String pe3 = server.computeOnServer(s -> {
+                            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+                            var pl = s.getPlayerList().getPlayers().get(0);
+                            boolean junto = b.owner() == pl && b.distanceTo(pl) < 1.5;
+                            b.playerAction(pl, com.boombox.entity.Sports.FUT_SHOOT);
+                            return " foi junto=" + junto + " chutou: velocidade=" + String.format(Locale.ROOT, "%.2f", b.getDeltaMovement().horizontalDistance()) + " dono depois=" + (b.owner() != null);
+                        });
+                        System.out.println("[BoomboxTest] fut bola no pé: " + pe2 + pe3);
+                    }
                 }
+                String dives = server.computeOnServer(s -> "posições: " + s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TEAM_A)
+                        .stream().map(r -> r.stall + "@" + String.format(Locale.ROOT, "%.0f,%.0f", r.getX(), r.getZ())).toList());
+                System.out.println("[BoomboxTest] fut " + dives);
+                look(ctx, server, new Vec3(110.5, -57.5, 49.5), 180f, -5f);
+                ctx.waitTicks(30);
+                ctx.takeScreenshot("fut_placar");
+                look(ctx, server, new Vec3(110.5, -35, 58.5), 180f, 55f);
+                ctx.waitTicks(30);
                 ctx.takeScreenshot("fut_quick");
+                return;
+            }
+            if ("vol".equals(System.getenv("BOOMBOX_QUICK"))) {
+                server.runCommand("time set noon");
+                server.runCommand("forceload add -60 40 0 100");
+                look(ctx, server, new Vec3(-29.5, -55, 80.5), 160f, 30f);
+                ctx.waitTicks(60);
+                server.runCommand("place template boombox:volei_praia -40 -61 60");
+                ctx.waitTicks(60);
+                String antes = server.computeOnServer(s -> {
+                    var b = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                    long org = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.ORG_VOLEI).size();
+                    return "quadra=" + b.hasCourt() + " ativo=" + b.active() + " jogadores=" + b.playerCount() + " organizadores=" + org;
+                });
+                System.out.println("[BoomboxTest] vol antes: " + antes);
+                look(ctx, server, new Vec3(-29.5, -55, 72.5), 160f, 30f);
+                ctx.waitTicks(20);
+                ctx.takeScreenshot("vol_vazia");
+                String setup = server.computeOnServer(s -> {
+                    var b = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    pl.teleportTo(-35.5, -60, 66.5);
+                    b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Areia Teste", 0x8E24AA);
+                    return b.teamName(0) + " x " + b.teamName(1) + " jogadores=" + b.playerCount() + " lado da pessoa=" + b.sideOf(pl);
+                });
+                System.out.println("[BoomboxTest] vol setup: " + setup);
+                for (int i = 0; i < 30; i++) {
+                    ctx.waitTicks(20);
+                    String st = server.computeOnServer(s -> {
+                        var b = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                        var pl = s.getPlayerList().getPlayers().get(0);
+                        // a pessoa tenta uma manchete quando a bola chega perto
+                        if (b.distanceTo(pl) < 3) b.playerAction(pl, com.boombox.entity.Sports.VOL_BUMP);
+                        return b.debug() + " placar " + b.score(0) + "x" + b.score(1) + " " + b.info();
+                    });
+                    System.out.println("[BoomboxTest] vol " + i + ": " + st);
+                }
+                look(ctx, server, new Vec3(-29.5, -55, 72.5), 160f, 30f);
+                ctx.waitTicks(10);
+                ctx.takeScreenshot("vol_jogo");
                 return;
             }
             if (System.getenv("BOOMBOX_QUICK") != null) {
@@ -655,7 +743,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 if (balls.isEmpty()) return "sem bola";
                 var b = balls.get(0);
                 var pl = s.getPlayerList().getPlayers().get(0);
-                b.interact(pl, net.minecraft.world.InteractionHand.MAIN_HAND, b.position());
+                b.setup(pl, com.boombox.entity.Sports.AMISTOSO, "", 0);
                 String camisa = pl.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getHoverName().getString();
                 return "campo achado=" + b.hasGoals() + " time do jogador=" + b.teamOf(pl) + " camisa=" + camisa
                         + " placar " + b.scoreA() + "x" + b.scoreB() + " bola parada=" + b.restarting();
@@ -816,6 +904,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             server.runCommand("time set noon");
             server.runCommand("place template boombox:volei_praia -40 -61 60");
             ctx.waitTicks(60);
+            server.runOnServer(s -> {
+                var bs = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true);
+                if (!bs.isEmpty()) bs.get(0).setup(s.getPlayerList().getPlayers().get(0), com.boombox.entity.Sports.AMISTOSO, "", 0);
+            });
             look(ctx, server, new Vec3(-29.5, -55, 80.5), 160f, 30f);
             ctx.waitTicks(400);
             String volei = server.computeOnServer(s -> {

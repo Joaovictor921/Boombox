@@ -98,6 +98,11 @@ public final class Blocks34 {
             BlockBehaviour.Properties.of().strength(0.4f).sound(SoundType.GLASS).noOcclusion().lightLevel(s -> 10));
     public static final BlockEntityType<NeonSignBlockEntity> NEON_SIGN_BE = be("neon_sign", NeonSignBlockEntity::new, NEON_SIGN);
 
+    // ---------------- 3.5: placar do campo e da quadra
+    public static final Block PLACAR = block("placar", PlacarBlock::new,
+            BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.METAL).noOcclusion().lightLevel(s -> 6));
+    public static final BlockEntityType<PlacarBlock.Entity> PLACAR_BE = be("placar", PlacarBlock.Entity::new, PLACAR);
+
     // ---------------- luau
     public static final Item VIOLAO = item("violao", p -> new InstrumentItem(p, SoundEvents.NOTE_BLOCK_GUITAR), new Item.Properties().stacksTo(1));
     public static final Block TIKI_TORCH = block("tiki_torch", TikiTorchBlock::new, BlockBehaviour.Properties.of().strength(0.4f)

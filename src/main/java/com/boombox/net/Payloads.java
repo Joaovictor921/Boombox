@@ -243,7 +243,36 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 3.5: botão de esporte (chute, passe, carrinho, desarme; manchete, levantada, cortada). */
+    public record SportAction(int action) implements CustomPacketPayload {
+        public static final Type<SportAction> TYPE = new Type<>(BoomboxMod.id("sport_action"));
+        public static final StreamCodec<ByteBuf, SportAction> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_INT, SportAction::action, SportAction::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** 3.5: o organizador montou a partida (mode 0 = amistoso, 1 = campeonato; nome e cor do seu time no campeonato). */
+    public record MatchSetup(int organizer, int mode, String name, int color) implements CustomPacketPayload {
+        public static final Type<MatchSetup> TYPE = new Type<>(BoomboxMod.id("match_setup"));
+        public static final StreamCodec<ByteBuf, MatchSetup> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, MatchSetup::organizer,
+                ByteBufCodecs.VAR_INT, MatchSetup::mode,
+                ByteBufCodecs.stringUtf8(64), MatchSetup::name,
+                ByteBufCodecs.INT, MatchSetup::color,
+                MatchSetup::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** 3.5: em que esporte você está jogando agora (0 = nenhum, 1 = futebol, 2 = vôlei), para os botões. */
+    public record SportState(int sport) implements CustomPacketPayload {
+        public static final Type<SportState> TYPE = new Type<>(BoomboxMod.id("sport_state"));
+        public static final StreamCodec<ByteBuf, SportState> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_INT, SportState::sport, SportState::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     public static void register() {
+        PayloadTypeRegistry.serverboundPlay().register(SportAction.TYPE, SportAction.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(MatchSetup.TYPE, MatchSetup.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SportState.TYPE, SportState.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(NeonEdit.TYPE, NeonEdit.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(PlayRequest.TYPE, PlayRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(Control.TYPE, Control.CODEC);

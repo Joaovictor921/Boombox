@@ -46,6 +46,9 @@ public class Raver extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> GLOW = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
     /** 3.4: cor da camisa do time (futebol do campeonato, vôlei); 0 = cor padrão do papel. */
     private static final EntityDataAccessor<Integer> SHIRT = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
+    /** 3.5: goleiro voando na bola (-1 esquerda, 1 direita, 0 em pé); some sozinho depois de uns ticks. */
+    private static final EntityDataAccessor<Integer> DIVE = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
+    private int diveTicks;
     /** 3.4: fogueira do luau (só no servidor) e a noite em que já procurou uma. */
     net.minecraft.core.BlockPos luauFire;
     long luauDay = -1;
@@ -77,6 +80,15 @@ public class Raver extends PathfinderMob {
         return entityData.get(INSTRUMENT);
     }
 
+    public int dive() {
+        return entityData.get(DIVE);
+    }
+
+    public void setDive(int dir) {
+        entityData.set(DIVE, dir);
+        diveTicks = 16;
+    }
+
     public int getShirt() {
         return entityData.get(SHIRT);
     }
@@ -101,6 +113,9 @@ public class Raver extends PathfinderMob {
     public boolean playingPool() {
         return entityData.get(POOL);
     }
+
+    /** Preenchido pelo cliente: abre a tela do organizador (id da entidade, esporte 1 = futebol, 2 = vôlei). */
+    public static java.util.function.BiConsumer<Integer, Integer> openSetupHook;
 
     /** Preenchido pelo cliente: abre a mesa de truco contra este aldeão (id da entidade). */
     public static java.util.function.IntConsumer openTrucoHook;
@@ -130,6 +145,7 @@ public class Raver extends PathfinderMob {
         builder.define(ROLE, 0);
         builder.define(GLOW, false);
         builder.define(SHIRT, 0);
+        builder.define(DIVE, 0);
     }
 
     private boolean tvNear(ServerLevel level) {
@@ -160,6 +176,11 @@ public class Raver extends PathfinderMob {
 
     @Override
     protected net.minecraft.world.InteractionResult mobInteract(Player player, net.minecraft.world.InteractionHand hand) {
+        // organizador do campo / da quadra: abre a tela de amistoso ou campeonato
+        if (role() == RaverRoles.ORG_FUT || role() == RaverRoles.ORG_VOLEI) {
+            if (level().isClientSide() && openSetupHook != null) openSetupHook.accept(getId(), role() == RaverRoles.ORG_FUT ? 1 : 2);
+            return net.minecraft.world.InteractionResult.SUCCESS;
+        }
         // freguês do bar: clique para jogar truco com ele
         if (atBar()) {
             if (level().isClientSide() && openTrucoHook != null) openTrucoHook.accept(getId());
@@ -185,6 +206,7 @@ public class Raver extends PathfinderMob {
     public void tick() {
         super.tick();
         if (!(level() instanceof ServerLevel level)) return;
+        if (diveTicks > 0 && --diveTicks == 0) entityData.set(DIVE, 0);
         if (look() < 0) {
             int type = getRandom().nextInt(TYPES.length);
             int prof = getRandom().nextInt(4) == 0 ? 15 : getRandom().nextInt(PROFESSIONS.length);

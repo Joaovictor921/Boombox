@@ -97,5 +97,10 @@
   "painting.boombox.poster_paredao.title": "Turnê Paredão",
   "painting.boombox.poster_paredao.author": "Gráfica da Vila",
   "painting.boombox.poster_piscina.title": "Rave na Piscina",
-  "painting.boombox.poster_piscina.author": "Gráfica da Vila"
+  "painting.boombox.poster_piscina.author": "Gráfica da Vila",
+  "block.boombox.placar": "Placar",
+  "key.boombox.carrinho": "Carrinho (futebol)",
+  "key.boombox.colocar_pe": "Colocar o pé (futebol)",
+  "key.boombox.levantar": "Levantar (vôlei)",
+  "key.category.boombox.sports": "Boombox: esportes"
 }

@@ -34,6 +34,7 @@ public class BoomboxClient implements ClientModInitializer {
         BarClient.register();
         PartyClient33.register();
         PartyClient34.register();
+        SportsClient.register();
         com.boombox.entity.DjLeo.openRequestHook = id -> Minecraft.getInstance().gui.setScreen(new DjRequestScreen(id));
         com.boombox.entity.Raver.openTrucoHook = id -> Minecraft.getInstance().gui.setScreen(new TrucoScreen(id));
         com.boombox.entity.MountedSpeaker.openMenuHook = id -> Minecraft.getInstance().gui.setScreen(new BoomboxScreen(Target.entity(id)));
@@ -67,6 +68,7 @@ public class BoomboxClient implements ClientModInitializer {
             VideoManager.tick();
             BarClient.tick(mc);
             PartyClient33.tick(mc);
+            SportsClient.tick(mc);
             ClientFiles.tick();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {

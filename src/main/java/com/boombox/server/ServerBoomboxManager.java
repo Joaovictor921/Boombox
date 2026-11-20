@@ -191,6 +191,27 @@ public final class ServerBoomboxManager {
     // ------------------------------------------------------------ pedidos dos jogadores
 
     public static void registerReceivers() {
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.SportAction.TYPE, (p, ctx) -> com.boombox.entity.Sports.action(ctx.player(), p.action()));
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.MatchSetup.TYPE, (p, ctx) -> {
+            ServerPlayer player = ctx.player();
+            if (!(player.level().getEntity(p.organizer()) instanceof com.boombox.entity.Raver org) || org.distanceTo(player) > 8) return;
+            ServerLevel sl = (ServerLevel) player.level();
+            if (org.role() == com.boombox.entity.RaverRoles.ORG_FUT) {
+                var ball = com.boombox.entity.Sports.footballNear(sl, org.position());
+                if (ball == null || !ball.hasGoals()) {
+                    player.sendSystemMessage(Component.literal("§7O campo ainda não está pronto (sem bola ou sem gols)."));
+                    return;
+                }
+                ball.setup(player, p.mode(), p.name(), p.color());
+            } else if (org.role() == com.boombox.entity.RaverRoles.ORG_VOLEI) {
+                var ball = com.boombox.entity.Sports.volleyNear(sl, org.position());
+                if (ball == null || !ball.hasCourt()) {
+                    player.sendSystemMessage(Component.literal("§7A quadra ainda não está pronta (sem bola ou sem rede)."));
+                    return;
+                }
+                ball.setup(player, p.mode(), p.name(), p.color());
+            }
+        });
         ServerPlayNetworking.registerGlobalReceiver(Payloads.NeonEdit.TYPE, (p, ctx) -> {
             ServerPlayer player = ctx.player();
             if (player.blockPosition().distSqr(p.pos()) > 10 * 10) return;

@@ -19,7 +19,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class RaverRoles {
     public static final int NONE = 0, DRUNK = 1, FEIRANTE = 2, TEAM_A = 3, TEAM_B = 4, BARTENDER = 5,
-            VOLEI_A = 6, VOLEI_B = 7, LUAU = 8, VIP = 9;
+            VOLEI_A = 6, VOLEI_B = 7, LUAU = 8, VIP = 9, ORG_FUT = 10, ORG_VOLEI = 11;
 
     private RaverRoles() {}
 
@@ -35,6 +35,7 @@ public final class RaverRoles {
         }
         return switch (r.role()) {
             case VOLEI_A, VOLEI_B -> volley(r, level);
+            case ORG_FUT, ORG_VOLEI -> organizer(r, level);
             case DRUNK -> drunk(r, level);
             case FEIRANTE -> feirante(r, level);
             case TEAM_A, TEAM_B -> football(r, level);
@@ -216,6 +217,13 @@ public final class RaverRoles {
         }
         if (r.hasHome()) r.clearHome();
         if (r.tickCount % 3 != 0) return true;
+        if (ball.isBenched(r)) {
+            // deu lugar a uma pessoa: assiste do banco, na beira do campo
+            Vec3 bench = ball.fieldPoint(ball.length() / 2 + (r.getId() % 5) - 2, ball.halfWidth() + 1.8);
+            go(r, bench.x, bench.y, bench.z, 0.6);
+            r.getLookControl().setLookAt(ball);
+            return true;
+        }
         int team = ball.teamOf(r);
         if (team < 0) return true;
         Vec3 attack = ball.goal(team == Ball.TEAM_A ? 1 : 0), own = ball.goal(team == Ball.TEAM_A ? 0 : 1);
@@ -244,15 +252,17 @@ public final class RaverRoles {
         int rank = mates.indexOf(r);
         boolean humanNear = level.players().stream().anyMatch(p -> ball.teamOf(p) == team && p.position().distanceTo(b) < r.position().distanceTo(b));
         if (humanNear) rank++; // uma pessoa do time está mais perto: ela que vai na bola
-        Raver carrierRival = null;
+        net.minecraft.world.entity.Entity carrierRival = null;
         for (Raver o : level.getEntitiesOfClass(Raver.class, new AABB(b, b).inflate(1.3), o -> ball.teamOf(o) == 1 - team)) carrierRival = o;
+        if (ball.ownerTeam() == 1 - team) carrierRival = ball.owner(); // a pessoa do outro time com a bola no pé
+        if (ball.ownerTeam() == team) rank = Math.max(rank, 1);       // a pessoa do nosso time está com ela: apoio
         boolean rivalHasIt = carrierRival != null;
 
         if (rank == 0) {
             double d = r.position().distanceTo(b);
             if (d < 1.35 && ball.canKick(team)) {
                 // a bola é de quem chega primeiro: só dá o bote se o adversário está mais perto dela
-                boolean rivalCloser = rivalHasIt && (carrierRival.position().distanceTo(b) + 0.15 < d || ball.freshFor(team));
+                boolean rivalCloser = rivalHasIt && (carrierRival.position().distanceTo(b) + 0.15 < d || ball.freshFor(team) || ball.ownerTeam() == 1 - team);
                 if (rivalCloser && r.settle == 0) {
                     tackle(r, ball, level, team, carrierRival, attack);
                 } else if (r.settle == 0) {
@@ -286,8 +296,35 @@ public final class RaverRoles {
         return true;
     }
 
-    /** Lugar na formação (2-1-1) que acompanha a bola: o time sobe e desce junto. */
+    /**
+     * 3.5: posições do 4-3-3 (stall = número da posição): 2 lateral esquerdo, 3 e 4 zagueiros, 5 lateral direito,
+     * 6 volante, 7 e 8 meias, 9 ponta esquerda, 10 ponta direita, 11 centroavante. Para cada uma: u quando o time
+     * defende, u quando ataca (fração do campo a partir do próprio gol) e o lado (fração da meia largura).
+     */
+    private static final double[][] POS433 = {
+            {}, {}, {0.16, 0.52, -0.82}, {0.1, 0.34, -0.3}, {0.1, 0.34, 0.3}, {0.16, 0.52, 0.82},
+            {0.24, 0.47, 0}, {0.33, 0.62, -0.38}, {0.33, 0.62, 0.38}, {0.45, 0.82, -0.8}, {0.45, 0.82, 0.8}, {0.5, 0.86, 0}};
+    public static final String[] POS_NAMES = {"", "Goleiro", "Lateral esquerdo", "Zagueiro", "Zagueiro", "Lateral direito", "Volante",
+            "Meia", "Meia", "Ponta esquerda", "Ponta direita", "Centroavante"};
+
+    /** Lugar na formação que acompanha a bola: o time sobe quando tem a bola e recua quando defende. */
     private static Vec3 formationSlot(Raver r, Ball ball, ServerLevel level, int team) {
+        if (r.stall >= 2 && r.stall <= 11) {
+            double[] s = POS433[r.stall];
+            double L = ball.length(), hw = ball.halfWidth();
+            boolean attacking = ball.ownerTeam() == team || ball.lastTeam() == team;
+            double uBall = ball.uFor(team, ball.position()) / L;
+            double base = attacking ? s[1] : s[0];
+            double u = (base + (uBall - 0.5) * 0.3) * L;
+            double v = s[2] * hw + ball.vFor(team, ball.position()) * 0.25;
+            // um pouco de movimento (ninguém fica parado feito poste)
+            double t = (r.tickCount + r.getId() * 37) * 0.02;
+            u += Math.sin(t) * 1.2;
+            v += Math.cos(t * 0.8) * 1.0;
+            u = Math.max(2, Math.min(L - 2, u));
+            v = Math.max(-hw + 0.8, Math.min(hw - 0.8, v));
+            return ball.teamPoint(team, u, v);
+        }
         var line = level.getEntitiesOfClass(Raver.class, new AABB(ball.center(), ball.center()).inflate(48),
                 m -> ball.teamOf(m) == team && m.stall != 1 && m.fieldHome != null);
         Vec3 own = ball.goal(team == Ball.TEAM_A ? 0 : 1);
@@ -331,19 +368,43 @@ public final class RaverRoles {
             return;
         }
         // 2) passe: companheiro livre e mais adiantado (ou qualquer um livre, se está apertado)
-        Raver best = null;
         double bestScore = -1e9, myU = ball.uFor(team, b);
-        for (Raver m : level.getEntitiesOfClass(Raver.class, new AABB(b, b).inflate(22), m -> m != r && ball.teamOf(m) == team)) {
+        java.util.List<net.minecraft.world.entity.Entity> cands = new java.util.ArrayList<>(
+                level.getEntitiesOfClass(Raver.class, new AABB(b, b).inflate(26), m -> m != r && ball.teamOf(m) == team));
+        cands.addAll(ball.humansOf(level, team));
+        net.minecraft.world.entity.Entity best = null;
+        for (net.minecraft.world.entity.Entity m : cands) {
             double dist = m.position().distanceTo(b);
-            if (dist < 3 || dist > 20) continue;
+            if (dist < 3 || dist > 24) continue;
             if (blocked(b, m.position(), rivals, 1.4)) continue;
             double gain = ball.uFor(team, m.position()) - myU;
             double free = 9;
             for (Raver o : rivals) free = Math.min(free, o.position().distanceTo(m.position()));
-            double score = gain * 1.2 + free - dist * 0.15 - (m.stall == 1 ? 6 : 0);
+            boolean keeperM = m instanceof Raver rm && rm.stall == 1;
+            double score = gain * 1.2 + free - dist * 0.15 - (keeperM ? 6 : 0) + (m instanceof net.minecraft.world.entity.player.Player ? 4 : 0);
             if (score > bestScore) { bestScore = score; best = m; }
         }
+        // cruzamento: ponta (ou quem estiver aberto) no último terço manda a bola na área
+        double vMe = ball.vFor(team, b);
+        if (ball.uFor(team, b) > ball.length() * 0.68 && Math.abs(vMe) > ball.halfWidth() * 0.45 && rnd.nextDouble() < 0.55) {
+            net.minecraft.world.entity.Entity target = null;
+            double tb = 1e9;
+            for (net.minecraft.world.entity.Entity m : cands) {
+                if (!ball.inBox(team == Ball.TEAM_A ? 1 : 0, m.position())) continue;
+                double sc = m.position().distanceTo(attack) - (m instanceof net.minecraft.world.entity.player.Player ? 3 : 0);
+                if (sc < tb) { tb = sc; target = m; }
+            }
+            Vec3 to = target != null ? target.position() : ball.teamPoint(team, ball.length() - 4.5, (rnd.nextDouble() - 0.5) * 3);
+            double dist = Math.hypot(to.x - b.x, to.z - b.z);
+            Vec3 dir = new Vec3(to.x - b.x, 0, to.z - b.z).normalize();
+            ball.kick(r, dir.scale(Math.min(1.05, 0.3 + dist * 0.042)).add(0, 0.38, 0));
+            r.settle = 8;
+            if (rnd.nextInt(3) == 0) level.players().stream().filter(p -> p.distanceTo(r) < 50).forEach(p ->
+                    p.sendOverlayMessage(Component.literal("§eCruzou na área!")));
+            return;
+        }
         boolean wantPass = best != null && (pressed ? bestScore > -6 : bestScore > 3 && rnd.nextInt(3) == 0);
+        if (best instanceof net.minecraft.world.entity.player.Player && bestScore > 0) wantPass = true; // tocou para você!
         if (wantPass) {
             Vec3 to = best.position().add(best.getDeltaMovement().scale(8));
             Vec3 vel = Ball.passTo(b, to);
@@ -406,7 +467,25 @@ public final class RaverRoles {
     }
 
     /** Bote em quem está com a bola: rouba, erra ou faz falta (por trás, mais falta). */
-    private static void tackle(Raver r, Ball ball, ServerLevel level, int team, Raver rival, Vec3 attack) {
+    private static void tackle(Raver r, Ball ball, ServerLevel level, int team, net.minecraft.world.entity.Entity rival, Vec3 attack) {
+        if (rival instanceof net.minecraft.world.entity.player.Player pl) {
+            // pessoa com a bola no pé: o aldeão tenta tirar (às vezes consegue, às vezes faz falta)
+            double roll = r.getRandom().nextDouble();
+            if (roll < 0.06) {
+                r.playSound(SoundEvents.VILLAGER_HURT, 0.8f, 1f);
+                ball.foul(1 - team);
+                r.settle = 20;
+            } else if (roll < 0.36) {
+                ball.loseOwner();
+                Vec3 toGoal = new Vec3(attack.x - r.getX(), 0, attack.z - r.getZ()).normalize();
+                ball.kick(r, toGoal.scale(0.35).add(new Vec3(-toGoal.z, 0, toGoal.x).scale(r.getRandom().nextBoolean() ? 0.3 : -0.3)).add(0, 0.04, 0));
+                r.settle = 2;
+                pl.sendOverlayMessage(Component.literal("§cTomou a bola!"));
+            } else {
+                r.settle = 16;
+            }
+            return;
+        }
         var rnd = r.getRandom();
         Vec3 rivalFacing = rival.getLookAngle();
         Vec3 fromMe = new Vec3(rival.getX() - r.getX(), 0, rival.getZ() - r.getZ()).normalize();
@@ -424,11 +503,11 @@ public final class RaverRoles {
             Vec3 fromRival = new Vec3(ball.getX() - rival.getX(), 0, ball.getZ() - rival.getZ());
             if (sideV.dot(fromRival) < 0) sideV = sideV.scale(-1);
             ball.kick(r, toGoal.scale(0.3).add(sideV.scale(0.4)).add(0, 0.04, 0));
-            rival.settle = 22;
+            if (rival instanceof Raver rr) rr.settle = 22;
             r.settle = 2;
         } else {
             r.settle = 24; // errou o bote: o outro passou
-            rival.settle = 0;
+            if (rival instanceof Raver rr) rr.settle = 0;
         }
     }
 
@@ -464,7 +543,14 @@ public final class RaverRoles {
             Vec3 dive = own.add(axis.scale(1.0)).add(sideV.scale(Math.max(-2.2, Math.min(2.2, lat))));
             go(r, dive.x, dive.y, dive.z, 1.2);
             double reach = Math.hypot(b.x - r.getX(), b.z - r.getZ());
-            if (reach < 1.6 && b.y - r.getY() < 2.4 && r.settle == 0) {
+            // voa na bola: pulo de lado na direção do chute
+            double myLat = r.position().subtract(own).dot(sideV);
+            if (reach < 3.4 && r.onGround() && r.settle == 0 && Math.abs(lat - myLat) > 0.5) {
+                double dir = Math.signum(lat - myLat);
+                r.setDeltaMovement(sideV.scale(dir * 0.5).add(0, 0.42, 0));
+                r.setDive((int) dir);
+            }
+            if (reach < 1.8 && b.y - r.getY() < 2.6 && r.settle == 0) {
                 double speed = vel.horizontalDistance();
                 double chance = Math.max(0.15, Math.min(0.9, 0.95 - speed * 0.35 - Math.abs(lat) * 0.12));
                 r.settle = 25;
@@ -592,6 +678,25 @@ public final class RaverRoles {
             if (d > 2 && d < bd) { bd = d; best = m; }
         }
         return best == null ? ball.goal(team == Ball.TEAM_A ? 1 : 0) : best.position();
+    }
+
+    // ------------------------------------------------------------ organizador do campo / da quadra
+    /** Fica parado na beira do campo, com a bola na mão, esperando alguém marcar um jogo. */
+    private static boolean organizer(Raver r, ServerLevel level) {
+        boolean fut = r.role() == ORG_FUT;
+        if (!r.hasCustomName()) {
+            r.setCustomName(Component.literal(fut ? "Organizador da Várzea" : "Organizador do Vôlei"));
+            r.setCustomNameVisible(true);
+        }
+        var want = fut ? com.boombox.bar.Blocks34.BOLA_FUTEBOL : com.boombox.bar.Blocks34.BOLA_VOLEI;
+        if (!r.getMainHandItem().is(want)) r.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(want));
+        if (!r.hasHome()) r.setHomeTo(r.blockPosition(), 1);
+        if (r.getRandom().nextInt(600) == 0) {
+            sayNear(level, r.position(), 10, "§6<" + r.getCustomName().getString() + "> §f" + (fut
+                    ? "Bora um jogo? Fala comigo: amistoso ou campeonato!"
+                    : "Quadra livre! Fala comigo pra jogar um 2 contra 2."));
+        }
+        return true;
     }
 
     // ------------------------------------------------------------ vôlei de praia

@@ -97,5 +97,10 @@
   "painting.boombox.poster_paredao.title": "Sound Wall Tour",
   "painting.boombox.poster_paredao.author": "Village Print Shop",
   "painting.boombox.poster_piscina.title": "Pool Rave",
-  "painting.boombox.poster_piscina.author": "Village Print Shop"
+  "painting.boombox.poster_piscina.author": "Village Print Shop",
+  "block.boombox.placar": "Scoreboard",
+  "key.boombox.carrinho": "Slide tackle (soccer)",
+  "key.boombox.colocar_pe": "Poke the ball (soccer)",
+  "key.boombox.levantar": "Set (volleyball)",
+  "key.category.boombox.sports": "Boombox: sports"
 }

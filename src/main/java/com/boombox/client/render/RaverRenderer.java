@@ -33,6 +33,8 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         /** 3.4: cor da camisa do time (0 = padrão) e fantasia do baile (-1 = sem). */
         public int shirt;
         public int costume = -1;
+        /** 3.5: goleiro voando na bola (-1 / 1). */
+        public int dive;
     }
 
     private final float[] levels = new float[2];
@@ -60,6 +62,7 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         s.glow = e.glow();
         s.role = e.role();
         s.shirt = e.getShirt();
+        s.dive = e.dive();
         s.costume = s.role == 0 && !s.bar && com.boombox.bar.Fantasia.tonight(e.level()) ? com.boombox.bar.Fantasia.costumeOf(e.getUUID()) : -1;
         net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
@@ -69,6 +72,17 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
             s.bass = levels[0];
         } else {
             s.bass = 0;
+        }
+    }
+
+    /** Goleiro voando: o corpo deita de lado, na direção do pulo. */
+    @Override
+    protected void setupRotations(State s, com.mojang.blaze3d.vertex.PoseStack ps, float bodyRot, float scale) {
+        super.setupRotations(s, ps, bodyRot, scale);
+        if (s.dive != 0) {
+            ps.translate(0f, 0.6f, 0f);
+            ps.rotateDegrees(com.mojang.math.Axis.ZP, s.dive * 75f);
+            ps.translate(0f, -0.6f, 0f);
         }
     }
 

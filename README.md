@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-3.5.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,29 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.5
+**Futebol de várzea**:
+- **Campo bem maior** (60 x 38) com **11 de cada lado no 4-3-3**: goleiro, laterais, zagueiros, volante, meias,
+  pontas e centroavante, cada um no seu lugar. O time sobe quando tem a bola e recua quando defende. As pontas cruzam
+  na área, os meias tocam, e os aldeões passam para quem estiver em melhor posição, inclusive para você.
+- **Organizador do campo**: fale com ele e escolha **amistoso** (times sorteados, sempre com cores diferentes) ou
+  **campeonato** (você escolhe o **nome e a cor do seu time**; 3 rodadas contra times de outras vilas e a Taça para o
+  campeão). Sem ninguém marcar jogo, os aldeões jogam uma pelada entre eles.
+- **Bola no pé**: passou por cima da bola, ela gruda no seu pé e vai junto. **Esquerdo chuta** (correndo é mais forte,
+  olhando para cima levanta), **direito passa**, **R dá carrinho** (tira de longe, mas pode ser falta) e **G coloca o
+  pé** (rouba de perto sem falta). As teclas dá para trocar em Opções → Controles.
+- **Goleiro voa na bola** na hora do chute.
+- **Placar no campo**: painel eletrônico com os times, as cores, o placar e o tempo.
+- Campos que não cabem na vila viram o campinho menor, que também ganhou organizador e placar.
+
+**Vôlei de praia**:
+- **A quadra fica vazia** até você falar com o **organizador do vôlei**: aí chegam três aldeões e o jogo é **2 contra
+  2** (você e um parceiro contra dois). Amistoso ou campeonato (com o nome e a cor do seu time e troféu para o campeão).
+- **3 toques, um de cada**: **esquerdo = manchete** (passa para o parceiro), **V = levantar**, **direito = cortar**
+  (pule e mire onde quer que a bola caia). No saque: esquerdo = por baixo, direito = viagem.
+- **Dentro ou fora pela marca**: a bola encostando na linha vale; fora, o juiz diz por quanto saiu.
+- Física melhor (bola bate na rede e cai) e **placar na quadra**.
 
 ## Novidades da 3.4.1
 - **Futebol**: os jogadores não ficam mais parados. A partida travava na saída de bola e no lateral (o cobrador não
@@ -406,5 +429,22 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build
+./gradlew build   # o jar sai em build/libs/
 ```
+
+## Versões
+| Versão | Minecraft | Download |
+|---|---|---|
+| 3.5.0 | 26.3 (Fabric) | [Releases → v3.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.0) |
+| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
+| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
+| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
+| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
+| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
+| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
+| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
+
+Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
+
+## Licença
+MIT

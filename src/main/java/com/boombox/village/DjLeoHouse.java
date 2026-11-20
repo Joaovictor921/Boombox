@@ -102,7 +102,7 @@ public final class DjLeoHouse {
         return found >= 4 ? best : null;
     }
 
-    private static final String[] EXTRAS = {"quermesse", "feira", "varzea", "volei_praia", "casa_piscina"};
+    private static final String[] EXTRAS = {"quermesse", "feira", "varzea", "volei_praia", "casa_piscina", "varzea_small"};
     private static final StructurePoolElement[] extraElements = new StructurePoolElement[EXTRAS.length];
 
     private static StructurePoolElement extra(int i) {
@@ -145,7 +145,10 @@ public final class DjLeoHouse {
         // 3.3: quermesse (35%), feira de domingo (40%) e campinho de várzea (35%)
         if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(0), new BlockPos(0, 0, 6), shuffler);
         if (rnd.nextFloat() < 0.4f) placeBeside(builder, ctx, center, extra(1), new BlockPos(0, 0, 5), shuffler);
-        if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 12), shuffler);
+        if (rnd.nextFloat() < 0.35f && !placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 18), shuffler)) {
+            // 3.5: o campo grande (60 x 38) não coube: vai o campinho menor
+            placeBeside(builder, ctx, center, extra(5), new BlockPos(0, 0, 12), shuffler);
+        }
         // em junho a vila também ganha um arraiá
         if (com.boombox.bar.ShowTime.isJune()) {
             StructurePoolElement a = arraiaElement;

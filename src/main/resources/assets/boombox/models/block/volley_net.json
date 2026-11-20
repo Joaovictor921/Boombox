@@ -1,7 +1,7 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "n": "boombox:block/goal_net",
+    "n": "boombox:block/volley_net",
     "w": "minecraft:block/white_wool",
     "particle": "minecraft:block/white_wool"
   },
