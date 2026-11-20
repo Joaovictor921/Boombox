@@ -168,8 +168,12 @@ public final class DjLeoHouse {
         }
         // ruas mais perto do centro primeiro (com um pouco de sorte no meio)
         Collections.shuffle(streets, shuffler);
-        streets.sort((a, b) -> Double.compare(dist(a.getBoundingBox(), center) + shuffler.nextInt(24),
-                dist(b.getBoundingBox(), center) + shuffler.nextInt(24)));
+        // a sorte é sorteada uma vez por rua (sortear dentro do comparador quebra o sort)
+        java.util.Map<PoolElementStructurePiece, Double> key = new java.util.IdentityHashMap<>();
+        for (PoolElementStructurePiece st : streets) {
+            key.put(st, dist(st.getBoundingBox(), center) + shuffler.nextInt(24));
+        }
+        streets.sort((a, b) -> Double.compare(key.get(a), key.get(b)));
 
         // se nenhum lugar for plano, usa o menos inclinado (até MAX_SLOPE_FALLBACK)
         BoundingBox bestBox = null;
