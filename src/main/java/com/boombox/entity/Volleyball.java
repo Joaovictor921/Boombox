@@ -255,7 +255,7 @@ public class Volleyball extends Entity {
         double sign = serveSide == 0 ? -1 : 1;
         Vec3 spot = courtPoint(sign * (halfLength + 0.8), 0);
         if (s instanceof Raver r) {
-            if (r.position().distanceTo(spot) > 0.7) r.getNavigation().moveTo(spot.x, spot.y, spot.z, 0.7);
+            if (r.position().distanceTo(spot) > 0.7) RaverRoles.go(r, spot.x, spot.y, spot.z, 0.7);
             r.getLookControl().setLookAt(netCenter.x, netCenter.y + 1, netCenter.z);
         }
         Vec3 hand = s.position().add(normal.scale(-sign * 0.4)).add(0, 1.6, 0);
@@ -302,14 +302,14 @@ public class Volleyball extends Entity {
                 if (!(e instanceof Raver r)) continue;
                 r.getLookControl().setLookAt(this);
                 if (e == chaser) {
-                    r.getNavigation().moveTo(land.x, groundY, land.z, 0.95);
+                    RaverRoles.go(r, land.x, groundY, land.z, 0.95);
                     tryHit(sl, r, ps, side);
                 } else {
                     // parceiro: perto da rede se vamos atacar, no fundo se vamos receber
                     double dd = (side == 0 ? -1 : 1) * (touchSide == side ? 1.6 : 4.5);
                     double ww = (ps.indexOf(e) == 0 ? -1 : 1) * halfWidth * 0.45;
                     Vec3 spot = courtPoint(dd, ww);
-                    if (r.position().distanceTo(spot) > 0.8) r.getNavigation().moveTo(spot.x, spot.y, spot.z, 0.7);
+                    if (r.position().distanceTo(spot) > 0.8) RaverRoles.go(r, spot.x, spot.y, spot.z, 0.7);
                 }
             }
         }
@@ -377,7 +377,7 @@ public class Volleyball extends Entity {
                 double sign = side == 0 ? -1 : 1;
                 spot = courtPoint(sign * (2 + (r.getId() % 2) * 2.5), ((r.getId() % 2) * 2 - 1) * halfWidth * 0.4);
             }
-            if (r.position().distanceTo(spot) > 1.0 && r.tickCount % 10 == 0) r.getNavigation().moveTo(spot.x, spot.y, spot.z, 0.6);
+            if (r.position().distanceTo(spot) > 1.0 && r.tickCount % 10 == 0) RaverRoles.go(r, spot.x, spot.y, spot.z, 0.6);
         }
     }
 
@@ -389,7 +389,7 @@ public class Volleyball extends Entity {
             double sign = side == 0 ? -1 : 1;
             boolean front = r.getId() % 2 == 0;
             Vec3 spot = courtPoint(sign * (front ? 2 : 4.5), (front ? -1 : 1) * halfWidth * 0.4);
-            if (r.position().distanceTo(spot) > 0.8 && r.tickCount % 8 == 0) r.getNavigation().moveTo(spot.x, spot.y, spot.z, 0.6);
+            if (r.position().distanceTo(spot) > 0.8 && r.tickCount % 8 == 0) RaverRoles.go(r, spot.x, spot.y, spot.z, 0.6);
             r.getLookControl().setLookAt(this);
         }
     }

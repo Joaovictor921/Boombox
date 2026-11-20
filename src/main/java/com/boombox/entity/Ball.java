@@ -75,6 +75,7 @@ public class Ball extends Entity {
     private int restartKind = -1, restartTeam, restartTimer;
     private Vec3 restartSpot;
     private int goalPause;
+    private int lastKickTick = -100;
     /** Partida: 0 = 1º tempo, 1 = intervalo, 2 = 2º tempo, 3 = fim de jogo. */
     private int phase, clock;
     /** Goleiro segurando a bola (nas mãos) e por quanto tempo. */
@@ -160,8 +161,18 @@ public class Ball extends Entity {
         return restartTimer <= 0;
     }
 
+    /** O cobrador está demorando (não achou o lugar ideal): cobra de onde estiver. */
+    public boolean restartOverdue() {
+        return restartTimer < -50;
+    }
+
     public int restartKind() {
         return restartKind;
+    }
+
+    /** O outro time tocou na bola agora há pouco (ela ainda "é" dele: só dá para tomar no bote). */
+    public boolean freshFor(int team) {
+        return lastTeam >= 0 && lastTeam != team && tickCount - lastKickTick < 12;
     }
 
     public UUID keeperHold() {
@@ -232,6 +243,7 @@ public class Ball extends Entity {
         setDeltaMovement(vel);
         lastKicker = who.getUUID();
         lastTeam = team;
+        lastKickTick = tickCount;
         playSound(SoundEvents.WOOL_HIT, Math.min(1.2f, 0.5f + (float) sp), 0.7f + random.nextFloat() * 0.2f);
     }
 
@@ -279,6 +291,7 @@ public class Ball extends Entity {
             return;
         }
         if (tickCount % 20 == 0) scoreboard(sl);
+        if (tickCount % 1200 == 600) clearTrees(sl);
         tickClock(sl);
         if (phase == 1 || phase == 3) return;
         if (goalPause > 0) {
@@ -288,7 +301,7 @@ public class Ball extends Entity {
         if (restartKind >= 0) {
             setPos(restartSpot.x, getY(), restartSpot.z);
             setDeltaMovement(0, getDeltaMovement().y, 0);
-            if (restartTimer > 0) restartTimer--;
+            if (restartTimer > -10000) restartTimer--;
             return;
         }
         if (keeperHold != null) return;
@@ -615,7 +628,36 @@ public class Ball extends Entity {
         }
         phase = 0;
         clock = 0;
+        clearTrees(sl);
         startMatch(sl);
+    }
+
+    /**
+     * Árvore que nasceu dentro do campo (a vila gera as árvores depois do campinho): tira tronco, folhas, cipó, mato e
+     * flores de dentro das linhas, até 16 blocos de altura.
+     */
+    private void clearTrees(ServerLevel sl) {
+        int removed = 0;
+        int y0 = (int) Math.floor(center.y);
+        double hw = halfWidth + 1.5;
+        for (double u = -2; u <= length + 2; u += 0.5) {
+            for (double w = -hw; w <= hw; w += 0.5) {
+                Vec3 p = goal0.add(axis.scale(u)).add(side.scale(w));
+                for (int dy = 0; dy <= 16; dy++) {
+                    BlockPos q = BlockPos.containing(p.x, y0 + dy, p.z);
+                    var st = sl.getBlockState(q);
+                    if (st.isAir() || st.is(BarBlocks.GOAL)) continue;
+                    boolean tree = st.is(net.minecraft.tags.BlockTags.LOGS) || st.is(net.minecraft.tags.BlockTags.LEAVES)
+                            || st.is(net.minecraft.tags.BlockTags.SAPLINGS) || st.is(net.minecraft.tags.BlockTags.FLOWERS)
+                            || st.is(net.minecraft.tags.BlockTags.REPLACEABLE_BY_TREES) || st.is(net.minecraft.world.level.block.Blocks.BEE_NEST);
+                    if (tree) {
+                        sl.setBlock(q, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+                        removed++;
+                    }
+                }
+            }
+        }
+        if (removed > 0) com.boombox.BoomboxMod.LOGGER.info("Boombox: tirei {} blocos de árvore/mato de dentro do campo de várzea", removed);
     }
 
     // ------------------------------------------------------------ gente jogando

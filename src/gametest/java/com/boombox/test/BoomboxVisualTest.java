@@ -41,6 +41,37 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
+            if ("fut".equals(System.getenv("BOOMBOX_QUICK"))) {
+                server.runCommand("time set noon");
+                server.runCommand("forceload add 70 30 130 80");
+                look(ctx, server, new Vec3(100.5, -48, 33.5), 0f, 50f);
+                ctx.waitTicks(60);
+                server.runCommand("place template boombox:varzea 80 -61 40");
+                java.util.Map<Integer, Vec3> last = new java.util.HashMap<>();
+                for (int i = 0; i < 45; i++) {
+                    ctx.waitTicks(20);
+                    String st = server.computeOnServer(s -> {
+                        var bs = s.overworld().getEntities(ModEntities.BALL, e -> true);
+                        if (bs.isEmpty()) return "sem bola";
+                        var b = bs.get(0);
+                        var rs = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TEAM_A || r.role() == com.boombox.entity.RaverRoles.TEAM_B);
+                        StringBuilder sb = new StringBuilder();
+                        int still = 0;
+                        for (var r : rs) {
+                            Vec3 o = last.put(r.getId(), r.position());
+                            double d = o == null ? 0 : o.distanceTo(r.position());
+                            if (d < 0.3) still++;
+                            sb.append(String.format(Locale.ROOT, "%.1f ", d));
+                        }
+                        return b.minute() + " " + b.scoreA() + "x" + b.scoreB() + " parada=" + b.restarting() + " tipo=" + b.restartKind()
+                                + String.format(Locale.ROOT, " bola=(%.1f,%.1f) v=%.2f", b.getX(), b.getZ(), b.getDeltaMovement().horizontalDistance())
+                                + " parados=" + still + "/" + rs.size() + "";
+                    });
+                    System.out.println("[BoomboxTest] fut " + i + ": " + st);
+                }
+                ctx.takeScreenshot("fut_quick");
+                return;
+            }
             if (System.getenv("BOOMBOX_QUICK") != null) {
                 server.runCommand("place template boombox:djleo_house " + HX + " " + HY + " " + HZ);
                 ctx.waitTicks(40);

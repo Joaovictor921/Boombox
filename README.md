@@ -22,6 +22,14 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.4.1
+- **Futebol**: os jogadores não ficam mais parados. A partida travava na saída de bola e no lateral (o cobrador não
+  conseguia chegar atrás da bola); agora ele cobra de onde estiver. A bola é de quem tocou por último, o drible passa
+  pelo marcador, o bote tira a bola para o lado, saem menos faltas e o tiro de meta vai no companheiro em vez de
+  atravessar o campo.
+- **Campinho sem árvore**: o chão do campo é de terra batida (onde árvore não nasce), e o juiz tira tronco, folhas e
+  mato que tenham nascido dentro do campo em mundos já criados.
+
 ## Novidades da 3.4
 **Futebol de várzea bem mais realista**:
 - **Partida de verdade**: dois tempos com relógio, intervalo e apito final. O placar e o minuto do jogo aparecem numa
