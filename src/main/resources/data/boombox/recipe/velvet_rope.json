@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "NWN",
+    "NIN"
+  ],
+  "key": {
+    "N": "minecraft:gold_nugget",
+    "W": "minecraft:red_wool",
+    "I": "minecraft:gold_ingot"
+  },
+  "result": {
+    "id": "boombox:velvet_rope",
+    "count": 4
+  }
+}

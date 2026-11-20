@@ -36,6 +36,9 @@ public class DjLeo extends PathfinderMob {
     private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> SLEEPING =
             net.minecraft.network.syncher.SynchedEntityData.defineId(DjLeo.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
     private Boolean wasOpen;
+    /** Onde fica a cabine do DJ (a casa dele); no baile à fantasia ele desce para a pista e depois volta. */
+    private net.minecraft.core.BlockPos booth;
+    private boolean partying;
 
     @Override
     protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
@@ -74,7 +77,9 @@ public class DjLeo extends PathfinderMob {
         super.tick();
         if (level().isClientSide()) return;
         // não sai de casa: fica num raio pequeno de onde nasceu
-        if (!hasHome()) setHomeTo(blockPosition(), 3);
+        if (booth == null) booth = hasHome() ? getHomePosition() : blockPosition();
+        if (!hasHome()) setHomeTo(booth, 3);
+        if (tickCount % 40 == 0 && level() instanceof net.minecraft.server.level.ServerLevel sl) partyTick(sl);
         // de dia a balada fecha: DJ Leo dorme e as portas fecham; de noite abre tudo
         if (tickCount % 20 == 0 && level() instanceof net.minecraft.server.level.ServerLevel sl) {
             boolean open = com.boombox.server.ServerBoomboxManager.raveOpen(sl);
@@ -95,6 +100,61 @@ public class DjLeo extends PathfinderMob {
                 m.discard();
             }
         }
+    }
+
+    /** Baile à fantasia está acontecendo (o DJ Leo está fantasiado na pista)? */
+    public boolean partying() {
+        return partying;
+    }
+
+    /**
+     * Baile à fantasia: o DJ Leo desce da cabine e vai dançar no meio da galera (onde tem mais aldeão perto), de
+     * fantasia também. Avisa quem está perto quando o baile começa. No fim da noite volta para a cabine.
+     */
+    private void partyTick(net.minecraft.server.level.ServerLevel sl) {
+        boolean party = com.boombox.bar.Fantasia.tonight(sl) && !sleepingDay();
+        if (party && !partying) {
+            partying = true;
+            for (var p : sl.players()) {
+                if (p.distanceTo(this) < 96) p.sendSystemMessage(Component.literal(
+                        "§5§l🎭 Hoje é BAILE À FANTASIA §r§dna balada do DJ Leo! §fA galera chegou fantasiada e até o DJ Leo desceu do palco pra dançar."));
+            }
+        } else if (!party && partying) {
+            partying = false;
+            clearHome();
+            setHomeTo(booth, 3);
+            getNavigation().moveTo(booth.getX() + 0.5, booth.getY(), booth.getZ() + 0.5, 0.6);
+        }
+        if (!partying) return;
+        // o meio da galera
+        var crowd = sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(20, 4, 20), r -> r.role() == 0 && !r.atBar() && r.queueSpot == null);
+        if (!crowd.isEmpty()) {
+            double x = 0, y = 0, z = 0;
+            for (Raver r : crowd) { x += r.getX(); y += r.getY(); z += r.getZ(); }
+            var mid = net.minecraft.core.BlockPos.containing(x / crowd.size(), y / crowd.size(), z / crowd.size());
+            if (!hasHome() || getHomePosition().distSqr(mid) > 9) {
+                clearHome();
+                setHomeTo(mid, 4);
+                getNavigation().moveTo(mid.getX() + 0.5, mid.getY(), mid.getZ() + 0.5, 0.6);
+            }
+        }
+        if (getRandom().nextInt(3) == 0) cheer();
+        for (var p : sl.getEntitiesOfClass(net.minecraft.server.level.ServerPlayer.class, getBoundingBox().inflate(16))) {
+            com.boombox.Achievements.award(p, "baile_a_fantasia");
+        }
+    }
+
+    @Override
+    protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput out) {
+        super.addAdditionalSaveData(out);
+        if (booth != null) out.putLong("Booth", booth.asLong());
+    }
+
+    @Override
+    protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput in) {
+        super.readAdditionalSaveData(in);
+        long b = in.getLongOr("Booth", Long.MIN_VALUE);
+        if (b != Long.MIN_VALUE) booth = net.minecraft.core.BlockPos.of(b);
     }
 
     /** Preenchido pelo cliente: abre a tela de pedir música (id da entidade). */

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:leather",
+    "minecraft:yellow_dye",
+    "minecraft:blue_dye",
+    "minecraft:slime_ball"
+  ],
+  "result": {
+    "id": "boombox:bola_volei",
+    "count": 1
+  }
+}

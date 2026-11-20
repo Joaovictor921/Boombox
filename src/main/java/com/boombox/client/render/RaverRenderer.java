@@ -30,6 +30,9 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         public boolean glow;
         public int role;
         public float hicSway;
+        /** 3.4: cor da camisa do time (0 = padrão) e fantasia do baile (-1 = sem). */
+        public int shirt;
+        public int costume = -1;
     }
 
     private final float[] levels = new float[2];
@@ -56,6 +59,8 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         s.instrument = e.instrument();
         s.glow = e.glow();
         s.role = e.role();
+        s.shirt = e.getShirt();
+        s.costume = s.role == 0 && !s.bar && com.boombox.bar.Fantasia.tonight(e.level()) ? com.boombox.bar.Fantasia.costumeOf(e.getUUID()) : -1;
         net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
         s.dancing = playing != null && !s.bar;
@@ -124,9 +129,18 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         @Override
         public void submit(PoseStack ps, SubmitNodeCollector collector, int light, State s, float yRot, float xRot) {
             if (s.isInvisible) return;
-            if (s.role == com.boombox.entity.RaverRoles.TEAM_A || s.role == com.boombox.entity.RaverRoles.TEAM_B) {
-                renderColoredCutoutModel(getParentModel(), SHIRT, ps, collector, light, s,
-                        s.role == com.boombox.entity.RaverRoles.TEAM_A ? 0xFF2D5BE0 : 0xFFE03030, 3);
+            boolean football = s.role == com.boombox.entity.RaverRoles.TEAM_A || s.role == com.boombox.entity.RaverRoles.TEAM_B;
+            boolean volley = s.role == com.boombox.entity.RaverRoles.VOLEI_A || s.role == com.boombox.entity.RaverRoles.VOLEI_B;
+            if (football || volley) {
+                int c = s.shirt != 0 ? s.shirt : s.role == com.boombox.entity.RaverRoles.TEAM_A ? 0xFF2D5BE0 : s.role == com.boombox.entity.RaverRoles.TEAM_B ? 0xFFE03030
+                        : s.role == com.boombox.entity.RaverRoles.VOLEI_A ? 0xFFFF8A1E : 0xFF1EC8E6;
+                renderColoredCutoutModel(getParentModel(), SHIRT, ps, collector, light, s, c, 3);
+            }
+            if (s.costume >= 0) {
+                ps.pushPose();
+                getParentModel().getHead().translateAndRotate(ps);
+                Renderers34.costume(ps, collector, light, s.costume, -10f);
+                ps.popPose();
             }
             if (s.glow) {
                 int color = com.boombox.client.render.Renderers33.braceletColor(new net.minecraft.world.phys.Vec3(s.x, s.y, s.z), s.seed);

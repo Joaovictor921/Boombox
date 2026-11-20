@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:baked_potato",
+    "minecraft:baked_potato",
+    "minecraft:bowl"
+  ],
+  "result": {
+    "id": "boombox:porcao_fritas",
+    "count": 1
+  }
+}

@@ -116,11 +116,11 @@ public class Bouncer extends PathfinderMob {
     }
 
     private static boolean hasVip(Player p) {
-        for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
-            if (p.getInventory().getItem(i).is(BarBlocks.VIP)) return true;
-        }
-        return false;
+        return com.boombox.bar.Vip.onList(p);
     }
+
+    /** Convidados fixos da lista VIP (além de quem comprou a pulseira). */
+    private static final String[] GUESTS = {"DJ Leo", "Dona Neide do Camarote", "Juninho do Grave", "MC Pedrinho", "Tia Lurdes", "Rafa Paredão"};
 
     @Override
     public void tick() {
@@ -133,7 +133,16 @@ public class Bouncer extends PathfinderMob {
         float yaw = outYaw * ((float) Math.PI / 180f);
         Vec3 out = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
         for (ServerPlayer p : sl.players()) {
-            if (p.isSpectator() || p.isCreative() || hasVip(p)) continue;
+            if (p.isSpectator() || p.isCreative()) continue;
+            if (hasVip(p)) {
+                com.boombox.bar.Vip.bindUnnamed(p);
+                if (vipOnly && p.distanceTo(this) < 3 && !p.entityTags().contains("boombox_vip_" + sl.getOverworldClockTime() / 24000)) {
+                    p.addTag("boombox_vip_" + sl.getOverworldClockTime() / 24000);
+                    p.sendSystemMessage(Component.literal("§8<Segurança do Camarote>§r " + p.getName().getString() + "... tá aqui na lista. Pode subir, VIP!"));
+                    com.boombox.Achievements.award(p, "lista_vip");
+                }
+                continue;
+            }
             Vec3 d = p.position().subtract(position());
             if (d.horizontalDistance() > 3.0 || Math.abs(d.y) > 2) continue;
             if (d.dot(out) < -0.6) continue; // já está lá dentro: pode sair à vontade
@@ -144,8 +153,9 @@ public class Bouncer extends PathfinderMob {
             Long last = warned.get(p.getUUID());
             if (last == null || tickCount - last > 60) {
                 warned.put(p.getUUID(), (long) tickCount);
-                p.sendSystemMessage(Component.literal((vipOnly ? "§8<Segurança>§r Camarote é só para VIP, parceiro. " : "§8<Segurança>§r Sem pulseira VIP não entra antes da meia-noite. ")
-                        + "Quer a pulseira? São §62 barras de ouro§r."));
+                String someone = com.boombox.bar.Vip.hasSomeoneElses(p) ? "Essa pulseira não é sua, seu nome não tá na lista! " : "";
+                p.sendSystemMessage(Component.literal((vipOnly ? "§8<Segurança>§r Camarote é só para quem tá na lista VIP. " : "§8<Segurança>§r Sem pulseira VIP não entra antes da meia-noite. ")
+                        + someone + "Quer entrar na lista? A pulseira (com seu nome) custa §62 barras de ouro§r."));
                 playSound(SoundEvents.VILLAGER_NO, 1f, 0.7f);
             }
         }
@@ -157,10 +167,17 @@ public class Bouncer extends PathfinderMob {
         ItemStack held = player.getItemInHand(hand);
         if (held.is(Items.GOLD_INGOT) && (held.getCount() >= 2 || player.getAbilities().instabuild)) {
             if (!player.getAbilities().instabuild) held.shrink(2);
-            ItemStack vip = new ItemStack(BarBlocks.VIP);
+            ItemStack vip = com.boombox.bar.Vip.braceletFor(player.getName().getString());
             if (!player.getInventory().add(vip)) spawnAtLocation((ServerLevel) level(), vip);
-            player.sendSystemMessage(Component.literal("§8<Segurança>§r Pulseira VIP do DJ Leo. Pode entrar, chefe."));
+            player.sendSystemMessage(Component.literal("§8<Segurança>§r Anotei seu nome na lista VIP, " + player.getName().getString()
+                    + ". Tá aqui a pulseira com seu nome: só vale pra você. Pode entrar, chefe."));
             playSound(SoundEvents.VILLAGER_YES, 1f, 0.7f);
+        } else if (vipOnly) {
+            // segurança do camarote: mostra a lista VIP de hoje
+            java.util.List<String> names = new java.util.ArrayList<>(java.util.List.of(GUESTS));
+            for (var p : ((ServerLevel) level()).players()) if (com.boombox.bar.Vip.onList(p) && !p.isCreative()) names.add(p.getName().getString());
+            player.sendSystemMessage(Component.literal("§8<Segurança do Camarote>§r 📋 §6Lista VIP de hoje:§f " + String.join(", ", names)
+                    + (com.boombox.bar.Vip.onList(player) ? " §a(você tá na lista!)" : " §7(seu nome não tá aqui...)")));
         } else {
             player.sendSystemMessage(Component.literal(afterMidnight(level())
                     ? "§8<Segurança>§r Passou da meia-noite, a casa tá aberta. Bora!"

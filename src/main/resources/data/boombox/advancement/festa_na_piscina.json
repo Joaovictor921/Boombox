@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:boia_flamingo"
+    },
+    "title": "Boiando",
+    "description": "Sente numa boia de flamingo",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

@@ -33,6 +33,7 @@ public class BoomboxClient implements ClientModInitializer {
         com.boombox.SmokeMachineBlock.clientTicker = SmokeMachines::tick;
         BarClient.register();
         PartyClient33.register();
+        PartyClient34.register();
         com.boombox.entity.DjLeo.openRequestHook = id -> Minecraft.getInstance().gui.setScreen(new DjRequestScreen(id));
         com.boombox.entity.Raver.openTrucoHook = id -> Minecraft.getInstance().gui.setScreen(new TrucoScreen(id));
         com.boombox.entity.MountedSpeaker.openMenuHook = id -> Minecraft.getInstance().gui.setScreen(new BoomboxScreen(Target.entity(id)));

@@ -44,6 +44,11 @@ public class Raver extends PathfinderMob {
     private static final EntityDataAccessor<Integer> ROLE = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
     /** Pulseira de luz no braço (pisca com a música). */
     private static final EntityDataAccessor<Boolean> GLOW = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.BOOLEAN);
+    /** 3.4: cor da camisa do time (futebol do campeonato, vôlei); 0 = cor padrão do papel. */
+    private static final EntityDataAccessor<Integer> SHIRT = SynchedEntityData.defineId(Raver.class, EntityDataSerializers.INT);
+    /** 3.4: fogueira do luau (só no servidor) e a noite em que já procurou uma. */
+    net.minecraft.core.BlockPos luauFire;
+    long luauDay = -1;
     /** Só no servidor: lugares e alvos dos papéis. */
     net.minecraft.core.BlockPos barHome, houseSpot, fieldHome;
     java.util.UUID ball;
@@ -70,6 +75,20 @@ public class Raver extends PathfinderMob {
 
     public int instrument() {
         return entityData.get(INSTRUMENT);
+    }
+
+    public int getShirt() {
+        return entityData.get(SHIRT);
+    }
+
+    public void setShirt(int argb) {
+        entityData.set(SHIRT, argb);
+    }
+
+    /** Luau: o violeiro da roda (3 = violão, desenhado como o cavaquinho "palhetando"). */
+    void setLuauGuitar(boolean on) {
+        int want = on ? 3 : 0;
+        if (instrument() != want && (instrument() == 0 || instrument() == 3)) entityData.set(INSTRUMENT, want);
     }
 
     /** Carnaval: segue o trio elétrico (some quando o trio vai embora). */
@@ -110,6 +129,7 @@ public class Raver extends PathfinderMob {
         builder.define(INSTRUMENT, 0);
         builder.define(ROLE, 0);
         builder.define(GLOW, false);
+        builder.define(SHIRT, 0);
     }
 
     private boolean tvNear(ServerLevel level) {
@@ -172,7 +192,7 @@ public class Raver extends PathfinderMob {
         }
         if (RaverRoles.tick(this, level)) return;
         if (instrument() > 0) {
-            var want = instrument() == 1 ? com.boombox.bar.BarBlocks.PANDEIRO : com.boombox.bar.BarBlocks.CAVAQUINHO;
+            var want = instrument() == 1 ? com.boombox.bar.BarBlocks.PANDEIRO : instrument() == 3 ? com.boombox.bar.Blocks34.VIOLAO : com.boombox.bar.BarBlocks.CAVAQUINHO;
             if (!getMainHandItem().is(want)) setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(want));
             if (!hasHome()) setHomeTo(blockPosition(), 2);
             if (tickCount % 6 == 0 && ServerBoomboxManager.isPlayingNear(level, position(), 16) && getRandom().nextInt(3) != 0) {
@@ -213,6 +233,20 @@ public class Raver extends PathfinderMob {
             } else if (getRandom().nextInt(260) == 0) {
                 playSound(SoundEvents.GENERIC_DRINK.value(), 0.6f, 0.9f + getRandom().nextFloat() * 0.2f);
             }
+            // petisco na mesa do lado: belisca de vez em quando
+            if (!playingPool() && getRandom().nextInt(300) == 0) {
+                for (var p : net.minecraft.core.BlockPos.betweenClosed(blockPosition().offset(-2, -1, -2), blockPosition().offset(2, 1, 2))) {
+                    if (level.getBlockEntity(p) instanceof com.boombox.bar.PlasticTableBlockEntity t
+                            && t.items.stream().anyMatch(com.boombox.bar.Blocks34::isPetisco)) {
+                        var food = t.items.stream().filter(com.boombox.bar.Blocks34::isPetisco).findFirst().get();
+                        getLookControl().setLookAt(p.getX() + 0.5, p.getY() + 1, p.getZ() + 0.5);
+                        playSound(SoundEvents.GENERIC_EAT.value(), 0.7f, 1f);
+                        level.sendParticles(new net.minecraft.core.particles.ItemParticleOption(net.minecraft.core.particles.ParticleTypes.ITEM,
+                                food.getItem()), getX(), getEyeY() - 0.2, getZ(), 6, 0.15, 0.1, 0.15, 0.04);
+                        break;
+                    }
+                }
+            }
             return;
         }
         // música perto: pula no ritmo de vez em quando e comemora
@@ -234,6 +268,7 @@ public class Raver extends PathfinderMob {
         out.putInt("Instrument", instrument());
         out.putInt("Role", role());
         out.putBoolean("Glow", glow());
+        out.putInt("Shirt", getShirt());
         out.putInt("Stall", stall);
         if (queueSpot != null) out.putBoolean("Queued", true);
     }
@@ -248,6 +283,7 @@ public class Raver extends PathfinderMob {
         entityData.set(INSTRUMENT, in.getIntOr("Instrument", 0));
         entityData.set(ROLE, in.getIntOr("Role", 0));
         entityData.set(GLOW, in.getBooleanOr("Glow", false));
+        entityData.set(SHIRT, in.getIntOr("Shirt", 0));
         stall = in.getIntOr("Stall", 0);
         // estava na fila quando o mundo foi salvo: a fila se refaz sozinha
         if (in.getBooleanOr("Queued", false)) queueSpot = net.minecraft.world.phys.Vec3.ZERO;

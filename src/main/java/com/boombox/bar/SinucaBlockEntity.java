@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -132,8 +133,9 @@ public class SinucaBlockEntity extends BlockEntity {
         }
         moving = false;
         group[0] = group[1] = 0;
-        names[0] = "";
+        names[0] = tournamentRunning() ? tourPlayer : "";
         names[1] = againstBot ? BOT : "";
+        if (!tournamentRunning()) botName = "";
         turn = 0;
         winner = -1;
         breakShot = true;
@@ -168,6 +170,10 @@ public class SinucaBlockEntity extends BlockEntity {
             return;
         }
         String me = p.getName().getString();
+        if (tournamentRunning() && !me.equals(tourPlayer)) {
+            p.sendOverlayMessage(Component.literal("§eTá rolando o torneio de " + tourPlayer + ". Espera acabar!"));
+            return;
+        }
         if (againstBot && names[1].isEmpty()) names[1] = BOT;
         if (names[turn].isEmpty()) {
             // lado livre: quem tacar fica com ele (sozinho na mesa, você joga dos dois lados, como treino)
@@ -188,7 +194,7 @@ public class SinucaBlockEntity extends BlockEntity {
     public static void serverTick(Level level, BlockPos pos, BlockState state, SinucaBlockEntity be) {
         if (!(level instanceof ServerLevel sl)) return;
         if (level.getGameTime() % 40 == 0) {
-            boolean bot = !sl.getEntitiesOfClass(Raver.class, new AABB(pos).inflate(8), Raver::playingPool).isEmpty();
+            boolean bot = be.tournamentRunning() || !sl.getEntitiesOfClass(Raver.class, new AABB(pos).inflate(8), Raver::playingPool).isEmpty();
             if (bot != be.againstBot) {
                 be.againstBot = bot;
                 if (bot && be.names[1].isEmpty()) be.names[1] = BOT;
@@ -268,7 +274,83 @@ public class SinucaBlockEntity extends BlockEntity {
     }
 
     private String side(int s) {
+        if (BOT.equals(names[s]) && !botName.isEmpty()) return botName;
         return names[s].isEmpty() ? (s == 0 ? "Jogador 1" : "Jogador 2") : names[s];
+    }
+
+    // ------------------------------------------------------------ torneio de sinuca (3.4)
+    private static final String[] RIVALS = {"Tião da Caçapa", "Biu Taco Fino", "Nenzinho", "Dona Cida", "Carlão do Giz", "Juninho Efeito",
+            "Peixoto", "Rosinha Tabela", "Zé Bolinha", "Mestre Valdir"};
+    /** Quem está no torneio ("" = sem torneio), fase (0 = semifinal, 1 = final), adversários e nome do aldeão da vez. */
+    public String tourPlayer = "", botName = "";
+    public int tourStage;
+    private final String[] tourOpp = {"", "", ""};
+
+    public boolean tournamentRunning() {
+        return !tourPlayer.isEmpty();
+    }
+
+    /** Começa o torneio: chave com 4 (você e 3 aldeões). Semifinal contra um; a outra semi é jogada ao lado. */
+    public boolean startTournament(ServerPlayer p) {
+        if (tournamentRunning() && !tourPlayer.equals(p.getName().getString())) return false;
+        List<String> pool = new ArrayList<>(List.of(RIVALS));
+        java.util.Collections.shuffle(pool, rnd);
+        for (int i = 0; i < 3; i++) tourOpp[i] = pool.get(i);
+        tourPlayer = p.getName().getString();
+        tourStage = 0;
+        botName = tourOpp[0];
+        againstBot = true;
+        rack();
+        message = "Torneio! Semifinal: " + tourPlayer + " x " + botName;
+        tell("§6§l🎱 Torneio de Sinuca do Seu Zé! §r§fChave: §e" + tourPlayer + " x " + tourOpp[0] + "§f e §e" + tourOpp[1] + " x " + tourOpp[2]
+                + "§f. Ganhe a semifinal e a final para levar o troféu.");
+        changed();
+        return true;
+    }
+
+    private void tell(String msg) {
+        if (!(level instanceof ServerLevel sl)) return;
+        for (ServerPlayer pl : sl.players()) {
+            if (pl.blockPosition().distSqr(worldPosition) < 24 * 24) pl.sendSystemMessage(Component.literal(msg));
+        }
+    }
+
+    /** Fim de uma partida do torneio. */
+    private void tournamentResult(ServerLevel sl, boolean playerWon) {
+        if (!tournamentRunning()) return;
+        ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(tourPlayer);
+        if (tourStage == 0) {
+            String other = rnd.nextBoolean() ? tourOpp[1] : tourOpp[2];
+            String loserOther = other.equals(tourOpp[1]) ? tourOpp[2] : tourOpp[1];
+            tell("§7Na outra semifinal, §f" + other + "§7 ganhou de §f" + loserOther + "§7.");
+            if (playerWon) {
+                tourStage = 1;
+                botName = other;
+                tell("§a§lVocê está na FINAL! §r§fAdversário: §e" + other + "§f. Ele joga melhor, hein...");
+            } else {
+                tell("§cEliminado na semifinal! §f" + botName + " ganhou e vai pegar " + other + " na final.");
+                endTournament();
+            }
+        } else {
+            if (playerWon) {
+                tell("§6§l🏆 " + tourPlayer.toUpperCase() + " É CAMPEÃO DO TORNEIO DE SINUCA! 🏆");
+                if (p != null) {
+                    ItemStack trophy = new ItemStack(Blocks34.TROFEU_SINUCA);
+                    if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
+                    com.boombox.Achievements.award(p, "rei_da_sinuca");
+                }
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK, worldPosition.getX() + 0.5, worldPosition.getY() + 2, worldPosition.getZ() + 0.5, 60, 1, 1, 1, 0.15);
+            } else {
+                tell("§cVice-campeão! §f" + botName + " levou o troféu dessa vez.");
+            }
+            endTournament();
+        }
+        changed();
+    }
+
+    private void endTournament() {
+        tourPlayer = "";
+        tourStage = 0;
     }
 
     public static String groupName(int g) {
@@ -305,6 +387,7 @@ public class SinucaBlockEntity extends BlockEntity {
                 message = winner == me ? side(me) + " matou a 8 e ganhou a partida!"
                         : side(me) + " matou a 8 antes da hora" + (foul ? " (com falta)" : "") + ". " + side(opp) + " ganhou!";
                 sl.playSound(null, worldPosition, winner == me ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_NO, SoundSource.BLOCKS, 1f, 1f);
+                if (tournamentRunning()) tournamentResult(sl, names[winner].equals(tourPlayer));
                 if (winner == me && !names[me].equals(BOT)) {
                     ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(names[me]);
                     if (p != null) {
@@ -386,8 +469,9 @@ public class SinucaBlockEntity extends BlockEntity {
             }
         }
         if (best == -1e9) ang = rnd.nextDouble() * Math.PI * 2;
-        ang += (rnd.nextDouble() - 0.5) * (breakShot ? 0.05 : 0.045);
-        message = "Tacada do aldeão";
+        double err = breakShot ? 0.05 : tournamentRunning() ? (tourStage == 1 ? 0.026 : 0.038) : 0.045;
+        ang += (rnd.nextDouble() - 0.5) * err;
+        message = "Tacada de " + side(turn);
         shoot(ang, breakShot ? 0.9 : Math.min(1, 0.25 + dist * 0.22 + rnd.nextDouble() * 0.1));
     }
 
@@ -448,6 +532,11 @@ public class SinucaBlockEntity extends BlockEntity {
         againstBot = in_.getBooleanOr("AgainstBot", false);
         moving = in_.getBooleanOr("Moving", false);
         message = in_.getStringOr("Msg", message);
+        tourPlayer = in_.getStringOr("TourPlayer", "");
+        tourStage = in_.getIntOr("TourStage", 0);
+        botName = in_.getStringOr("BotName", "");
+        String[] o = in_.getStringOr("TourOpp", "||").split("[|]", -1);
+        for (int i = 0; i < 3 && i < o.length; i++) tourOpp[i] = o[i];
     }
 
     @Override
@@ -464,6 +553,10 @@ public class SinucaBlockEntity extends BlockEntity {
         out.putBoolean("AgainstBot", againstBot);
         out.putBoolean("Moving", moving);
         out.putString("Msg", message);
+        out.putString("TourPlayer", tourPlayer);
+        out.putInt("TourStage", tourStage);
+        out.putString("BotName", botName);
+        out.putString("TourOpp", String.join("|", tourOpp));
     }
 
     @Override

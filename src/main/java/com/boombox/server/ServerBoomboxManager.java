@@ -191,6 +191,11 @@ public final class ServerBoomboxManager {
     // ------------------------------------------------------------ pedidos dos jogadores
 
     public static void registerReceivers() {
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.NeonEdit.TYPE, (p, ctx) -> {
+            ServerPlayer player = ctx.player();
+            if (player.blockPosition().distSqr(p.pos()) > 10 * 10) return;
+            if (player.level().getBlockEntity(p.pos()) instanceof com.boombox.bar.NeonSignBlockEntity be) be.set(p.text(), p.color(), p.blink());
+        });
         ServerPlayNetworking.registerGlobalReceiver(Payloads.PlayRequest.TYPE, (payload, ctx) -> {
             ServerPlayer player = ctx.player();
             Holder h = resolve(player, payload.target());

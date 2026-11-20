@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/trofeu_sinuca"
+    },
+    "facing=east": {
+      "model": "boombox:block/trofeu_sinuca",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/trofeu_sinuca",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/trofeu_sinuca",
+      "y": 270
+    }
+  }
+}

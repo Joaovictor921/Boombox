@@ -35,6 +35,7 @@ public class BoomboxMod implements ModInitializer {
         ModBlocks.init();
         com.boombox.entity.ModEntities.init();
         com.boombox.bar.BarBlocks.init();
+        com.boombox.bar.Blocks34.init();
         Achievements.registerStats();
         Payloads.register();
         ServerBoomboxManager.registerReceivers();

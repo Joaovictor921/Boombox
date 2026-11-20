@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "DTD"
+  ],
+  "key": {
+    "G": "minecraft:glass_pane",
+    "D": "minecraft:glowstone_dust",
+    "T": "minecraft:redstone_torch"
+  },
+  "result": {
+    "id": "boombox:neon_sign",
+    "count": 2
+  }
+}

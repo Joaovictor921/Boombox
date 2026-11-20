@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:trofeu_volei"
+    },
+    "title": "Rei da Areia",
+    "description": "Ganhe um jogo de vôlei de praia",
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

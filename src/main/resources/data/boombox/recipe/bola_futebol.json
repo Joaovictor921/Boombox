@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:leather",
+    "minecraft:white_dye",
+    "minecraft:black_dye",
+    "minecraft:slime_ball"
+  ],
+  "result": {
+    "id": "boombox:bola_futebol",
+    "count": 1
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:cooked_chicken",
+    "minecraft:cooked_chicken",
+    "minecraft:bowl"
+  ],
+  "result": {
+    "id": "boombox:porcao_frango",
+    "count": 1
+  }
+}

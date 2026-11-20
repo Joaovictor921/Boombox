@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "C",
+    "B",
+    "B"
+  ],
+  "key": {
+    "C": "minecraft:coal",
+    "B": "minecraft:bamboo"
+  },
+  "result": {
+    "id": "boombox:tiki_torch",
+    "count": 2
+  }
+}

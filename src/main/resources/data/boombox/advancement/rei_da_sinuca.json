@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:trofeu_sinuca"
+    },
+    "title": "Rei da Sinuca",
+    "description": "Ganhe o torneio de sinuca do Seu Zé",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

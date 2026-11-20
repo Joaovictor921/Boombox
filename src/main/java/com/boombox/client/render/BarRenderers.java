@@ -66,6 +66,8 @@ public final class BarRenderers {
             public final List<ItemStackRenderState> items = new ArrayList<>();
             /** Item "em pé" (garrafa, bloco) ou deitado em cima da mesa (comida, papel). */
             public final List<Boolean> standing = new ArrayList<>();
+            /** 3.4: travessa de petisco (grande, no meio da mesa). */
+            public final List<Boolean> platter = new ArrayList<>();
         }
 
         private final ItemModelResolver items;
@@ -84,6 +86,7 @@ public final class BarRenderers {
             BlockEntityRenderer.super.extractRenderState(be, s, pt, cam, c);
             s.items.clear();
             s.standing.clear();
+            s.platter.clear();
             for (int i = 0; i < be.items.size(); i++) {
                 ItemStackRenderState r = new ItemStackRenderState();
                 var stack = be.items.get(i);
@@ -92,6 +95,7 @@ public final class BarRenderers {
                 }
                 s.items.add(r);
                 s.standing.add(stack.is(com.boombox.ModBlocks.BEER) || stack.getItem() instanceof net.minecraft.world.item.BlockItem);
+                s.platter.add(com.boombox.bar.Blocks34.isPetisco(stack));
             }
         }
 
@@ -103,7 +107,12 @@ public final class BarRenderers {
                 if (r.isEmpty()) continue;
                 ps.pushPose();
                 // tampo da mesa em 15/16: o fundo do item fica encostado nele (nada atravessando)
-                if (s.standing.get(i)) {
+                if (s.platter.get(i)) {
+                    float sc = 0.62f;
+                    ps.translate(0.5f, 15f / 16f + sc * 0.5f, 0.5f);
+                    ps.rotateDegrees(Axis.YP, i * 90f + 20f);
+                    ps.scale(sc, sc, sc);
+                } else if (s.standing.get(i)) {
                     float sc = 0.42f;
                     ps.translate(spots[i][0], 15f / 16f + sc * 0.5f, spots[i][1]);
                     ps.rotateDegrees(Axis.YP, i * 37f);

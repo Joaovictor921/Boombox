@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/taca_varzea"
+    },
+    "facing=east": {
+      "model": "boombox:block/taca_varzea",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/taca_varzea",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/taca_varzea",
+      "y": 270
+    }
+  }
+}

@@ -40,8 +40,10 @@ import java.util.UUID;
  */
 public class SeuZe extends PathfinderMob {
     /** Cardápio: nome e preço (em esmeraldas), na ordem dos botões. */
-    public static final String[] MENU = {"Cerveja", "Torresmo", "Coxinha", "Quentão"};
-    public static final int[] PRICES = {1, 1, 2, 1};
+    public static final String[] MENU = {"Cerveja", "Torresmo", "Coxinha", "Quentão", "Porção de Fritas", "Porção de Calabresa", "Frango à Passarinho"};
+    public static final int[] PRICES = {1, 1, 2, 1, 2, 3, 3};
+    /** Inscrição no torneio de sinuca (esmeraldas). */
+    public static final int TOURNAMENT_PRICE = 3;
     /** Quanto dá para pendurar no máximo. */
     public static final int MAX_DEBT = 6;
     /** Fiado para mostrar na lousa: "Nome=3;Outro=1". */
@@ -137,6 +139,9 @@ public class SeuZe extends PathfinderMob {
             case 1 -> BarBlocks.TORRESMO;
             case 2 -> BarBlocks.COXINHA;
             case 3 -> BarBlocks.QUENTAO;
+            case 4 -> com.boombox.bar.Blocks34.FRITAS;
+            case 5 -> com.boombox.bar.Blocks34.CALABRESA;
+            case 6 -> com.boombox.bar.Blocks34.FRANGO;
             default -> ModBlocks.BEER;
         };
     }
@@ -188,6 +193,10 @@ public class SeuZe extends PathfinderMob {
         if (distanceTo(p) > 8) return;
         boolean free = p.getAbilities().instabuild;
         int owed = debt.getOrDefault(p.getUUID(), 0);
+        if (mode == 3) {
+            tournament(p, free);
+            return;
+        }
         if (mode == 2) {
             int pay = free ? owed : Math.min(owed, countEmeralds(p));
             if (pay <= 0) {
@@ -240,6 +249,30 @@ public class SeuZe extends PathfinderMob {
         if (!p.getInventory().add(out)) spawnAtLocation((ServerLevel) level(), out);
         say(p, mode == 0 ? "Tá aqui: " + MENU[item] + ", saindo!" : MENU[item] + " pendurado(a). Tô anotando na lousa, hein!");
         playSound(SoundEvents.VILLAGER_YES, 1f, 0.8f);
+    }
+
+    /** Torneio de sinuca: inscrição de 3 esmeraldas, na mesa de sinuca do bar. */
+    private void tournament(ServerPlayer p, boolean free) {
+        com.boombox.bar.SinucaBlockEntity table = null;
+        for (var pos : net.minecraft.core.BlockPos.betweenClosed(blockPosition().offset(-14, -3, -14), blockPosition().offset(14, 3, 14))) {
+            if (level().getBlockEntity(pos) instanceof com.boombox.bar.SinucaBlockEntity t) { table = t; break; }
+        }
+        if (table == null) {
+            say(p, "Sem mesa de sinuca aqui, freguês. Torneio só no bar com mesa!");
+            return;
+        }
+        if (table.tournamentRunning()) {
+            say(p, table.tourPlayer.equals(p.getName().getString()) ? "Seu torneio já tá rolando! Vai lá pra mesa." : "Já tem torneio rolando, espera acabar.");
+            return;
+        }
+        if (!free && countEmeralds(p) < TOURNAMENT_PRICE) {
+            say(p, "A inscrição do torneio é " + TOURNAMENT_PRICE + " esmeraldas. O prêmio é um troféu de verdade!");
+            return;
+        }
+        if (!free) takeEmeralds(p, TOURNAMENT_PRICE);
+        table.startTournament(p);
+        say(p, "Inscrito! Chave de 4: ganhou a semifinal, vai pra final. Boa sorte, " + p.getName().getString() + "!");
+        playSound(SoundEvents.VILLAGER_CELEBRATE, 1f, 0.8f);
     }
 
     @Override

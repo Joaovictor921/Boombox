@@ -231,7 +231,20 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Neon personalizado: texto, cor e se pisca. */
+    public record NeonEdit(BlockPos pos, String text, int color, boolean blink) implements CustomPacketPayload {
+        public static final Type<NeonEdit> TYPE = new Type<>(BoomboxMod.id("neon_edit"));
+        public static final StreamCodec<ByteBuf, NeonEdit> CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, NeonEdit::pos,
+                ByteBufCodecs.stringUtf8(64), NeonEdit::text,
+                ByteBufCodecs.VAR_INT, NeonEdit::color,
+                ByteBufCodecs.BOOL, NeonEdit::blink,
+                NeonEdit::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     public static void register() {
+        PayloadTypeRegistry.serverboundPlay().register(NeonEdit.TYPE, NeonEdit.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(PlayRequest.TYPE, PlayRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(Control.TYPE, Control.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(QueueEdit.TYPE, QueueEdit.CODEC);

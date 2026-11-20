@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " SS",
+    "PS ",
+    "PP "
+  ],
+  "key": {
+    "S": "minecraft:string",
+    "P": "minecraft:spruce_planks"
+  },
+  "result": {
+    "id": "boombox:violao",
+    "count": 1
+  }
+}

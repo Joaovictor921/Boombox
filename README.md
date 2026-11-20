@@ -22,6 +22,61 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.4
+**Futebol de várzea bem mais realista**:
+- **Partida de verdade**: dois tempos com relógio, intervalo e apito final. O placar e o minuto do jogo aparecem numa
+  barra no alto da tela de quem está perto do campo.
+- **Times que jogam como time**: cada lado num 2-1-1 (dois zagueiros, um meia, um atacante) mais o goleiro, subindo e
+  descendo junto com a bola. Só um vai na bola por vez; o segundo se oferece para o passe ou faz a cobertura.
+- **Decisões com a bola no pé**: chutar (perto do gol e com o caminho livre), tocar para um companheiro livre e mais
+  adiantado (às vezes lançamento pelo alto), conduzir desviando do marcador ou dar um chutão quando apertado.
+- **Bote**: quem chega rouba a bola, erra o bote ou faz falta (por trás é mais fácil ser falta). **Falta dentro da
+  área é pênalti**, com o goleiro escolhendo um canto. De vez em quando o juiz mostra cartão amarelo.
+- **Goleiro de verdade**: fica entre a bola e o gol, voa na bola quando chutam, agarra ou espalma, e repõe com a mão ou
+  com um chutão.
+- **Você jogando**: corra colado na bola para conduzir. Bater na bola é passe (mirando num companheiro, a bola vai no
+  pé dele), correndo é chute forte e agachado é cavadinha. A bola rola e quica de um jeito mais natural.
+- **Campeonato da Várzea**: 4 times, o da vila e 3 visitantes de outras vilas (cada um com a sua camisa). Cada partida
+  vale uma rodada, e os outros dois times jogam no mesmo dia. Depois de 3 rodadas sai o campeão, e quem jogou pelo time
+  campeão leva a **Taça da Várzea**. Agachado + clique na bola mostra a tabela.
+
+**Bar do Seu Zé**:
+- **Petiscos na travessa**: Porção de Fritas, Calabresa Acebolada e Frango à Passarinho, no cardápio do Seu Zé. A
+  travessa fica grande no meio da mesa de plástico, e os fregueses beliscam.
+- **Torneio de sinuca**: inscrição de 3 esmeraldas com o Seu Zé. Chave de 4: você contra um aldeão na semifinal e a
+  outra semi jogada ao lado. Na final o adversário joga melhor. O campeão leva o **Troféu do Torneio de Sinuca**.
+
+**Balada**:
+- **Área VIP com lista**: a pulseira VIP agora vem com o seu nome, e só vale para você. A **Corda VIP** deixa passar
+  quem está na lista e barra o resto. A balada ganhou uma área VIP no lounge, com sofás, espumante e o segurança com a
+  lista do dia.
+- **Baile à fantasia**: uma noite a cada 5 dias do jogo (e no Halloween de verdade) os aldeões chegam fantasiados
+  (pirata, bruxa, máscara de baile, cowboy, coelhinho, diabinho, rei e mágico). Até o **DJ Leo desce do palco**
+  fantasiado para dançar no meio da galera.
+- **Luau na praia**: em noite de lua cheia, a fogueira e as tochas de bambu da barraca de praia acendem, a turma senta
+  em roda, um toca violão e a caixinha da praia troca para uma playlist de luau.
+- **Festa na piscina**: casa com piscina em algumas vilas, com escorregador, espreguiçadeiras, letreiro neon e boias de
+  flamingo onde dá para sentar (andando para a frente você rema).
+
+**Esportes**:
+- **Vôlei de praia**: quadra na areia em vilas perto do mar, 2 contra 2 (time Sol contra time Mar), com saque,
+  recepção, levantada e cortada. Até 3 toques de cada lado, jogo até 15 com 2 de vantagem. Clique na bola para entrar.
+  Quem vence leva o **Troféu do Vôlei de Praia**.
+
+**Itens e decoração**:
+- **Neon personalizado**: escreva o texto, escolha a cor (ou arco-íris) e se ele pisca.
+- **Pôsteres de shows** (fictícios) para pendurar como quadro: DJ Leo Noite Neon, Pagode na Laje, Baile à Fantasia,
+  Luau na Praia, Forró da Quermesse, Turnê Paredão e Rave na Piscina.
+- Bola de futebol e bola de vôlei (para montar seu próprio campo ou quadra), Rede de Vôlei, Tocha de Bambu, Violão,
+  Espumante VIP e os três troféus.
+- **Conquistas novas**: Campeão da Várzea, Rei da Sinuca, Rei da Areia, Que Fantasia é Essa?, Luau de Lua Cheia, Meu
+  Nome Tá na Lista e Boiando.
+
+**Correções desde a 3.3**: o jogo não trava mais ao gerar vilas, as bolas da sinuca não piscam mais e a música não
+corta no barco.
+
+![Prévia 3.4](https://raw.githubusercontent.com/Joaovictor921/Boombox/main/docs/preview-3.4.png)
+
 ## Novidades da 3.3
 **Sinuca de verdade**:
 - **Regras de bola 8**: a primeira bola encaçapada depois da saída define quem fica com as **lisas** (1 a 7) e quem fica

@@ -62,9 +62,27 @@ public final class ZePlaylist {
             "Exaltasamba - Tá Vendo Aquela Lua", "Péricles - Até Que Durou", "Sorriso Maroto - Assim Você Mata o Papai",
             "Turma do Pagode - Lancinho", "Thiaguinho - Buquê de Flores", "Revelação - Deixa Acontecer", "Raça Negra - Cheia de Manias"};
 
+    /** Luau (lua cheia na praia): voz e violão, MPB e reggae de praia. */
+    public static final String[] LUAU = {
+            "Armandinho - Outra Vida", "Natiruts - Liberdade Pra Dentro da Cabeça", "Jorge Ben Jor - País Tropical",
+            "Tim Maia - Do Leme ao Pontal", "Djavan - Flor de Lis", "Lulu Santos - Como uma Onda",
+            "Skank - Garota Nacional", "Jota Quest - Na Moral", "Charlie Brown Jr. - Céu Azul",
+            "Maneva - Lágrimas de Alegria", "Vitor Kley - O Sol", "Tribo da Periferia - Carro Rebaixado acústico",
+            "Natiruts - Quero Ser Feliz Também", "Armandinho - Sol Loiro", "Ana Vilela - Trem-Bala"};
+
+    /** Festa na piscina: hits de verão. */
+    public static final String[] PISCINA = {
+            "Anitta - Envolver", "Ivete Sangalo - Festa", "Pabllo Vittar - Amor de Que", "Dennis DJ - Malandramente remix",
+            "Ludmilla - Verdinha", "Alok - Hear Me Now", "Vintage Culture - Wild Kidz", "Pedro Sampaio - Dançarina",
+            "Kevinho - Olha a Explosão", "Matheus e Kauan - Te Assumi Pro Brasil", "Claudia Leitte - Largadinho",
+            "Ivete Sangalo - Sorte Grande", "Anitta - Show das Poderosas", "Marina Sena - Por Supuesto", "Gusttavo Lima - Balada"};
+
     /** Playlist de uma caixa que toca sozinha, pelo dono (Seu Zé, Carnaval, Arraiá). */
     public static String[] forOwner(String owner) {
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        if (owner.equals("Praia") && level != null && com.boombox.entity.RaverRoles.luauNight(level)) return LUAU;
         return switch (owner) {
+            case "Piscina" -> PISCINA;
             case "Carnaval" -> CARNAVAL;
             case "Arraiá" -> ARRAIA;
             case "Praia" -> PRAIA;

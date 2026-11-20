@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:violao"
+    },
+    "title": "Luau de Lua Cheia",
+    "description": "Fique na roda do luau na praia",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

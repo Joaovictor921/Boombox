@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:carved_pumpkin"
+    },
+    "title": "Que Fantasia é Essa?",
+    "description": "Esteja no baile à fantasia do DJ Leo",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

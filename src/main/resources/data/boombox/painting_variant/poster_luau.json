@@ -1,0 +1,13 @@
+{
+  "asset_id": "boombox:poster_luau",
+  "width": 2,
+  "height": 3,
+  "title": {
+    "translate": "painting.boombox.poster_luau.title",
+    "color": "yellow"
+  },
+  "author": {
+    "translate": "painting.boombox.poster_luau.author",
+    "color": "gray"
+  }
+}

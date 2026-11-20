@@ -1,0 +1,13 @@
+{
+  "asset_id": "boombox:poster_pagode",
+  "width": 2,
+  "height": 3,
+  "title": {
+    "translate": "painting.boombox.poster_pagode.title",
+    "color": "yellow"
+  },
+  "author": {
+    "translate": "painting.boombox.poster_pagode.author",
+    "color": "gray"
+  }
+}

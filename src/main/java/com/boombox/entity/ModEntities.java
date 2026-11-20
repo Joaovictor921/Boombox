@@ -49,6 +49,10 @@ public final class ModEntities {
             EntityType.Builder.<Bouncer>of(Bouncer::new, MobCategory.MISC).sized(0.6f, 1.95f).eyeHeight(1.62f));
     public static final EntityType<Ball> BALL = reg("ball", EntityType.Builder.<Ball>of(Ball::new, MobCategory.MISC).sized(0.5f, 0.5f).clientTrackingRange(8).updateInterval(1));
     public static final EntityType<Balloon> BALLOON = reg("balloon", EntityType.Builder.<Balloon>of(Balloon::new, MobCategory.MISC).sized(0.6f, 2.2f).clientTrackingRange(8));
+    public static final EntityType<Volleyball> VOLLEYBALL = reg("volleyball", EntityType.Builder.<Volleyball>of(Volleyball::new, MobCategory.MISC)
+            .sized(0.5f, 0.5f).clientTrackingRange(8).updateInterval(1));
+    public static final EntityType<PoolFloat> POOL_FLOAT = reg("pool_float", EntityType.Builder.<PoolFloat>of(PoolFloat::new, MobCategory.MISC)
+            .sized(1.3f, 0.45f).clientTrackingRange(8));
     public static final EntityType<Trio> TRIO = reg("trio", EntityType.Builder.<Trio>of(Trio::new, MobCategory.MISC).sized(2.2f, 1.6f));
     private static final ResourceKey<Item> BOUNCER_EGG_KEY = ResourceKey.create(Registries.ITEM, BoomboxMod.id("bouncer_spawn_egg"));
     public static final Item BOUNCER_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, BOUNCER_EGG_KEY,

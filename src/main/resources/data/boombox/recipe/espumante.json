@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:glass_bottle",
+    "minecraft:sweet_berries",
+    "minecraft:sugar",
+    "minecraft:gold_nugget"
+  ],
+  "result": {
+    "id": "boombox:espumante",
+    "count": 1
+  }
+}

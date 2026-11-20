@@ -20,12 +20,26 @@ public class DjLeoRenderer extends HumanoidMobRenderer<DjLeo, DjLeoRenderer.Stat
         public boolean dancing;
         public float bass;
         public boolean sleeping;
+        /** Baile à fantasia: o DJ Leo também vai fantasiado (mágico de cartola e máscara). */
+        public boolean costume;
     }
 
     private final float[] levels = new float[2];
 
     public DjLeoRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new Model(ctx.bakeLayer(ModelLayers.PLAYER)), 0.5f);
+        addLayer(new net.minecraft.client.renderer.entity.layers.RenderLayer<State, Model>(this) {
+            @Override
+            public void submit(com.mojang.blaze3d.vertex.PoseStack ps, net.minecraft.client.renderer.SubmitNodeCollector collector, int light,
+                               State s, float yRot, float xRot) {
+                if (!s.costume || s.isInvisible) return;
+                ps.pushPose();
+                getParentModel().head.translateAndRotate(ps);
+                Renderers34.costume(ps, collector, light, 7, -8.5f);
+                Renderers34.costume(ps, collector, light, 2, -8f);
+                ps.popPose();
+            }
+        });
     }
 
     @Override
@@ -37,6 +51,7 @@ public class DjLeoRenderer extends HumanoidMobRenderer<DjLeo, DjLeoRenderer.Stat
     public void extractRenderState(DjLeo entity, State state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.sleeping = entity.sleepingDay();
+        state.costume = !state.sleeping && com.boombox.bar.Fantasia.tonight(entity.level());
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), entity.position(), 16);
         state.dancing = playing != null;
         if (playing != null) {

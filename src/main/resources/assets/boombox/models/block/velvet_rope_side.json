@@ -1,0 +1,72 @@
+{
+  "textures": {
+    "v": "boombox:block/velvet",
+    "particle": "boombox:block/velvet"
+  },
+  "elements": [
+    {
+      "from": [
+        7.3,
+        10.2,
+        3.5
+      ],
+      "to": [
+        8.7,
+        11.6,
+        7
+      ],
+      "faces": {
+        "north": {
+          "texture": "#v"
+        },
+        "south": {
+          "texture": "#v"
+        },
+        "east": {
+          "texture": "#v"
+        },
+        "west": {
+          "texture": "#v"
+        },
+        "up": {
+          "texture": "#v"
+        },
+        "down": {
+          "texture": "#v"
+        }
+      }
+    },
+    {
+      "from": [
+        7.3,
+        9.4,
+        0
+      ],
+      "to": [
+        8.7,
+        10.8,
+        3.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#v"
+        },
+        "south": {
+          "texture": "#v"
+        },
+        "east": {
+          "texture": "#v"
+        },
+        "west": {
+          "texture": "#v"
+        },
+        "up": {
+          "texture": "#v"
+        },
+        "down": {
+          "texture": "#v"
+        }
+      }
+    }
+  ]
+}

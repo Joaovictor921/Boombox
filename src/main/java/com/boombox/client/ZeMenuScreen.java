@@ -27,17 +27,20 @@ public class ZeMenuScreen extends Screen {
 
     @Override
     protected void init() {
-        int left = width / 2 - W / 2, top = height / 2 - 70;
+        int left = width / 2 - W / 2, top = height / 2 - 110;
         for (int i = 0; i < SeuZe.MENU.length; i++) {
-            int item = i, y = top + 30 + i * 24;
+            int item = i, y = top + 30 + i * 22;
             addRenderableWidget(Button.builder(Component.literal("Pagar (" + SeuZe.PRICES[i] + " esm.)"), b -> order(item, 0))
                     .bounds(left + 110, y, 76, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Pendurar"), b -> order(item, 1))
                     .bounds(left + 190, y, 70, 20).build());
         }
+        int by = top + 30 + SeuZe.MENU.length * 22 + 6;
         addRenderableWidget(Button.builder(Component.literal("§aPagar o fiado"), b -> order(0, 2))
-                .bounds(left, top + 130, 120, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Fechar"), b -> onClose()).bounds(left + W - 70, top + 130, 70, 20).build());
+                .bounds(left, by, 120, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Fechar"), b -> onClose()).bounds(left + W - 70, by, 70, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("§6🎱 Torneio de sinuca (" + SeuZe.TOURNAMENT_PRICE + " esm.)"), b -> { order(0, 3); onClose(); })
+                .bounds(left, by + 24, W, 20).build());
     }
 
     private void order(int item, int mode) {
@@ -46,16 +49,18 @@ public class ZeMenuScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
-        int left = width / 2 - W / 2, top = height / 2 - 70;
-        g.fill(left - 8, top - 8, left + W + 8, top + 158, 0xE0241A10);
-        g.outline(left - 8, top - 8, W + 16, 166, 0xFF8A6A3A);
+        int left = width / 2 - W / 2, top = height / 2 - 110;
+        int h = 30 + SeuZe.MENU.length * 22 + 6 + 48 + 8;
+        g.fill(left - 8, top - 8, left + W + 8, top + h, 0xE0241A10);
+        g.outline(left - 8, top - 8, W + 16, h + 8, 0xFF8A6A3A);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.centeredText(font, "§6§l♣ Bar do Seu Zé ♣", width / 2, top - 2, 0xFFFFFFFF);
         int debt = myDebt();
         g.centeredText(font, debt == 0 ? "§7Você não deve nada" : "§cNo fiado: " + debt + " de " + SeuZe.MAX_DEBT + " esmeraldas",
                 width / 2, top + 12, 0xFFFFFFFF);
-        String[] desc = {"§fGelada do Zé", "§fTorresmo §7(velocidade)", "§fCoxinha §7(pressa)", "§fQuentão §7(esquenta)"};
-        for (int i = 0; i < desc.length; i++) g.text(font, desc[i], left, top + 36 + i * 24, 0xFFFFFFFF, false);
+        String[] desc = {"§fGelada do Zé", "§fTorresmo §7(velocidade)", "§fCoxinha §7(pressa)", "§fQuentão §7(esquenta)",
+                "§fFritas §7(porção)", "§fCalabresa §7(porção)", "§fFrango à passarinho"};
+        for (int i = 0; i < desc.length; i++) g.text(font, desc[i], left, top + 36 + i * 22, 0xFFFFFFFF, false);
     }
 
     @Override

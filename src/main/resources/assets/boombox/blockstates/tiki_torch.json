@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=true": {
+      "model": "boombox:block/tiki_torch_lit"
+    },
+    "lit=false": {
+      "model": "boombox:block/tiki_torch"
+    }
+  }
+}

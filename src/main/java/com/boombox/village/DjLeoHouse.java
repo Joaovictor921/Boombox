@@ -102,7 +102,7 @@ public final class DjLeoHouse {
         return found >= 4 ? best : null;
     }
 
-    private static final String[] EXTRAS = {"quermesse", "feira", "varzea"};
+    private static final String[] EXTRAS = {"quermesse", "feira", "varzea", "volei_praia", "casa_piscina"};
     private static final StructurePoolElement[] extraElements = new StructurePoolElement[EXTRAS.length];
 
     private static StructurePoolElement extra(int i) {
@@ -131,7 +131,11 @@ public final class DjLeoHouse {
             StructurePoolElement e = beachElement;
             if (e == null) beachElement = e = StructurePoolElement.single(BEACH_TEMPLATE).apply(StructureTemplatePool.Projection.RIGID);
             placeBeside(builder, ctx, sea, e, BEACH_DOORSTEP, shuffler);
+            // 3.4: quadra de vôlei de praia em 70% das vilas com mar
+            if (rnd.nextFloat() < 0.7f) placeBeside(builder, ctx, sea, extra(3), new BlockPos(0, 0, 6), shuffler);
         }
+        // 3.4: casa com piscina (30% das vilas)
+        if (rnd.nextFloat() < 0.3f) placeBeside(builder, ctx, center, extra(4), new BlockPos(0, 0, 4), shuffler);
         // 40% das vilas: pagode na laje
         if (rnd.nextFloat() < 0.4f) {
             StructurePoolElement e = pagodeElement;
