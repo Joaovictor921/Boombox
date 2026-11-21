@@ -22,6 +22,9 @@ public final class SportsClient {
     public static KeyMapping SLIDE, POKE, SET, LEAVE;
     private static int sport;
     private static boolean league;
+    /** Posição escolhida no futebol (0 = goleiro: a tecla de carrinho vira "pular na bola"). */
+    private static int position = -1;
+    private static long lastUse;
     private static long leaveAsked;
     /** Chute carregando: desde quando o botão está apertado (0 = não está). */
     private static long chargeStart;
@@ -37,6 +40,7 @@ public final class SportsClient {
         ClientPlayNetworking.registerGlobalReceiver(Payloads.SportState.TYPE, (p, ctx) -> {
             sport = p.sport();
             league = p.league();
+            position = p.position();
             chargeStart = 0;
         });
         Raver.openSetupHook = (id, s) -> Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.setScreen(new MatchSetupScreen(id, s)));
@@ -56,7 +60,7 @@ public final class SportsClient {
                 g.fill(x0 - 1, by - 1, x0 + bw + 1, by + 5, 0xC0000000);
                 int col = c < 0.5f ? 0xFF40E040 : c < 0.85f ? 0xFFF0D020 : 0xFFF04020;
                 g.fill(x0, by, x0 + (int) (bw * c), by + 4, col);
-                g.centeredText(mc.font, "§fForça do chute", w / 2, by - 10, 0xFFFFFFFF);
+                g.centeredText(mc.font, sport == Sports.VOLLEY ? "§fForça do corte" : "§fForça do chute", w / 2, by - 10, 0xFFFFFFFF);
             }
         });
     }
@@ -71,10 +75,11 @@ public final class SportsClient {
         if (sport == Sports.FOOTBALL) {
             return new String[]{
                     "§7" + attack + " chutar (segure)  " + use + " passar",
-                    "§7" + key(SLIDE) + " carrinho  " + key(POKE) + " colocar o pé",
+                    position == 0 ? "§7" + key(SLIDE) + " pular na bola (para onde olha)  " + key(POKE) + " colocar o pé"
+                            : "§7" + key(SLIDE) + " carrinho  " + key(POKE) + " colocar o pé",
                     "§7" + sneak + "+" + attack + " cavadinha  " + key(LEAVE) + "x2 sair"};
         }
-        return new String[]{"§7" + attack + " manchete  " + key(SET) + " levantar  " + use + " cortar", "§7" + key(LEAVE) + "x2 sair"};
+        return new String[]{"§7" + attack + " cortar (segure)  " + use + " manchete  " + key(SET) + " levantar", "§7" + key(LEAVE) + "x2 sair"};
     }
 
     public static boolean active() {
@@ -108,14 +113,17 @@ public final class SportsClient {
 
     /** Clique do mouse durante o jogo (main = botão de atacar). No futebol o chute carrega enquanto segura. */
     public static void click(boolean main) {
-        if (sport == Sports.FOOTBALL) {
-            if (main) {
-                if (chargeStart == 0) chargeStart = System.currentTimeMillis();
-            } else {
-                send(Sports.FUT_PASS);
-            }
-        } else if (sport == Sports.VOLLEY) {
-            send(main ? Sports.VOL_BUMP : Sports.VOL_SPIKE);
+        // o botão direito, segurado, repete o clique: um por vez
+        if (!main) {
+            long now = System.currentTimeMillis();
+            if (now - lastUse < 350) return;
+            lastUse = now;
+        }
+        if (main) {
+            // esquerdo: chute (futebol) ou corte (vôlei), os dois com força carregando enquanto segura
+            if (chargeStart == 0) chargeStart = System.currentTimeMillis();
+        } else {
+            send(sport == Sports.FOOTBALL ? Sports.FUT_PASS : Sports.VOL_BUMP);
         }
     }
 
@@ -127,10 +135,10 @@ public final class SportsClient {
         }
         // soltou o botão (ou carregou tudo): chuta com a força acumulada
         if (chargeStart > 0 && (!mc.options.keyAttack.isDown() || System.currentTimeMillis() - chargeStart > FULL_CHARGE_MS + 600)) {
-            send(Sports.FUT_SHOOT, Math.max(0.05f, charge()));
+            send(sport == Sports.VOLLEY ? Sports.VOL_SPIKE : Sports.FUT_SHOOT, Math.max(0.05f, charge()));
             chargeStart = 0;
         }
-        while (SLIDE.consumeClick()) if (sport == Sports.FOOTBALL) send(Sports.FUT_SLIDE);
+        while (SLIDE.consumeClick()) if (sport == Sports.FOOTBALL) send(position == 0 ? Sports.GK_DIVE : Sports.FUT_SLIDE);
         while (POKE.consumeClick()) if (sport == Sports.FOOTBALL) send(Sports.FUT_POKE);
         while (SET.consumeClick()) if (sport == Sports.VOLLEY) send(Sports.VOL_SET);
         while (LEAVE.consumeClick()) {

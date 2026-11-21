@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-3.5.4.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,22 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.5.4
+**Vôlei**:
+- **Botões trocados**: o **corte** agora é no **botão esquerdo**, com **força** (segure e solte, como o chute do
+  futebol), e a **manchete** é no **direito**. No saque: esquerdo = viagem (com força), direito = por baixo.
+- **Corte consertado**: segurar o botão repetia a jogada e contava como dois toques (a bola parava). Agora é um toque
+  por clique, e o corte passa por cima da rede.
+
+**Futebol**:
+- **Cada um na sua posição**: o zagueiro não sobe além do meio de campo, laterais e pontas ficam abertos do lado deles,
+  o atacante fica na frente. Só disputa a bola quem está com ela na sua zona.
+- **O ponta (ou o lateral) daquele lado cobra o lateral**, e **quem sofre a falta é quem bate**, inclusive você.
+- **Goleiro de verdade**: se você escolher goleiro, a tecla do carrinho vira **pular na bola**, para o lado que você
+  estiver olhando com a câmera. Se alcançar a bola, você agarra e depois repõe.
+- **Rede mais funda**: o gol grande agora tem 2 blocos de fundo, e o gol conta quando a bola passa da linha entre as
+  traves.
 
 ## Novidades da 3.5.3
 **Futebol bem melhor (inspirado nos jogos de futebol 5 contra 5)**:
@@ -460,5 +476,23 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build
+./gradlew build   # o jar sai em build/libs/
 ```
+
+## Versões
+| Versão | Minecraft | Download |
+|---|---|---|
+| 3.5.4 | 26.3 (Fabric) | [Releases → v3.5.4](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.4) |
+| 3.5.0 | 26.3 (Fabric) | [Releases → v3.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.0) |
+| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
+| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
+| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
+| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
+| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
+| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
+| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
+
+Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
+
+## Licença
+MIT

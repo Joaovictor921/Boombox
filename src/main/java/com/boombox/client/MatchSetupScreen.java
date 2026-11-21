@@ -111,7 +111,8 @@ public class MatchSetupScreen extends Screen {
             }
         }
         if (sport == Sports.FOOTBALL) {
-            g.text(font, "§fSua posição: §e" + Sports.POSITIONS[position], cx - 120, positionsY(top), 0xFFFFFFFF, false);
+            g.text(font, "§fSua posição: §e" + Sports.POSITIONS[position] + (position == 0 ? " §7(" + k(SportsClient.SLIDE) + " pula na bola)" : ""),
+                    cx - 120, positionsY(top), 0xFFFFFFFF, false);
         }
         var o = minecraft.options;
         int ky = keysY(top);
@@ -120,7 +121,7 @@ public class MatchSetupScreen extends Screen {
                     + k(SportsClient.POKE) + " pé", cx, ky, 0xFFFFFFFF);
             g.centeredText(font, "§7Passe por cima da bola para dominar • " + k(SportsClient.LEAVE) + "x2 sai", cx, ky + 11, 0xFFFFFFFF);
         } else {
-            g.centeredText(font, "§7" + k(o.keyAttack) + " manchete  " + k(SportsClient.SET) + " levantar  " + k(o.keyUse) + " cortar",
+            g.centeredText(font, "§7" + k(o.keyAttack) + " cortar (segure)  " + k(o.keyUse) + " manchete  " + k(SportsClient.SET) + " levantar",
                     cx, ky, 0xFFFFFFFF);
             g.centeredText(font, "§7Até 3 toques por lado, um de cada • " + k(SportsClient.LEAVE) + "x2 sai", cx, ky + 11, 0xFFFFFFFF);
         }

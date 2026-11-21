@@ -238,6 +238,7 @@ public class Volleyball extends Entity {
             return false;
         }
         touches++;
+        lastTouchTick = tickCount;
         lastToucher = who.getUUID();
         lastSide = side;
         setDeltaMovement(vel);
@@ -273,7 +274,7 @@ public class Volleyball extends Entity {
         server = ps.isEmpty() ? null : ps.get(Math.floorMod(serverIdx[serveSide], ps.size())).getUUID();
         entityData.set(INFO, (league ? "Jogo " + (round + 1) + "/3 • " : "Amistoso • ") + "saque: " + teamName(serveSide));
         if (server != null && sl.getEntity(server) instanceof ServerPlayer p) {
-            p.sendSystemMessage(Component.literal("§eSeu saque! §fVá para o fundo da quadra e clique: esquerdo = saque por baixo, direito = saque viagem (forte)."));
+            p.sendSystemMessage(Component.literal("§eSeu saque! §fVá para o fundo da quadra: botão de cortar = saque viagem (segure para mais força), botão de manchete = saque por baixo."));
         }
     }
 
@@ -376,7 +377,7 @@ public class Volleyball extends Entity {
         } else if (n == 1 && mate != null && (mate instanceof Player || random.nextInt(3) == 0)) {
             Vec3 to = courtPoint(sign * 1.3, Math.max(-halfWidth + 0.8, Math.min(halfWidth - 0.8, w(mate.position())))).add(0, 2.6, 0);
             vel = lob(b, to, b.y + 2.4);
-            if (mate instanceof ServerPlayer p) p.sendOverlayMessage(Component.literal("§e§lLEVANTOU! §r§fPule e corte (botão direito)!"));
+            if (mate instanceof ServerPlayer p) p.sendOverlayMessage(Component.literal("§e§lLEVANTOU! §r§fPule e corte!"));
         } else {
             double td = -sign * (2 + random.nextDouble() * (halfLength - 2.5)), tw = (random.nextDouble() - 0.5) * 2 * (halfWidth - 0.4);
             if (random.nextInt(10) == 0) tw *= 1.8;
@@ -421,17 +422,30 @@ public class Volleyball extends Entity {
     // ------------------------------------------------------------ botões da pessoa
     /** Manchete, levantada ou cortada (ver {@link Sports}); também o saque. */
     public void playerAction(ServerPlayer p, int action) {
+        playerAction(p, action, 0f);
+    }
+
+    /** Último botão de cada pessoa (o botão segurado repetia a jogada e contava como dois toques). */
+    private final Map<UUID, Integer> lastAction = new HashMap<>();
+    private int lastTouchTick;
+
+    public void playerAction(ServerPlayer p, int action, float power) {
         if (!(level() instanceof ServerLevel sl) || !active || paused()) return;
         int side = sideOf(p);
         if (side < 0) return;
+        // 3.5.4: um toque por clique (ignora a repetição do botão e um segundo clique logo depois do próprio toque)
+        if (tickCount - lastAction.getOrDefault(p.getUUID(), -100) < 8) return;
+        if (p.getUUID().equals(lastToucher) && touchSide == side && tickCount - lastTouchTick < 20) return;
+        lastAction.put(p.getUUID(), tickCount);
+        double charge = power > 0 ? Math.min(1, power) : 0.5;
         double sign = side == 0 ? -1 : 1;
         Vec3 look = p.getLookAngle();
         if (serving) {
             if (!p.getUUID().equals(server)) return;
             Vec3 aim = aimOnGround(p, -sign);
             Vec3 vel = action == Sports.VOL_SPIKE
-                    ? lob(position(), aim, netTop + 1.0 + random.nextDouble() * 0.4)   // viagem: forte e baixo
-                    : lob(position(), aim, netTop + 3.0);
+                    ? lob(position(), aim, netTop + 1.6 - charge * 0.8)   // saque viagem: quanto mais força, mais baixo e rápido
+                    : lob(position(), aim, netTop + 3.0);              // por baixo
             serve(sl, p, vel);
             return;
         }
@@ -448,13 +462,18 @@ public class Volleyball extends Entity {
         switch (action) {
             case Sports.VOL_SPIKE -> {
                 if (dy < 1.2) {
-                    p.sendOverlayMessage(Component.literal("§7Bola baixa demais para cortar: use a manchete (esquerdo)."));
+                    p.sendOverlayMessage(Component.literal("§7Bola baixa demais para cortar: use a manchete."));
                     return;
                 }
                 Vec3 aim = aimOnGround(p, -sign);
                 boolean jumping = !p.onGround();
-                double t = jumping ? 11 + random.nextInt(4) : 18;
+                // força do corte (segurar o botão): mais força = bola mais rápida
+                double t = jumping ? 15 - charge * 7 : 20 - charge * 5;
                 vel = new Vec3((aim.x - b.x) / t, (aim.y - b.y) / t + 0.5 * G * t, (aim.z - b.z) / t);
+                // por cima da rede: se a bola passaria baixo demais, sobe um pouco
+                double dNet = Math.abs(d(b)), tNet = dNet / Math.max(0.05, Math.abs(vel.dot(normal)));
+                double yAtNet = b.y + vel.y * tNet - 0.5 * G * tNet * tNet;
+                if (yAtNet < netTop + 0.2) vel = vel.add(0, (netTop + 0.3 - yAtNet) / Math.max(1, tNet), 0);
                 if (jumping && Math.abs(d(b)) < 3) p.sendOverlayMessage(Component.literal("§c§lCORTOU!"));
             }
             case Sports.VOL_SET -> {
@@ -642,8 +661,8 @@ public class Volleyball extends Entity {
         }
         humans.put(p.getUUID(), 0);
         Sports.sendState(p, Sports.VOLLEY, league);
-        p.sendSystemMessage(Component.literal("§aVocê está no jogo! §7Até 3 toques por lado, um de cada. §fEsquerdo§7 = manchete (passa para o parceiro), "
-                + "§fV§7 = levantar, §fdireito§7 = cortar (pule e mire onde quer que a bola caia)."));
+        p.sendSystemMessage(Component.literal("§aVocê está no jogo! §7Até 3 toques por lado, um de cada. As teclas aparecem no alto da tela: "
+                + "cortar (segure para mais força, pule e mire onde quer que a bola caia), manchete (passa para o parceiro) e levantar."));
         active = true;
         startGame(sl);
     }
@@ -797,6 +816,21 @@ public class Volleyball extends Entity {
 
     @Override
     protected void addAdditionalSaveData(ValueOutput out) {
+    }
+
+    /** Para o teste: bola parada no ar em cima da pessoa, perto da rede, como numa levantada. */
+    public void forTestRally(ServerPlayer p) {
+        Vec3 at = courtPoint(-1.5, 0);
+        p.teleportTo(at.x, at.y, at.z);
+        serving = false;
+        pause = 0;
+        gameOver = 0;
+        touchSide = 0;
+        touches = 1;
+        lastToucher = null;
+        lastAction.clear();
+        setPos(at.x, at.y + 2.0, at.z);
+        setDeltaMovement(Vec3.ZERO);
     }
 
     /** Para o teste: quantos aldeões vieram jogar. */

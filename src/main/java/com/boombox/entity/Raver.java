@@ -319,7 +319,7 @@ public class Raver extends PathfinderMob {
         if ((role() == RaverRoles.TEAM_A || role() == RaverRoles.TEAM_B) && source.getEntity() instanceof Player p) {
             for (Ball b : level.getEntitiesOfClass(Ball.class, getBoundingBox().inflate(40))) {
                 int t = b.teamOf(this);
-                if (t >= 0) b.foul(t);
+                if (t >= 0) b.foul(t, this);
                 p.sendOverlayMessage(net.minecraft.network.chat.Component.literal("§cFalta! §fNada de bater no adversário."));
             }
             playSound(SoundEvents.VILLAGER_HURT, 1f, 1f);

@@ -96,10 +96,11 @@ public class GoalLargeBlock extends FacingBlock {
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
         Direction f = state.getValue(FACING);
         int part = state.getValue(PART), col = part % W, row = part / W;
-        VoxelShape s = box(f, 0, 0, 14.5, 16, 16, 16);
-        if (col == 0) s = Shapes.or(s, box(f, 14, 0, 0, 16, 16, 16));
-        if (col == W - 1) s = Shapes.or(s, box(f, 0, 0, 0, 2, 16, 16));
-        if (row == H - 1) s = Shapes.or(s, box(f, 0, 14, 0, 16, 16, 16));
+        // 3.5.4: rede funda (2 blocos para trás da linha), para a bola entrar de verdade
+        VoxelShape s = box(f, 0, 0, 30.5, 16, 16, 32);
+        if (col == 0) s = Shapes.or(s, box(f, 14, 0, 0, 16, 16, 32));
+        if (col == W - 1) s = Shapes.or(s, box(f, 0, 0, 0, 2, 16, 32));
+        if (row == H - 1) s = Shapes.or(s, box(f, 0, 14, 0, 16, 16, 32));
         return s;
     }
 }

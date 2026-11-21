@@ -78,6 +78,11 @@ public class Ball extends Entity {
     private UUID lastKicker;
     private int lastTeam = -1, lastKickTick = -100;
     private int restartKind = -1, restartTeam, restartTimer;
+    private UUID restartTaker;
+    /** Boca do gol (meia largura e altura), medida pelos blocos de gol: a bola que passa da linha aqui dentro é gol. */
+    private double goalHalf = 1.5, goalHeight = 2;
+    /** Goleiro de verdade (pessoa) voando na bola: até quando. */
+    private final Map<UUID, Integer> diving = new HashMap<>();
     private Vec3 restartSpot;
     private int goalPause;
     private int phase, clock;
@@ -314,6 +319,15 @@ public class Ball extends Entity {
             goal(sl, u(p) < length / 2 ? 0 : 1);
             return;
         }
+        {
+            double gu = u(p);
+            boolean mouth = Math.abs(v(p)) < goalHalf - 0.1 && p.y - center.y < goalHeight - 0.1;
+            if (mouth && (gu < 0.3 || gu > length - 0.3)) {
+                goal(sl, gu < length / 2 ? 0 : 1);
+                return;
+            }
+        }
+        keeperSaves(sl);
         double u = u(p), w = v(p);
         if (Math.abs(w) > halfWidth + 0.3) {
             int team = lastTeam == TEAM_A ? TEAM_B : TEAM_A;
@@ -421,6 +435,7 @@ public class Ball extends Entity {
                 ownCooldown.put(p.getUUID(), tickCount + 12);
             }
             case Sports.FUT_SLIDE -> slide(sl, p, team, flat);
+            case Sports.GK_DIVE -> dive(sl, p, look);
             case Sports.FUT_POKE -> poke(sl, p, team);
             default -> { }
         }
@@ -447,6 +462,44 @@ public class Ball extends Entity {
         return best;
     }
 
+    /** Goleiro de verdade: pula para onde está olhando (de lado, para cima ou para baixo) e agarra a bola que alcançar. */
+    private void dive(ServerLevel sl, ServerPlayer p, Vec3 look) {
+        if (positionOf(p) != 0) {
+            p.sendOverlayMessage(Component.literal("§7Só o goleiro pula na bola (escolha \"Goleiro\" no organizador)."));
+            return;
+        }
+        if (!p.onGround()) return;
+        Vec3 flat = new Vec3(look.x, 0, look.z);
+        if (flat.lengthSqr() < 1e-4) flat = new Vec3(1, 0, 0);
+        flat = flat.normalize();
+        double up = 0.42 + Math.max(0, look.y) * 0.35;
+        p.setDeltaMovement(flat.scale(0.9).add(0, up, 0));
+        p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+        sl.playSound(null, p.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 0.7f);
+        diving.put(p.getUUID(), tickCount + 16);
+    }
+
+    /** Pessoa goleira voando: se alcança a bola, agarra (ela fica grudada, e aí dá para repor). */
+    private void keeperSaves(ServerLevel sl) {
+        if (diving.isEmpty()) return;
+        diving.entrySet().removeIf(e -> e.getValue() < tickCount);
+        for (UUID id : diving.keySet()) {
+            if (!(sl.getEntity(id) instanceof ServerPlayer p) || teamOf(p) < 0) continue;
+            double hd = Math.hypot(getX() - p.getX(), getZ() - p.getZ()), dy = getY() - p.getY();
+            if (hd < 2.2 && dy > -0.8 && dy < 2.6) {
+                owner = p.getUUID();
+                lastTeam = teamOf(p);
+                lastKicker = p.getUUID();
+                lastKickTick = tickCount;
+                setDeltaMovement(Vec3.ZERO);
+                diving.remove(id);
+                playSound(SoundEvents.WOOL_PLACE, 1f, 0.8f);
+                announce("§b§lQUE DEFESA! §r§f" + p.getName().getString() + " voou e pegou a bola!");
+                return;
+            }
+        }
+    }
+
     /** Carrinho: o jogador desliza para a frente e tira a bola de longe. Se pegar o adversário em vez da bola, é falta. */
     private void slide(ServerLevel sl, ServerPlayer p, int team, Vec3 flat) {
         if (!inPlay()) return;
@@ -467,7 +520,7 @@ public class Ball extends Entity {
             if (victim != null && vd < 1.4 && random.nextDouble() < (behind ? 0.4 : 0.12)) {
                 victim.playSound(SoundEvents.VILLAGER_HURT, 1f, 1f);
                 p.sendSystemMessage(Component.literal("§cO juiz viu o carrinho no pé do adversário!"));
-                foul(1 - team);
+                foul(1 - team, victim);
                 return;
             }
             Vec3 sideV = new Vec3(-flat.z, 0, flat.x).scale(random.nextBoolean() ? 0.25 : -0.25);
@@ -477,7 +530,7 @@ public class Ball extends Entity {
         } else if (victim != null && vd < 1.6) {
             victim.playSound(SoundEvents.VILLAGER_HURT, 1f, 1f);
             p.sendSystemMessage(Component.literal("§cCarrinho sem bola: falta!"));
-            foul(1 - team);
+            foul(1 - team, victim);
         }
     }
 
@@ -581,6 +634,7 @@ public class Ball extends Entity {
         restartKind = kind;
         restartTeam = team;
         restartSpot = spot;
+        restartTaker = null;
         restartTimer = kind == KICKOFF ? 80 : kind == PENALTY ? 90 : 50;
         keeperHold = null;
         loseOwner();
@@ -605,15 +659,29 @@ public class Ball extends Entity {
     }
 
     public void foul(int fouledTeam) {
+        foul(fouledTeam, null);
+    }
+
+    /** Falta: tiro livre (ou pênalti, dentro da área). Quem sofreu a falta é quem cobra (3.5.4). */
+    public void foul(int fouledTeam, Entity victim) {
         if (!(level() instanceof ServerLevel sl) || restarting() || !hasGoals()) return;
         Vec3 p = position();
         int defendingGoal = fouledTeam == TEAM_A ? 1 : 0;
         if (inBox(defendingGoal, p)) {
             setRestart(sl, PENALTY, fouledTeam, fieldPoint(defendingGoal == 0 ? 5 : length - 5, 0), true);
-            return;
+        } else {
+            if (random.nextInt(4) == 0) announce("§e§l🟨 Cartão amarelo! §r§7O juiz não perdoou.");
+            setRestart(sl, FREE_KICK, fouledTeam, fieldPoint(Math.max(1, Math.min(length - 1, u(p))), Math.max(-halfWidth + 0.5, Math.min(halfWidth - 0.5, v(p)))), true);
         }
-        if (random.nextInt(4) == 0) announce("§e§l🟨 Cartão amarelo! §r§7O juiz não perdoou.");
-        setRestart(sl, FREE_KICK, fouledTeam, fieldPoint(Math.max(1, Math.min(length - 1, u(p))), Math.max(-halfWidth + 0.5, Math.min(halfWidth - 0.5, v(p)))), true);
+        if (victim != null && teamOf(victim) == fouledTeam) {
+            restartTaker = victim.getUUID();
+            if (victim instanceof ServerPlayer vp) vp.sendOverlayMessage(Component.literal("§eVocê sofreu a falta: a cobrança é sua!"));
+        }
+    }
+
+    /** Quem tem que cobrar a bola parada (quem sofreu a falta), ou null. */
+    public UUID restartTaker() {
+        return restartTaker;
     }
 
     private void announce(String msg) {
@@ -672,7 +740,7 @@ public class Ball extends Entity {
             mode = FRIENDLY;
         }
         humans.put(p.getUUID(), TEAM_A);
-        Sports.sendState(p, Sports.FOOTBALL, mode == LEAGUE);
+        Sports.sendState(p, Sports.FOOTBALL, mode == LEAGUE, humanPos.get(p.getUUID()));
         p.sendSystemMessage(Component.literal("§aVocê está no jogo, de §e" + Sports.POSITIONS[humanPos.get(p.getUUID())]
                 + "§a! §7Passe por cima da bola para dominar. As teclas aparecem embaixo da tela."));
         startMatch(sl);
@@ -856,6 +924,17 @@ public class Ball extends Entity {
             else { bx += p.getX() + 0.5; bz += p.getZ() + 0.5; nb++; }
         }
         Vec3 ga0 = new Vec3(ax / na, y, az / na), gb = new Vec3(bx / nb, y, bz / nb);
+        // tamanho da boca do gol: colunas e linhas de blocos de um dos gols
+        java.util.Set<Long> cols = new java.util.HashSet<>();
+        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
+        for (BlockPos p : found) {
+            if (p.distSqr(a) >= p.distSqr(far)) continue;
+            cols.add(BlockPos.asLong(p.getX(), 0, p.getZ()));
+            minY = Math.min(minY, p.getY());
+            maxY = Math.max(maxY, p.getY());
+        }
+        goalHalf = cols.size() / 2.0;
+        goalHeight = maxY - minY + 1;
         var teamA = sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(50), r -> r.role() == RaverRoles.TEAM_A);
         double da = 0, db = 0;
         for (Raver r : teamA) { da += r.position().distanceTo(ga0); db += r.position().distanceTo(gb); }

@@ -18,7 +18,7 @@ import java.util.List;
  * No vôlei: esquerdo = manchete (passa para o parceiro), V = levantar, direito = cortar.
  */
 public final class Sports {
-    public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7, LEAVE = 8;
+    public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7, LEAVE = 8, GK_DIVE = 9;
     public static final int NONE = 0, FOOTBALL = 1, VOLLEY = 2;
     public static final int AMISTOSO = 0, CAMPEONATO = 1;
 
@@ -39,7 +39,11 @@ public final class Sports {
     }
 
     public static void sendState(ServerPlayer p, int sport, boolean league) {
-        ServerPlayNetworking.send(p, new Payloads.SportState(sport, league));
+        sendState(p, sport, league, -1);
+    }
+
+    public static void sendState(ServerPlayer p, int sport, boolean league, int position) {
+        ServerPlayNetworking.send(p, new Payloads.SportState(sport, league, position));
     }
 
     /** Distância entre duas cores (para não sortear times parecidos). */
@@ -144,13 +148,13 @@ public final class Sports {
             sendState(p, NONE); // não estava em jogo nenhum: só limpa os botões
             return;
         }
-        if (action <= FUT_POKE) {
+        if (action <= FUT_POKE || action == GK_DIVE) {
             for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(80))) {
                 if (b.teamOf(p) >= 0) { b.playerAction(p, action, power); return; }
             }
         } else {
             for (Volleyball v : sl.getEntitiesOfClass(Volleyball.class, p.getBoundingBox().inflate(48))) {
-                if (v.sideOf(p) >= 0) { v.playerAction(p, action); return; }
+                if (v.sideOf(p) >= 0) { v.playerAction(p, action, power); return; }
             }
         }
     }

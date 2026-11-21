@@ -249,7 +249,11 @@ public final class RaverRoles {
         // ---- quem vai na bola: o mais perto do time; o segundo dá apoio; o resto guarda posição
         var mates = level.getEntitiesOfClass(Raver.class, new AABB(b, b).inflate(48), m -> ball.teamOf(m) == team && m.stall != 1);
         mates.sort((p, q) -> Double.compare(p.distanceToSqr(b), q.distanceToSqr(b)));
+        // 3.5.4: cada um na sua posição: só disputa a bola quem tem ela na sua zona (zagueiro não sobe, ponta fica aberta)
+        var zoned = mates.stream().filter(m -> inZone(m, ball, team, b)).toList();
+        if (!zoned.isEmpty()) mates = new java.util.ArrayList<>(zoned);
         int rank = mates.indexOf(r);
+        if (rank < 0) rank = 99;
         boolean humanNear = level.players().stream().anyMatch(p -> ball.teamOf(p) == team && p.position().distanceTo(b) < r.position().distanceTo(b));
         if (humanNear) rank++; // uma pessoa do time está mais perto: ela que vai na bola
         net.minecraft.world.entity.Entity carrierRival = null;
@@ -314,10 +318,35 @@ public final class RaverRoles {
      */
     private static final double[][] POS433 = {
             {}, {}, {0.16, 0.52, -0.82}, {0.1, 0.34, -0.3}, {0.1, 0.34, 0.3}, {0.16, 0.52, 0.82},
-            {0.24, 0.47, 0}, {0.33, 0.62, -0.38}, {0.33, 0.62, 0.38}, {0.45, 0.82, -0.8}, {0.45, 0.82, 0.8}, {0.5, 0.86, 0},
-            {0.13, 0.36, 0}, {0.3, 0.56, 0.15}, {0.4, 0.76, -0.62}, {0.48, 0.84, 0.3}};
+            {0.24, 0.47, 0}, {0.33, 0.62, -0.38}, {0.33, 0.62, 0.38}, {0.45, 0.82, -0.82}, {0.45, 0.82, 0.82}, {0.55, 0.86, 0},
+            {0.13, 0.36, 0}, {0.3, 0.56, 0.15}, {0.42, 0.78, -0.82}, {0.55, 0.86, 0.2}};
     public static final String[] POS_NAMES = {"", "Goleiro", "Lateral esquerdo", "Zagueiro", "Zagueiro", "Lateral direito", "Volante",
             "Meia", "Meia", "Ponta esquerda", "Ponta direita", "Centroavante"};
+
+    /**
+     * Zona de cada posição (fração do campo a partir do próprio gol, e o lado): zagueiro até o meio, laterais e pontas
+     * do lado deles, atacante só da intermediária para a frente. Campos antigos (sem posição) valem o campo todo.
+     */
+    static boolean inZone(Raver m, Ball ball, int team, Vec3 at) {
+        double f = ball.uFor(team, at) / ball.length(), side = ball.vFor(team, at), hw = ball.halfWidth();
+        double margin = 0.08;
+        return switch (m.stall) {
+            case 3, 4, 12 -> f <= 0.5 + margin;
+            case 2 -> f <= 0.75 + margin && side <= hw * 0.2;
+            case 5 -> f <= 0.75 + margin && side >= -hw * 0.2;
+            case 6 -> f >= 0.1 - margin && f <= 0.7 + margin;
+            case 7, 8, 13 -> f >= 0.2 - margin && f <= 0.9 + margin;
+            case 9, 14 -> f >= 0.35 - margin && side <= hw * 0.25;
+            case 10 -> f >= 0.35 - margin && side >= -hw * 0.25;
+            case 11, 15 -> f >= 0.4 - margin;
+            default -> true;
+        };
+    }
+
+    /** Ponta / lateral (cobra o lateral do lado dele). */
+    private static boolean wide(Raver m) {
+        return m.stall == 2 || m.stall == 5 || m.stall == 9 || m.stall == 10 || m.stall == 14;
+    }
 
     /** Lugar na formação que acompanha a bola: o time sobe quando tem a bola e recua quando defende. */
     private static Vec3 formationSlot(Raver r, Ball ball, ServerLevel level, int team) {
@@ -511,7 +540,7 @@ public final class RaverRoles {
             double roll = r.getRandom().nextDouble();
             if (roll < 0.06) {
                 r.playSound(SoundEvents.VILLAGER_HURT, 0.8f, 1f);
-                ball.foul(1 - team);
+                ball.foul(1 - team, rival);
                 r.settle = 20;
             } else if (roll < 0.36) {
                 ball.loseOwner();
@@ -532,7 +561,7 @@ public final class RaverRoles {
         double foul = behind ? 0.12 : 0.025;
         if (roll < foul) {
             r.playSound(SoundEvents.VILLAGER_HURT, 0.8f, 1f);
-            ball.foul(1 - team);
+            ball.foul(1 - team, rival);
             r.settle = 20;
         } else if (roll < foul + 0.45) {
             // roubou: tira a bola na diagonal, para longe de quem estava com ela (que fica para trás um pouco)
@@ -636,9 +665,20 @@ public final class RaverRoles {
             var mates = level.getEntitiesOfClass(Raver.class, new AABB(spot, spot).inflate(48),
                     m -> ball.teamOf(m) == team && (gk ? m.stall == 1 : m.stall != 1));
             mates.sort((p, q) -> Double.compare(p.distanceToSqr(spot), q.distanceToSqr(spot)));
+            if (kind == Ball.THROW_IN) {
+                // lateral: quem cobra é o ponta (ou o lateral) daquele lado
+                double sideSpot = ball.vFor(team, spot);
+                var wings = mates.stream().filter(m -> wide(m) && Math.signum(POS433[m.stall][2]) == Math.signum(sideSpot)).toList();
+                if (!wings.isEmpty()) mates = new java.util.ArrayList<>(wings);
+            }
             taker = !mates.isEmpty() && mates.get(0) == r;
-            boolean human = level.players().stream().anyMatch(p -> ball.teamOf(p) == team && p.position().distanceTo(spot) < 4);
-            if (human) taker = false;
+            java.util.UUID fouled = ball.restartTaker();
+            if (fouled != null && level.getEntity(fouled) != null && level.getEntity(fouled).isAlive()) {
+                taker = fouled.equals(r.getUUID()); // quem sofreu a falta é quem bate
+            } else {
+                boolean human = level.players().stream().anyMatch(p -> ball.teamOf(p) == team && p.position().distanceTo(spot) < 4);
+                if (human) taker = false;
+            }
         }
         if (taker) {
             Vec3 target = switch (kind) {
