@@ -1,0 +1,229 @@
+{
+  "variants": {
+    "facing=north,part=0": {
+      "model": "boombox:block/goal_large_0"
+    },
+    "facing=east,part=0": {
+      "model": "boombox:block/goal_large_0",
+      "y": 90
+    },
+    "facing=south,part=0": {
+      "model": "boombox:block/goal_large_0",
+      "y": 180
+    },
+    "facing=west,part=0": {
+      "model": "boombox:block/goal_large_0",
+      "y": 270
+    },
+    "facing=north,part=1": {
+      "model": "boombox:block/goal_large_1"
+    },
+    "facing=east,part=1": {
+      "model": "boombox:block/goal_large_1",
+      "y": 90
+    },
+    "facing=south,part=1": {
+      "model": "boombox:block/goal_large_1",
+      "y": 180
+    },
+    "facing=west,part=1": {
+      "model": "boombox:block/goal_large_1",
+      "y": 270
+    },
+    "facing=north,part=2": {
+      "model": "boombox:block/goal_large_2"
+    },
+    "facing=east,part=2": {
+      "model": "boombox:block/goal_large_2",
+      "y": 90
+    },
+    "facing=south,part=2": {
+      "model": "boombox:block/goal_large_2",
+      "y": 180
+    },
+    "facing=west,part=2": {
+      "model": "boombox:block/goal_large_2",
+      "y": 270
+    },
+    "facing=north,part=3": {
+      "model": "boombox:block/goal_large_3"
+    },
+    "facing=east,part=3": {
+      "model": "boombox:block/goal_large_3",
+      "y": 90
+    },
+    "facing=south,part=3": {
+      "model": "boombox:block/goal_large_3",
+      "y": 180
+    },
+    "facing=west,part=3": {
+      "model": "boombox:block/goal_large_3",
+      "y": 270
+    },
+    "facing=north,part=4": {
+      "model": "boombox:block/goal_large_4"
+    },
+    "facing=east,part=4": {
+      "model": "boombox:block/goal_large_4",
+      "y": 90
+    },
+    "facing=south,part=4": {
+      "model": "boombox:block/goal_large_4",
+      "y": 180
+    },
+    "facing=west,part=4": {
+      "model": "boombox:block/goal_large_4",
+      "y": 270
+    },
+    "facing=north,part=5": {
+      "model": "boombox:block/goal_large_5"
+    },
+    "facing=east,part=5": {
+      "model": "boombox:block/goal_large_5",
+      "y": 90
+    },
+    "facing=south,part=5": {
+      "model": "boombox:block/goal_large_5",
+      "y": 180
+    },
+    "facing=west,part=5": {
+      "model": "boombox:block/goal_large_5",
+      "y": 270
+    },
+    "facing=north,part=6": {
+      "model": "boombox:block/goal_large_6"
+    },
+    "facing=east,part=6": {
+      "model": "boombox:block/goal_large_6",
+      "y": 90
+    },
+    "facing=south,part=6": {
+      "model": "boombox:block/goal_large_6",
+      "y": 180
+    },
+    "facing=west,part=6": {
+      "model": "boombox:block/goal_large_6",
+      "y": 270
+    },
+    "facing=north,part=7": {
+      "model": "boombox:block/goal_large_7"
+    },
+    "facing=east,part=7": {
+      "model": "boombox:block/goal_large_7",
+      "y": 90
+    },
+    "facing=south,part=7": {
+      "model": "boombox:block/goal_large_7",
+      "y": 180
+    },
+    "facing=west,part=7": {
+      "model": "boombox:block/goal_large_7",
+      "y": 270
+    },
+    "facing=north,part=8": {
+      "model": "boombox:block/goal_large_8"
+    },
+    "facing=east,part=8": {
+      "model": "boombox:block/goal_large_8",
+      "y": 90
+    },
+    "facing=south,part=8": {
+      "model": "boombox:block/goal_large_8",
+      "y": 180
+    },
+    "facing=west,part=8": {
+      "model": "boombox:block/goal_large_8",
+      "y": 270
+    },
+    "facing=north,part=9": {
+      "model": "boombox:block/goal_large_9"
+    },
+    "facing=east,part=9": {
+      "model": "boombox:block/goal_large_9",
+      "y": 90
+    },
+    "facing=south,part=9": {
+      "model": "boombox:block/goal_large_9",
+      "y": 180
+    },
+    "facing=west,part=9": {
+      "model": "boombox:block/goal_large_9",
+      "y": 270
+    },
+    "facing=north,part=10": {
+      "model": "boombox:block/goal_large_10"
+    },
+    "facing=east,part=10": {
+      "model": "boombox:block/goal_large_10",
+      "y": 90
+    },
+    "facing=south,part=10": {
+      "model": "boombox:block/goal_large_10",
+      "y": 180
+    },
+    "facing=west,part=10": {
+      "model": "boombox:block/goal_large_10",
+      "y": 270
+    },
+    "facing=north,part=11": {
+      "model": "boombox:block/goal_large_11"
+    },
+    "facing=east,part=11": {
+      "model": "boombox:block/goal_large_11",
+      "y": 90
+    },
+    "facing=south,part=11": {
+      "model": "boombox:block/goal_large_11",
+      "y": 180
+    },
+    "facing=west,part=11": {
+      "model": "boombox:block/goal_large_11",
+      "y": 270
+    },
+    "facing=north,part=12": {
+      "model": "boombox:block/goal_large_12"
+    },
+    "facing=east,part=12": {
+      "model": "boombox:block/goal_large_12",
+      "y": 90
+    },
+    "facing=south,part=12": {
+      "model": "boombox:block/goal_large_12",
+      "y": 180
+    },
+    "facing=west,part=12": {
+      "model": "boombox:block/goal_large_12",
+      "y": 270
+    },
+    "facing=north,part=13": {
+      "model": "boombox:block/goal_large_13"
+    },
+    "facing=east,part=13": {
+      "model": "boombox:block/goal_large_13",
+      "y": 90
+    },
+    "facing=south,part=13": {
+      "model": "boombox:block/goal_large_13",
+      "y": 180
+    },
+    "facing=west,part=13": {
+      "model": "boombox:block/goal_large_13",
+      "y": 270
+    },
+    "facing=north,part=14": {
+      "model": "boombox:block/goal_large_14"
+    },
+    "facing=east,part=14": {
+      "model": "boombox:block/goal_large_14",
+      "y": 90
+    },
+    "facing=south,part=14": {
+      "model": "boombox:block/goal_large_14",
+      "y": 180
+    },
+    "facing=west,part=14": {
+      "model": "boombox:block/goal_large_14",
+      "y": 270
+    }
+  }
+}

@@ -85,6 +85,8 @@ public class Ball extends Entity {
     private int holdTicks;
     /** Pessoas jogando (sempre no time A) e aldeões no banco (deram lugar a uma pessoa). */
     private final Map<UUID, Integer> humans = new HashMap<>();
+    /** 3.5.3: posição que cada pessoa escolheu (índice em {@link Sports#POSITIONS}). */
+    private final Map<UUID, Integer> humanPos = new HashMap<>();
     private final Set<UUID> benched = new HashSet<>();
     /** Bola grudada no pé de uma pessoa (e quando cada um pode grudar de novo depois de chutar). */
     private UUID owner;
@@ -204,7 +206,8 @@ public class Ball extends Entity {
     public double uFor(int team, Vec3 p) { return team == TEAM_A ? u(p) : length - u(p); }
 
     public Vec3 fieldPoint(double u, double v) {
-        return goal0.add(axis.scale(u)).add(side.scale(v)).with(net.minecraft.core.Direction.Axis.Y, getY());
+        // sempre na altura do gramado (antes usava a altura da bola: a cobrança ficava "boiando" no ar)
+        return goal0.add(axis.scale(u)).add(side.scale(v)).with(net.minecraft.core.Direction.Axis.Y, center == null ? getY() : center.y);
     }
 
     public Vec3 teamPoint(int team, double uOwn, double v) {
@@ -269,13 +272,15 @@ public class Ball extends Entity {
         if (!carried) {
             Vec3 v = getDeltaMovement().add(0, -GRAVITY, 0);
             Vec3 before = v;
+            // 3.5.3: a gravidade tem que ficar na velocidade (antes ela se perdia e a bola "flutuava" no ar)
+            setDeltaMovement(v);
             move(MoverType.SELF, v);
             v = getDeltaMovement();
             if (horizontalCollision) {
                 if (Math.abs(getX() - xo) < Math.abs(before.x) * 0.5) v = new Vec3(-before.x * 0.5, v.y, v.z);
                 if (Math.abs(getZ() - zo) < Math.abs(before.z) * 0.5) v = new Vec3(v.x, v.y, -before.z * 0.5);
             }
-            if (onGround()) v = new Vec3(v.x * ROLL, before.y < -0.15 ? -before.y * 0.5 : 0, v.z * ROLL);
+            if (onGround()) v = new Vec3(v.x * ROLL, before.y < -0.22 ? -before.y * 0.35 : 0, v.z * ROLL);
             else v = new Vec3(v.x * AIR, v.y * 0.98, v.z * AIR);
             if (v.horizontalDistanceSqr() < 4e-5) v = new Vec3(0, v.y, 0);
             setDeltaMovement(v);
@@ -296,7 +301,7 @@ public class Ball extends Entity {
             return;
         }
         if (restartKind >= 0) {
-            setPos(restartSpot.x, getY(), restartSpot.z);
+            setPos(restartSpot.x, center.y, restartSpot.z);
             setDeltaMovement(0, getDeltaMovement().y, 0);
             if (restartTimer > -10000) restartTimer--;
             return;
@@ -305,7 +310,7 @@ public class Ball extends Entity {
         if (owner == null) grab(sl);
         Vec3 p = position();
         BlockPos at = blockPosition();
-        if (sl.getBlockState(at).is(BarBlocks.GOAL) || sl.getBlockState(at.above()).is(BarBlocks.GOAL)) {
+        if (Blocks34.isGoal(sl.getBlockState(at)) || Blocks34.isGoal(sl.getBlockState(at.above()))) {
             goal(sl, u(p) < length / 2 ? 0 : 1);
             return;
         }
@@ -371,6 +376,15 @@ public class Ball extends Entity {
     // ------------------------------------------------------------ botões de quem está jogando
     /** Chute, passe, carrinho ou desarme (ver {@link Sports}). */
     public void playerAction(ServerPlayer p, int action) {
+        playerAction(p, action, 0f);
+    }
+
+    /** Posição que essa pessoa escolheu (-1 = nenhuma). */
+    public int positionOf(Player p) {
+        return humanPos.getOrDefault(p.getUUID(), -1);
+    }
+
+    public void playerAction(ServerPlayer p, int action, float power) {
         if (!(level() instanceof ServerLevel sl) || !hasGoals()) return;
         int team = teamOf(p);
         if (team < 0) return;
@@ -381,8 +395,15 @@ public class Ball extends Entity {
         switch (action) {
             case Sports.FUT_SHOOT -> {
                 if ((!mine && reach > 2.0) || !canKick(team)) return;
-                double power = p.isSprinting() ? 1.35 : 1.1;
-                kick(p, flat.scale(power).add(0, 0.08 + Math.max(0, look.y + 0.1) * 0.8, 0));
+                double charge = power > 0 ? Math.min(1, power) : (p.isSprinting() ? 0.8 : 0.55);
+                if (p.isShiftKeyDown()) {
+                    // cavadinha: por cima, devagar
+                    kick(p, flat.scale(0.4 + charge * 0.3).add(0, 0.45 + charge * 0.15, 0));
+                } else {
+                    // chute rasteiro/meia altura: a força vem de quanto tempo você segurou o botão
+                    double speed = 0.55 + charge * 0.95;
+                    kick(p, flat.scale(speed).add(0, 0.03 + Math.max(0, look.y + 0.05) * 0.7, 0));
+                }
                 ownCooldown.put(p.getUUID(), tickCount + 12);
             }
             case Sports.FUT_PASS -> {
@@ -547,11 +568,7 @@ public class Ball extends Entity {
             if (near && !bar.getPlayers().contains(p)) bar.addPlayer(p);
             else if (!near && bar.getPlayers().contains(p)) bar.removePlayer(p);
         }
-        for (var e : humans.entrySet()) {
-            if (sl.getEntity(e.getKey()) instanceof ServerPlayer p && p.distanceTo(this) < 56) {
-                p.sendOverlayMessage(Component.literal("§7Esq: chutar • Dir: passar • R: carrinho • G: colocar o pé • K: sair"));
-            }
-        }
+
     }
 
     @Override
@@ -567,7 +584,7 @@ public class Ball extends Entity {
         restartTimer = kind == KICKOFF ? 80 : kind == PENALTY ? 90 : 50;
         keeperHold = null;
         loseOwner();
-        setPos(spot.x, spot.y + 0.3, spot.z);
+        setPos(spot.x, center == null ? spot.y : center.y, spot.z);
         setDeltaMovement(Vec3.ZERO);
         if (whistle) whistle(sl, 1);
         String who = teamName(team);
@@ -626,8 +643,14 @@ public class Ball extends Entity {
     // ------------------------------------------------------------ amistoso e campeonato
     /** Organizador: alguém marcou um amistoso ou um campeonato. A pessoa entra no time A. */
     public void setup(ServerPlayer p, int setupMode, String name, int color) {
+        setup(p, setupMode, name, color, 6);
+    }
+
+    public void setup(ServerPlayer p, int setupMode, String name, int color, int position) {
         if (!(level() instanceof ServerLevel sl) || !hasGoals()) return;
         humans.clear();
+        humanPos.clear();
+        humanPos.put(p.getUUID(), Math.max(0, Math.min(Sports.POSITIONS.length - 1, position)));
         loseOwner();
         if (setupMode == Sports.CAMPEONATO) {
             mode = LEAGUE;
@@ -650,9 +673,8 @@ public class Ball extends Entity {
         }
         humans.put(p.getUUID(), TEAM_A);
         Sports.sendState(p, Sports.FOOTBALL, mode == LEAGUE);
-        p.sendSystemMessage(Component.literal("§aVocê está no jogo! §7Passe por cima da bola para dominar. "
-                + "§fEsquerdo§7 chuta (correndo é mais forte, olhando para cima levanta), §fdireito§7 passa, "
-                + "§fR§7 dá carrinho (pode ser falta) e §fG§7 coloca o pé para roubar sem falta."));
+        p.sendSystemMessage(Component.literal("§aVocê está no jogo, de §e" + Sports.POSITIONS[humanPos.get(p.getUUID())]
+                + "§a! §7Passe por cima da bola para dominar. As teclas aparecem embaixo da tela."));
         startMatch(sl);
     }
 
@@ -683,13 +705,24 @@ public class Ball extends Entity {
         // a pessoa entra no lugar do centroavante (ou do último da linha) do time A
         benched.clear();
         var all = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(50, 10, 50), r -> r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B);
-        int need = (int) humans.values().stream().filter(t -> t == TEAM_A).count();
-        all.sort((x, y) -> Integer.compare(y.stall, x.stall));
-        for (Raver r : all) {
-            if (need > 0 && r.role() == RaverRoles.TEAM_A && r.stall != 1) {
-                benched.add(r.getUUID());
-                need--;
+        for (var e : humans.entrySet()) {
+            if (e.getValue() != TEAM_A) continue;
+            int[] slots = Sports.POSITION_SLOTS[humanPos.getOrDefault(e.getKey(), 6)];
+            Raver pick = null;
+            outer:
+            for (int slot : slots) {
+                for (Raver r : all) {
+                    if (r.role() == RaverRoles.TEAM_A && !benched.contains(r.getUUID()) && r.stall == slot) { pick = r; break outer; }
+                }
             }
+            if (pick == null && slots[0] != 1) {
+                for (Raver r : all) {
+                    if (r.role() == RaverRoles.TEAM_A && !benched.contains(r.getUUID()) && r.stall != 1) { pick = r; break; } // campo sem essa posição
+                }
+            }
+            if (pick != null) benched.add(pick.getUUID());
+        }
+        for (Raver r : all) {
             int t = teamOf(r);
             r.setShirt(t < 0 ? 0 : (teamColor(t) | 0xFF000000));
         }
@@ -736,6 +769,7 @@ public class Ball extends Entity {
      */
     public void leave(ServerPlayer p) {
         if (!(level() instanceof ServerLevel sl) || humans.remove(p.getUUID()) == null) return;
+        humanPos.remove(p.getUUID());
         if (p.getUUID().equals(owner)) loseOwner();
         Sports.sendState(p, Sports.NONE);
         ItemStack chest = p.getItemBySlot(EquipmentSlot.CHEST);
@@ -809,7 +843,7 @@ public class Ball extends Entity {
     private void findField(ServerLevel sl) {
         List<BlockPos> found = new ArrayList<>();
         for (BlockPos p : BlockPos.betweenClosed(blockPosition().offset(-40, -3, -40), blockPosition().offset(40, 4, 40))) {
-            if (sl.getBlockState(p).is(BarBlocks.GOAL)) found.add(p.immutable());
+            if (Blocks34.isGoal(sl.getBlockState(p))) found.add(p.immutable());
         }
         if (found.size() < 2) return;
         BlockPos a = found.get(0), far = a;
@@ -885,7 +919,7 @@ public class Ball extends Entity {
                 for (int dy = 0; dy <= 16; dy++) {
                     BlockPos q = BlockPos.containing(p.x, y0 + dy, p.z);
                     var st = sl.getBlockState(q);
-                    if (st.isAir() || st.is(BarBlocks.GOAL)) continue;
+                    if (st.isAir() || Blocks34.isGoal(st)) continue;
                     boolean tree = st.is(net.minecraft.tags.BlockTags.LOGS) || st.is(net.minecraft.tags.BlockTags.LEAVES)
                             || st.is(net.minecraft.tags.BlockTags.SAPLINGS) || st.is(net.minecraft.tags.BlockTags.FLOWERS)
                             || st.is(net.minecraft.tags.BlockTags.REPLACEABLE_BY_TREES) || st.is(net.minecraft.world.level.block.Blocks.BEE_NEST);

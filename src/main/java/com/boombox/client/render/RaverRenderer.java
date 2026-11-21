@@ -66,7 +66,9 @@ public class RaverRenderer extends MobRenderer<Raver, RaverRenderer.State, Raver
         s.costume = s.role == 0 && !s.bar && com.boombox.bar.Fantasia.tonight(e.level()) ? com.boombox.bar.Fantasia.costumeOf(e.getUUID()) : -1;
         net.minecraft.client.renderer.entity.state.HoldingEntityRenderState.extractHoldingEntityRenderState(e, s, itemModelResolver);
         ClientBoomboxManager.State playing = ClientBoomboxManager.playingNear(Minecraft.getInstance(), e.position(), 24);
-        s.dancing = playing != null && !s.bar;
+        boolean sport = s.role >= com.boombox.entity.RaverRoles.TEAM_A && s.role != com.boombox.entity.RaverRoles.BARTENDER
+                && s.role != com.boombox.entity.RaverRoles.LUAU && s.role != com.boombox.entity.RaverRoles.VIP;
+        s.dancing = playing != null && !s.bar && !sport;
         if (playing != null) {
             ClientBoomboxManager.levelsOf(playing, levels);
             s.bass = levels[0];

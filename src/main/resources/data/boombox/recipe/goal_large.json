@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SSS",
+    "SWS",
+    "SWS"
+  ],
+  "key": {
+    "S": "minecraft:stick",
+    "W": "minecraft:white_wool"
+  },
+  "result": {
+    "id": "boombox:goal_large",
+    "count": 1
+  }
+}

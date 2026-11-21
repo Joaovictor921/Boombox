@@ -22,6 +22,24 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.5.3
+**Futebol bem melhor (inspirado nos jogos de futebol 5 contra 5)**:
+- **A bola não vive mais no ar**: tinha um defeito na física desde a primeira versão do campo (a gravidade se perdia no
+  ar). Agora ela rola no chão, sobe só no cruzamento, na cavadinha e no chute alto, e quica pouco. Lateral e escanteio
+  também não ficam mais "boiando".
+- **5 contra 5** (goleiro, zagueiro, meio, ala e atacante): menos bagunça e mais espaço. Os aldeões tocam rasteiro para
+  quem está livre (inclusive você), cabeceiam a bola alta em vez de chutar para cima, só cruzam quando estão bem abertos
+  e chutam no canto longe do goleiro. O tiro de meta sai rasteiro para o zagueiro.
+- **Goleiro fixo**: fica no gol, voa na bola e só sai para pegar a que sobra na frente dele.
+- **Escolha a sua posição** na tela do organizador: goleiro, zagueiro, lateral, volante, meia, ponta ou atacante. O
+  aldeão dessa posição vai para o banco.
+- **Jogam de noite também** quando tem amistoso ou campeonato marcado (antes ficavam parados à noite), e não dançam no
+  meio do jogo.
+- **Chute com força**: segure o botão de chutar e solte (aparece uma barra de força). Agachado + chutar é cavadinha.
+- **As teclas de verdade aparecem na tela** (as que estão configuradas no seu jogo), no alto, longe do chat.
+- **Campo novo**: gramado listrado, **gols maiores (5 x 3)**, refletores para jogo à noite, bancos de reservas,
+  arquibancada e dois placares. Novo bloco: **Gol Grande**.
+
 ## Novidades da 3.5.2
 - **Sair do jogo**: no futebol e no vôlei, fale com o organizador e clique em **"Sair do amistoso"** ou **"Desistir do
   campeonato"**. Também dá para apertar **K duas vezes** de qualquer lugar. No futebol os aldeões seguem numa pelada

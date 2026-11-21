@@ -145,7 +145,7 @@ public final class DjLeoHouse {
         // 3.3: quermesse (35%), feira de domingo (40%) e campinho de várzea (35%)
         if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(0), new BlockPos(0, 0, 6), shuffler);
         if (rnd.nextFloat() < 0.4f) placeBeside(builder, ctx, center, extra(1), new BlockPos(0, 0, 5), shuffler);
-        if (rnd.nextFloat() < 0.35f && !placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 18), shuffler)) {
+        if (rnd.nextFloat() < 0.35f && !placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 15), shuffler)) {
             // 3.5: o campo grande (60 x 38) não coube: vai o campinho menor
             placeBeside(builder, ctx, center, extra(5), new BlockPos(0, 0, 12), shuffler);
         }

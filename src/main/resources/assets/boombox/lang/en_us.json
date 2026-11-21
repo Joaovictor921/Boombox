@@ -103,5 +103,7 @@
   "key.boombox.colocar_pe": "Poke the ball (soccer)",
   "key.boombox.levantar": "Set (volleyball)",
   "key.category.boombox.sports": "Boombox: sports",
-  "key.boombox.sair_jogo": "Leave match / forfeit (sports)"
+  "key.boombox.sair_jogo": "Leave match / forfeit (sports)",
+  "block.boombox.goal_large": "Large Goal",
+  "key.boombox.chutar": "Shoot (hold for power)"
 }

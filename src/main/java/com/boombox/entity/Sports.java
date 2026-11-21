@@ -119,8 +119,19 @@ public final class Sports {
         }
     }
 
-    /** Partida em que essa pessoa está jogando (futebol primeiro). */
+    /** 3.5.3: posições que dá para escolher no futebol. */
+    public static final String[] POSITIONS = {"Goleiro", "Zagueiro", "Lateral", "Volante", "Meia", "Ponta", "Atacante"};
+    /** Lugar (número da posição dos aldeões, "stall") de cada posição no time de 5: goleiro, defesa, meio, ala e ataque. */
+    public static final int[] POSITION_SLOT = {1, 3, 3, 6, 6, 9, 11};
+    /** Para cada posição, os números (stall) dos aldeões que ela substitui, em ordem de preferência. */
+    public static final int[][] POSITION_SLOTS = {{1}, {12, 3, 4}, {12, 2, 5}, {13, 6}, {13, 7, 8}, {14, 9, 10}, {15, 11}};
+
     public static void action(ServerPlayer p, int action) {
+        action(p, action, 0f);
+    }
+
+    /** Partida em que essa pessoa está jogando (futebol primeiro). */
+    public static void action(ServerPlayer p, int action, float power) {
         ServerLevel sl = (ServerLevel) p.level();
         if (action == LEAVE) {
             // 3.5.2: sair do amistoso / desistir do campeonato (futebol ou vôlei)
@@ -135,7 +146,7 @@ public final class Sports {
         }
         if (action <= FUT_POKE) {
             for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(80))) {
-                if (b.teamOf(p) >= 0) { b.playerAction(p, action); return; }
+                if (b.teamOf(p) >= 0) { b.playerAction(p, action, power); return; }
             }
         } else {
             for (Volleyball v : sl.getEntitiesOfClass(Volleyball.class, p.getBoundingBox().inflate(48))) {

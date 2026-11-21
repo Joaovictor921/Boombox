@@ -191,7 +191,7 @@ public final class ServerBoomboxManager {
     // ------------------------------------------------------------ pedidos dos jogadores
 
     public static void registerReceivers() {
-        ServerPlayNetworking.registerGlobalReceiver(Payloads.SportAction.TYPE, (p, ctx) -> com.boombox.entity.Sports.action(ctx.player(), p.action()));
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.SportAction.TYPE, (p, ctx) -> com.boombox.entity.Sports.action(ctx.player(), p.action(), p.power()));
         ServerPlayNetworking.registerGlobalReceiver(Payloads.MatchSetup.TYPE, (p, ctx) -> {
             ServerPlayer player = ctx.player();
             if (!(player.level().getEntity(p.organizer()) instanceof com.boombox.entity.Raver org) || org.distanceTo(player) > 8) return;
@@ -202,7 +202,7 @@ public final class ServerBoomboxManager {
                     player.sendSystemMessage(Component.literal("§7O campo ainda não está pronto (sem bola ou sem gols)."));
                     return;
                 }
-                ball.setup(player, p.mode(), p.name(), p.color());
+                ball.setup(player, p.mode(), p.name(), p.color(), p.position());
             } else if (org.role() == com.boombox.entity.RaverRoles.ORG_VOLEI) {
                 var ball = com.boombox.entity.Sports.volleyNear(sl, org.position());
                 if (ball == null || !ball.hasCourt()) {

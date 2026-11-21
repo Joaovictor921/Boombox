@@ -1,0 +1,29 @@
+{
+  "textures": {
+    "n": "boombox:block/goal_net",
+    "p": "minecraft:block/white_concrete",
+    "particle": "minecraft:block/white_concrete"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        15
+      ],
+      "to": [
+        16,
+        16,
+        15.2
+      ],
+      "faces": {
+        "north": {
+          "texture": "#n"
+        },
+        "south": {
+          "texture": "#n"
+        }
+      }
+    }
+  ]
+}

@@ -152,7 +152,7 @@ public class Volleyball extends Entity {
             ensureOrganizer(sl);
             for (var e : humans.entrySet()) {
                 if (sl.getEntity(e.getKey()) instanceof ServerPlayer p && p.distanceTo(this) < 40) {
-                    p.sendOverlayMessage(Component.literal("§7Esq: manchete • V: levantar • Dir: cortar • K: sair  §8|  §f" + teamName(0) + " " + score(0) + " x " + score(1) + " " + teamName(1)));
+                    p.sendOverlayMessage(Component.literal("§f" + teamName(0) + " " + score(0) + " x " + score(1) + " " + teamName(1)));
                 }
             }
         }

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "boombox:goal_large"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        },
+        {
+          "condition": "minecraft:block_state_property",
+          "block": "boombox:goal_large",
+          "properties": {
+            "part": "2"
+          }
+        }
+      ]
+    }
+  ],
+  "random_sequence": "boombox:blocks/goal_large"
+}

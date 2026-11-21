@@ -98,6 +98,15 @@ public final class Blocks34 {
             BlockBehaviour.Properties.of().strength(0.4f).sound(SoundType.GLASS).noOcclusion().lightLevel(s -> 10));
     public static final BlockEntityType<NeonSignBlockEntity> NEON_SIGN_BE = be("neon_sign", NeonSignBlockEntity::new, NEON_SIGN);
 
+    // ---------------- 3.5.3: gol grande (5 x 3)
+    public static final Block GOAL_LARGE = block("goal_large", GoalLargeBlock::new,
+            BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.WOOL).noOcclusion());
+
+    /** Bloco de gol (o de 3 x 2 ou o grande). */
+    public static boolean isGoal(net.minecraft.world.level.block.state.BlockState s) {
+        return s.is(BarBlocks.GOAL) || s.is(GOAL_LARGE);
+    }
+
     // ---------------- 3.5: placar do campo e da quadra
     public static final Block PLACAR = block("placar", PlacarBlock::new,
             BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.METAL).noOcclusion().lightLevel(s -> 6));

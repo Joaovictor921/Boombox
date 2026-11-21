@@ -42,7 +42,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
             if ("fut".equals(System.getenv("BOOMBOX_QUICK"))) {
-                server.runCommand("time set noon");
+                server.runCommand("time set midnight"); // 3.5.3: tem que jogar de noite também
                 server.runCommand("forceload add 70 30 150 90");
                 look(ctx, server, new Vec3(110.5, -40, 30.5), 0f, 45f);
                 ctx.waitTicks(60);
@@ -53,11 +53,13 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                     if (bs.isEmpty()) return "sem bola";
                     var b = bs.get(0);
                     var pl = s.getPlayerList().getPlayers().get(0);
-                    b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Bonde do Teste", 0xF0D020);
+                    b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Bonde do Teste", 0xF0D020, 2);
                     long org = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.ORG_FUT).size();
                     long jog = s.overworld().getEntities(ModEntities.RAVER, r -> b.teamOf(r) >= 0).size();
                     return "time A=" + b.teamName(0) + " (cor " + Integer.toHexString(b.teamColor(0)) + ") x " + b.teamName(1) + " (cor " + Integer.toHexString(b.teamColor(1))
-                            + ") jogador no time=" + b.teamOf(pl) + " organizadores=" + org + " aldeões jogando=" + jog + " " + b.info();
+                            + ") jogador no time=" + b.teamOf(pl) + " posição=" + com.boombox.entity.Sports.POSITIONS[b.positionOf(pl)]
+                            + " banco=" + s.overworld().getEntities(ModEntities.RAVER, r -> b.isBenched(r)).stream().map(r -> r.stall).toList()
+                            + " organizadores=" + org + " aldeões jogando=" + jog + " " + b.info();
                 });
                 System.out.println("[BoomboxTest] fut setup: " + setup);
                 java.util.Map<Integer, Vec3> last = new java.util.HashMap<>();
@@ -77,7 +79,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                             sb.append(String.format(Locale.ROOT, "%.1f ", d));
                         }
                         return b.minute() + " " + b.scoreA() + "x" + b.scoreB() + " parada=" + b.restarting() + " tipo=" + b.restartKind()
-                                + String.format(Locale.ROOT, " bola=(%.1f,%.1f) v=%.2f", b.getX(), b.getZ(), b.getDeltaMovement().horizontalDistance())
+                                + String.format(Locale.ROOT, " bola=(%.1f,%.1f) altura=%.1f v=%.2f", b.getX(), b.getZ(), b.getY() + 60, b.getDeltaMovement().horizontalDistance())
                                 + " parados=" + still + "/" + rs.size() + "";
                     });
                     System.out.println("[BoomboxTest] fut " + i + ": " + st);
@@ -112,10 +114,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 String dives = server.computeOnServer(s -> "posições: " + s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TEAM_A)
                         .stream().map(r -> r.stall + "@" + String.format(Locale.ROOT, "%.0f,%.0f", r.getX(), r.getZ())).toList());
                 System.out.println("[BoomboxTest] fut " + dives);
-                look(ctx, server, new Vec3(110.5, -57.5, 49.5), 180f, -5f);
+                look(ctx, server, new Vec3(105.5, -57.5, 47.5), 180f, -5f);
                 ctx.waitTicks(30);
                 ctx.takeScreenshot("fut_placar");
-                look(ctx, server, new Vec3(110.5, -35, 58.5), 180f, 55f);
+                look(ctx, server, new Vec3(105.5, -42, 76.5), 180f, 45f);
                 ctx.waitTicks(30);
                 ctx.takeScreenshot("fut_quick");
                 return;
