@@ -66,7 +66,8 @@ public final class Birthday {
     /** Começa uma festa perto do jogador (precisa de um aldeão por perto). */
     public static boolean start(ServerLevel level, ServerPlayer near) {
         if (party != null) return false;
-        var villagers = level.getEntitiesOfClass(Villager.class, near.getBoundingBox().inflate(64), v -> v.onGround() && !v.isBaby());
+        var villagers = level.getEntitiesOfClass(Villager.class, near.getBoundingBox().inflate(64), v -> v.onGround() && !v.isBaby()
+                && !com.boombox.entity.Sports.nearSportsArea(level, v.position(), 6)); // 3.5.1: festa longe do campo e da quadra
         if (villagers.isEmpty()) return false;
         Villager hero = villagers.get(level.getRandom().nextInt(villagers.size()));
         // procura um cantinho livre no chão perto dele para a mesa e o bolo

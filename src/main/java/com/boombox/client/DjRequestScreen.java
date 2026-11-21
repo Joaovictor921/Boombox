@@ -20,7 +20,16 @@ public class DjRequestScreen extends Screen {
     private String text = "";
     private List<YouTube.Result> results = List.of();
     private String status = "Escolha a música e o DJ Leo toca na hora (custa 1 barra de ouro)";
+    private String heading = "§l♪ Pedir música pro DJ Leo ♪";
     private boolean busy;
+
+    /** 3.5.1: pedido para o organizador do campo / da quadra (de graça, toca na caixa do jogo). */
+    public static DjRequestScreen organizer(int id) {
+        DjRequestScreen s = new DjRequestScreen(id);
+        s.status = "Escolha a música e ela toca na caixa do jogo (de graça)";
+        s.heading = "§l♪ Música do jogo ♪";
+        return s;
+    }
 
     public DjRequestScreen(int djId) {
         super(Component.literal("Pedir música pro DJ Leo"));
@@ -86,7 +95,7 @@ public class DjRequestScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(g, mouseX, mouseY, partialTick);
-        g.centeredText(font, "§l♪ Pedir música pro DJ Leo ♪", width / 2, 10, 0xFFFFFFFF);
+        g.centeredText(font, heading, width / 2, 10, 0xFFFFFFFF);
         g.centeredText(font, status, width / 2, 22, 0xFFFFDD55);
     }
 

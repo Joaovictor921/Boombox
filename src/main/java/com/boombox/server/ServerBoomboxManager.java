@@ -338,6 +338,26 @@ public final class ServerBoomboxManager {
         ServerPlayNetworking.registerGlobalReceiver(Payloads.DjRequest.TYPE, (payload, ctx) -> {
             ServerPlayer player = ctx.player();
             ServerLevel level = player.level();
+            // 3.5.1: o organizador do campo / da quadra também aceita pedido (de graça), na caixinha de lá
+            if (level.getEntity(payload.djId()) instanceof com.boombox.entity.Raver org && org.distanceTo(player) < 10
+                    && (org.role() == com.boombox.entity.RaverRoles.ORG_FUT || org.role() == com.boombox.entity.RaverRoles.ORG_VOLEI)) {
+                String u = payload.url().trim();
+                if (!validUrl(u) || u.startsWith("local:")) {
+                    player.sendSystemMessage(Component.literal("§6<Organizador>§r Esse link aí não toca não."));
+                    return;
+                }
+                String t = payload.title().isBlank() ? u : payload.title().trim();
+                if (!playNearest(level, org.position(), new QueueItem(u, t, payload.durationSec()))) {
+                    player.sendSystemMessage(Component.literal("§6<Organizador>§r Não tem caixa de som aqui perto!"));
+                    return;
+                }
+                org.celebrate(true);
+                for (ServerPlayer p : level.players()) {
+                    if (p.distanceTo(org) < 64) p.sendSystemMessage(Component.literal("§6<" + org.getName().getString() + ">§r Pedido de "
+                            + player.getName().getString() + " na caixa do jogo: §e♪ " + t));
+                }
+                return;
+            }
             if (!(level.getEntity(payload.djId()) instanceof com.boombox.entity.DjLeo dj) || dj.distanceTo(player) > 10) return;
             String url = payload.url().trim();
             if (!validUrl(url) || url.startsWith("local:")) {
@@ -502,6 +522,36 @@ public final class ServerBoomboxManager {
         }
         if (bestBe == null) return false;
         linkLeoIfNeeded(level, best, System.currentTimeMillis());
+        Holder h = blockHolder(level, best, bestBe);
+        startItem(level.getServer(), h, item, System.currentTimeMillis());
+        h.sync();
+        return true;
+    }
+
+    /** 3.5.1: toca na caixa de som mais perto desse ponto (qualquer uma, até 48 blocos): a do campo ou da quadra. */
+    public static boolean playNearest(ServerLevel level, Vec3 near, QueueItem item) {
+        BlockPos center = BlockPos.containing(near);
+        BlockPos best = null;
+        BoomboxBlockEntity bestBe = null;
+        double bestD = Double.MAX_VALUE;
+        int cx = center.getX() >> 4, cz = center.getZ() >> 4, r = 3;
+        for (int x = cx - r; x <= cx + r; x++) {
+            for (int z = cz - r; z <= cz + r; z++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
+                if (chunk == null) continue;
+                for (Map.Entry<BlockPos, BlockEntity> e : chunk.getBlockEntities().entrySet()) {
+                    if (e.getValue() instanceof BoomboxBlockEntity be && !be.isRemoved()) {
+                        double d = e.getKey().distSqr(center);
+                        if (d < bestD && d <= 48 * 48) {
+                            bestD = d;
+                            best = e.getKey();
+                            bestBe = be;
+                        }
+                    }
+                }
+            }
+        }
+        if (bestBe == null) return false;
         Holder h = blockHolder(level, best, bestBe);
         startItem(level.getServer(), h, item, System.currentTimeMillis());
         h.sync();

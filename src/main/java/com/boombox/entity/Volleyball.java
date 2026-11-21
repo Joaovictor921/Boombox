@@ -147,6 +147,7 @@ public class Volleyball extends Entity {
             rest();
             return;
         }
+        if (tickCount % 10 == 5) guard(sl);
         if (tickCount % 20 == 0) {
             ensureOrganizer(sl);
             for (var e : humans.entrySet()) {
@@ -702,6 +703,23 @@ public class Volleyball extends Entity {
         shirt.set(DataComponents.DYED_COLOR, new DyedItemColor(teamColor(side)));
         shirt.set(DataComponents.CUSTOM_NAME, Component.literal("Regata do " + teamName(side)));
         sp.setItemSlot(EquipmentSlot.CHEST, shirt);
+    }
+
+    /** Ponto dentro da quadra (com folga de "margin" blocos para fora das linhas)? */
+    public boolean inArea(Vec3 p, double margin) {
+        if (!hasCourt()) return false;
+        return Math.abs(d(p)) <= halfLength + 1.5 + margin && Math.abs(w(p)) <= halfWidth + 1.5 + margin && Math.abs(p.y - groundY) < 6 + margin;
+    }
+
+    /** 3.5.1: ninguém de fora entra na quadra (vai para a beira da areia); monstro que nascer dentro some. */
+    private void guard(ServerLevel sl) {
+        AABB box = new AABB(netCenter, netCenter).inflate(halfLength + 3, 5, halfLength + 3);
+        for (Entity e : sl.getEntities(this, box, e -> e instanceof net.minecraft.world.entity.LivingEntity && !(e instanceof Player))) {
+            if (e instanceof Raver r && (players.contains(r.getUUID()) || r.role() == RaverRoles.ORG_VOLEI)) continue;
+            if (!inArea(e.position(), 0)) continue;
+            double ww = w(e.position());
+            Sports.evict(sl, e, courtPoint(Math.max(-halfLength, Math.min(halfLength, d(e.position()))), Math.signum(ww == 0 ? 1 : ww) * (halfWidth + 4)));
+        }
     }
 
     /** Quadra sem organizador (as da 3.4): chama um. */

@@ -80,6 +80,41 @@ public final class Sports {
         return l.isEmpty() ? null : l.get(0);
     }
 
+    /**
+     * 3.5.1: esse ponto está perto (até "margin" blocos) de um campo de várzea ou de uma quadra de vôlei? Usado para
+     * não começar carnaval, aniversário e outros eventos em cima do jogo.
+     */
+    public static boolean nearSportsArea(ServerLevel sl, Vec3 at, double margin) {
+        for (Ball b : sl.getEntitiesOfClass(Ball.class, new AABB(at, at).inflate(70 + margin))) {
+            if (b.hasGoals() && b.inArea(at, margin)) return true;
+        }
+        for (Volleyball v : sl.getEntitiesOfClass(Volleyball.class, new AABB(at, at).inflate(30 + margin))) {
+            if (v.hasCourt() && v.inArea(at, margin)) return true;
+        }
+        return false;
+    }
+
+    /** Leva para fora do lugar quem não faz parte do jogo (monstro some). */
+    static void evict(net.minecraft.server.level.ServerLevel sl, net.minecraft.world.entity.Entity e, net.minecraft.world.phys.Vec3 out) {
+        if (e instanceof net.minecraft.world.entity.monster.Enemy) {
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, e.getX(), e.getY() + 0.8, e.getZ(), 10, 0.3, 0.5, 0.3, 0.02);
+            e.discard();
+            return;
+        }
+        if (e instanceof Trio t) {
+            t.getPassengers().forEach(net.minecraft.world.entity.Entity::discard);
+            t.discard();
+            return;
+        }
+        int y = sl.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(out.x), (int) Math.floor(out.z));
+        e.stopRiding();
+        e.teleportTo(out.x, y, out.z);
+        if (e instanceof net.minecraft.world.entity.Mob m) {
+            m.getNavigation().stop();
+            if (m instanceof net.minecraft.world.entity.PathfinderMob pm && pm.hasHome()) pm.clearHome();
+        }
+    }
+
     /** Partida em que essa pessoa está jogando (futebol primeiro). */
     public static void action(ServerPlayer p, int action) {
         ServerLevel sl = (ServerLevel) p.level();

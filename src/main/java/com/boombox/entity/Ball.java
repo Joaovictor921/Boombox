@@ -288,6 +288,7 @@ public class Ball extends Entity {
         if (tickCount % 20 == 0) scoreboard(sl);
         if (tickCount % 1200 == 600) clearTrees(sl);
         if (tickCount % 200 == 40) ensureOrganizer(sl);
+        if (tickCount % 10 == 5) guard(sl);
         tickClock(sl);
         if (phase == 1 || phase == 3) return;
         if (goalPause > 0) {
@@ -811,6 +812,28 @@ public class Ball extends Entity {
         }
         clearTrees(sl);
         startMatch(sl);
+    }
+
+    /** Ponto dentro do campo (com folga de "margin" blocos para fora das linhas)? */
+    public boolean inArea(Vec3 p, double margin) {
+        if (!hasGoals()) return false;
+        double uu = u(p), vv = v(p);
+        return uu >= -2 - margin && uu <= length + 2 + margin && Math.abs(vv) <= halfWidth + 1.5 + margin && Math.abs(p.y - center.y) < 8 + margin;
+    }
+
+    /**
+     * 3.5.1: ninguém de fora entra no campo. Aldeões, bichos e foliões que não estão no jogo vão para fora do muro;
+     * monstro que nascer dentro some. Ficam os jogadores, o organizador e quem está assistindo de longe.
+     */
+    private void guard(ServerLevel sl) {
+        AABB box = new AABB(center, center).inflate(length / 2 + 3, 6, length / 2 + 3);
+        for (Entity e : sl.getEntities(this, box, e -> e instanceof net.minecraft.world.entity.LivingEntity && !(e instanceof Player))) {
+            if (e instanceof Raver r && (r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B || r.role() == RaverRoles.ORG_FUT)) continue;
+            if (!inArea(e.position(), 0)) continue;
+            double vv = v(e.position());
+            Vec3 out = fieldPoint(Math.max(0, Math.min(length, u(e.position()))), Math.signum(vv == 0 ? 1 : vv) * (halfWidth + 5));
+            Sports.evict(sl, e, out);
+        }
     }
 
     /** Campo sem organizador (os da 3.3/3.4): chama um, na beira do campo perto do meio. */

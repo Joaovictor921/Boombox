@@ -72,7 +72,7 @@ public class BoomboxMod implements ModInitializer {
                 dispatcher.register(net.minecraft.commands.Commands.literal("carnaval").executes(c -> {
                     var p = c.getSource().getPlayerOrException();
                     boolean ok = com.boombox.entity.Trio.start(p.level(), p.position());
-                    if (!ok) c.getSource().sendFailure(Component.literal("Já tem um carnaval passando por perto!"));
+                    if (!ok) c.getSource().sendFailure(Component.literal("Não dá para começar o carnaval aqui: já tem um passando por perto, ou tem jogo de futebol/vôlei do lado."));
                     return ok ? 1 : 0;
                 })));
 

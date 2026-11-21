@@ -47,6 +47,9 @@ public class MatchSetupScreen extends Screen {
             }
         }
         addRenderableWidget(Button.builder(Component.literal("§a§lJogar!"), b -> start()).bounds(cx - 120, top + 170, 116, 20).build());
+        // 3.5.1: escolher a música que toca na caixa do campo / da quadra
+        addRenderableWidget(Button.builder(Component.literal("§d♪ Escolher a música"), b -> minecraft.gui.setScreen(DjRequestScreen.organizer(organizer)))
+                .bounds(cx - 120, top + 208, 240, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Agora não"), b -> onClose()).bounds(cx + 4, top + 170, 116, 20).build());
     }
 
@@ -59,8 +62,8 @@ public class MatchSetupScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         int cx = width / 2, top = height / 2 - 95;
-        g.fill(cx - 130, top - 8, cx + 130, top + 232, 0xE0101820);
-        g.outline(cx - 130, top - 8, 260, 240, sport == Sports.FOOTBALL ? 0xFF3CB043 : 0xFFF0C040);
+        g.fill(cx - 130, top - 8, cx + 130, top + 236, 0xE0101820);
+        g.outline(cx - 130, top - 8, 260, 244, sport == Sports.FOOTBALL ? 0xFF3CB043 : 0xFFF0C040);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.centeredText(font, (sport == Sports.FOOTBALL ? "§a§l⚽ " : "§e§l🏐 ") + getTitle().getString(), cx, top, 0xFFFFFFFF);
         g.centeredText(font, league ? "§73 jogos contra times de outras vilas, e um troféu para o campeão"
@@ -79,7 +82,7 @@ public class MatchSetupScreen extends Screen {
         g.centeredText(font, keys, cx, top + 150, 0xFFFFFFFF);
         g.centeredText(font, sport == Sports.FOOTBALL ? "§7Passe por cima da bola para dominar" : "§7Até 3 toques por lado, um de cada",
                 cx, top + 160, 0xFFFFFFFF);
-        g.centeredText(font, "§8(teclas em Opções → Controles → Boombox)", cx, top + 198, 0xFFFFFFFF);
+        g.centeredText(font, "§8(teclas em Opções → Controles → Boombox)", cx, top + 194, 0xFFFFFFFF);
     }
 
     @Override

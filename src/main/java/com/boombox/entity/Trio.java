@@ -80,6 +80,8 @@ public class Trio extends PathfinderMob {
     public static boolean start(ServerLevel level, Vec3 near) {
         if (!level.getEntitiesOfClass(Trio.class, new AABB(BlockPos.containing(near)).inflate(200)).isEmpty()) return false;
         int x = (int) near.x + level.getRandom().nextInt(13) - 6, z = (int) near.z + level.getRandom().nextInt(13) - 6;
+        // 3.5.1: nada de carnaval em cima de jogo de futebol ou de vôlei
+        if (Sports.nearSportsArea(level, new Vec3(x + 0.5, near.y, z + 0.5), 40)) return false;
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
         Trio trio = new Trio(ModEntities.TRIO, level);
         trio.setPos(x + 0.5, y, z + 0.5);
@@ -106,6 +108,13 @@ public class Trio extends PathfinderMob {
         return true;
     }
 
+    /** A pessoa está jogando futebol ou vôlei agora? (aí o carnaval espera) */
+    private static boolean playing(ServerLevel level, ServerPlayer p) {
+        for (Ball b : level.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(80))) if (b.teamOf(p) >= 0) return true;
+        for (Volleyball v : level.getEntitiesOfClass(Volleyball.class, p.getBoundingBox().inflate(48))) if (v.sideOf(p) >= 0) return true;
+        return false;
+    }
+
     /** De vez em quando, durante o dia, um carnaval aparece numa vila onde tem jogador. */
     public static void maybeStart(MinecraftServer server) {
         ServerLevel level = server.overworld();
@@ -113,7 +122,7 @@ public class Trio extends PathfinderMob {
         for (ServerPlayer p : level.players()) {
             if (level.getRandom().nextFloat() > 0.05f) continue;
             int villagers = level.getEntitiesOfClass(Villager.class, p.getBoundingBox().inflate(48)).size();
-            if (villagers >= 4) start(level, p.position());
+            if (villagers >= 4 && !playing(level, p)) start(level, p.position());
         }
     }
 }

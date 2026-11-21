@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-3.5.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,14 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.5.1
+- **Ninguém de fora entra no campo nem na quadra**: aldeões, bichos e foliões que não estão no jogo são levados para
+  fora, e monstro que nascer lá dentro some.
+- **Nada de evento em cima do jogo**: o carnaval não começa perto de campo ou quadra (nem enquanto você está jogando), e
+  o aniversário dos aldeões também fica longe.
+- **Escolha a música do jogo**: fale com o organizador e clique em "Escolher a música". Você pesquisa no YouTube (ou
+  cola um link) e ela toca na caixa do campo ou da quadra, de graça.
 
 ## Novidades da 3.5
 **Futebol de várzea**:
@@ -429,22 +437,5 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build   # o jar sai em build/libs/
+./gradlew build
 ```
-
-## Versões
-| Versão | Minecraft | Download |
-|---|---|---|
-| 3.5.0 | 26.3 (Fabric) | [Releases → v3.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.0) |
-| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
-| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
-| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
-| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
-| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
-| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
-| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
-
-Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
-
-## Licença
-MIT

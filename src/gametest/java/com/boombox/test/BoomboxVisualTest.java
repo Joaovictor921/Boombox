@@ -144,6 +144,22 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                     return b.teamName(0) + " x " + b.teamName(1) + " jogadores=" + b.playerCount() + " lado da pessoa=" + b.sideOf(pl);
                 });
                 System.out.println("[BoomboxTest] vol setup: " + setup);
+                // 3.5.1: aldeão e zumbi dentro da quadra, carnaval do lado e pedido de música ao organizador
+                server.runCommand("summon minecraft:villager -32.5 -60 64.5");
+                server.runCommand("summon minecraft:zombie -27.5 -60 68.5");
+                ctx.waitTicks(30);
+                String guard = server.computeOnServer(s -> {
+                    var b = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                    long dentro = s.overworld().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(-60, -70, 40, 0, -40, 100),
+                            m -> b.inArea(m.position(), 0) && !(m instanceof com.boombox.entity.Raver)).size();
+                    long zumbis = s.overworld().getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class, new net.minecraft.world.phys.AABB(-60, -70, 40, 0, -40, 100)).size();
+                    boolean carnaval = com.boombox.entity.Trio.start(s.overworld(), new Vec3(-30, -60, 66));
+                    var org = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.ORG_VOLEI).get(0);
+                    boolean musica = com.boombox.server.ServerBoomboxManager.playNearest(s.overworld(), org.position(),
+                            new com.boombox.QueueItem("https://www.youtube.com/watch?v=jNQXAC9IVRw", "Pedido de teste", 19));
+                    return "de fora ainda dentro=" + dentro + " zumbis=" + zumbis + " carnaval começou do lado=" + carnaval + " música tocou=" + musica;
+                });
+                System.out.println("[BoomboxTest] vol 3.5.1: " + guard);
                 for (int i = 0; i < 30; i++) {
                     ctx.waitTicks(20);
                     String st = server.computeOnServer(s -> {
