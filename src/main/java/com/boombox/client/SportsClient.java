@@ -17,8 +17,11 @@ import net.minecraft.client.Minecraft;
  */
 public final class SportsClient {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(BoomboxMod.id("sports"));
-    public static KeyMapping SLIDE, POKE, SET;
+    public static KeyMapping SLIDE, POKE, SET, LEAVE;
     private static int sport;
+    private static boolean league;
+
+    private static long leaveAsked;
 
     private SportsClient() {}
 
@@ -26,7 +29,11 @@ public final class SportsClient {
         SLIDE = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.carrinho", InputConstants.Type.KEYBOARD, 82, CATEGORY));
         POKE = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.colocar_pe", InputConstants.Type.KEYBOARD, 71, CATEGORY));
         SET = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.levantar", InputConstants.Type.KEYBOARD, 86, CATEGORY));
-        ClientPlayNetworking.registerGlobalReceiver(Payloads.SportState.TYPE, (p, ctx) -> sport = p.sport());
+        LEAVE = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.sair_jogo", InputConstants.Type.KEYBOARD, 75, CATEGORY));
+        ClientPlayNetworking.registerGlobalReceiver(Payloads.SportState.TYPE, (p, ctx) -> {
+            sport = p.sport();
+            league = p.league();
+        });
         Raver.openSetupHook = (id, s) -> Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.setScreen(new MatchSetupScreen(id, s)));
     }
 
@@ -38,6 +45,16 @@ public final class SportsClient {
 
     public static int sport() {
         return sport;
+    }
+
+    /** Está num campeonato (o botão vira "desistir")? */
+    public static boolean league() {
+        return league;
+    }
+
+    /** Sai do amistoso / desiste do campeonato. */
+    public static void leave() {
+        send(Sports.LEAVE);
     }
 
     public static void send(int action) {
@@ -58,5 +75,18 @@ public final class SportsClient {
         while (SLIDE.consumeClick()) if (sport == Sports.FOOTBALL) send(Sports.FUT_SLIDE);
         while (POKE.consumeClick()) if (sport == Sports.FOOTBALL) send(Sports.FUT_POKE);
         while (SET.consumeClick()) if (sport == Sports.VOLLEY) send(Sports.VOL_SET);
+        while (LEAVE.consumeClick()) {
+            if (sport == Sports.NONE) continue;
+            // aperta duas vezes em 3 segundos para não sair sem querer
+            long now = System.currentTimeMillis();
+            if (now - leaveAsked < 3000) {
+                leave();
+                leaveAsked = 0;
+            } else {
+                leaveAsked = now;
+                mc.player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(league
+                        ? "§eAperte K de novo para desistir do campeonato" : "§eAperte K de novo para sair do amistoso"));
+            }
+        }
     }
 }

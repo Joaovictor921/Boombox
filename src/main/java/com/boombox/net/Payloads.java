@@ -263,9 +263,10 @@ public final class Payloads {
     }
 
     /** 3.5: em que esporte você está jogando agora (0 = nenhum, 1 = futebol, 2 = vôlei), para os botões. */
-    public record SportState(int sport) implements CustomPacketPayload {
+    public record SportState(int sport, boolean league) implements CustomPacketPayload {
         public static final Type<SportState> TYPE = new Type<>(BoomboxMod.id("sport_state"));
-        public static final StreamCodec<ByteBuf, SportState> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_INT, SportState::sport, SportState::new);
+        public static final StreamCodec<ByteBuf, SportState> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, SportState::sport, ByteBufCodecs.BOOL, SportState::league, SportState::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

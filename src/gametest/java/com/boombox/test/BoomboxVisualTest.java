@@ -174,6 +174,25 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 look(ctx, server, new Vec3(-29.5, -55, 72.5), 160f, 30f);
                 ctx.waitTicks(10);
                 ctx.takeScreenshot("vol_jogo");
+                // 3.5.2: sair do campeonato de vôlei e de um amistoso de futebol
+                String sairVol = server.computeOnServer(s -> {
+                    var b = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    com.boombox.entity.Sports.action(pl, com.boombox.entity.Sports.LEAVE);
+                    return "ativo=" + b.active() + " jogadores=" + b.playerCount() + " lado da pessoa=" + b.sideOf(pl) + " " + b.info();
+                });
+                System.out.println("[BoomboxTest] vol saiu: " + sairVol);
+                server.runCommand("place template boombox:varzea_small -40 -61 0");
+                ctx.waitTicks(80);
+                String sairFut = server.computeOnServer(s -> {
+                    var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Desistentes FC", 0x2E8B3A);
+                    String antes2 = "antes: time=" + b.teamOf(pl) + " modo=" + b.mode() + " " + b.teamName(0);
+                    com.boombox.entity.Sports.action(pl, com.boombox.entity.Sports.LEAVE);
+                    return antes2 + " | depois: time=" + b.teamOf(pl) + " modo=" + b.mode() + " " + b.teamName(0) + " x " + b.teamName(1);
+                });
+                System.out.println("[BoomboxTest] fut saiu: " + sairFut);
                 return;
             }
             if (System.getenv("BOOMBOX_QUICK") != null) {

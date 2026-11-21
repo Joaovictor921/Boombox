@@ -152,7 +152,7 @@ public class Volleyball extends Entity {
             ensureOrganizer(sl);
             for (var e : humans.entrySet()) {
                 if (sl.getEntity(e.getKey()) instanceof ServerPlayer p && p.distanceTo(this) < 40) {
-                    p.sendOverlayMessage(Component.literal("§7Esq: manchete • V: levantar • Dir: cortar  §8|  §f" + teamName(0) + " " + score(0) + " x " + score(1) + " " + teamName(1)));
+                    p.sendOverlayMessage(Component.literal("§7Esq: manchete • V: levantar • Dir: cortar • K: sair  §8|  §f" + teamName(0) + " " + score(0) + " x " + score(1) + " " + teamName(1)));
                 }
             }
         }
@@ -574,6 +574,15 @@ public class Volleyball extends Entity {
         return out;
     }
 
+    /** 3.5.2: a pessoa sai do amistoso ou desiste do campeonato: o jogo acaba e a quadra esvazia. */
+    public void leave(ServerPlayer p) {
+        if (!(level() instanceof ServerLevel sl) || !humans.containsKey(p.getUUID())) return;
+        say(sl, league ? "§c" + p.getName().getString() + " desistiu do campeonato de vôlei." : "§7" + p.getName().getString() + " saiu do amistoso de vôlei.");
+        league = false;
+        gameOver = 0;
+        afterGame(sl); // tira a regata, manda os aldeões embora e libera a quadra
+    }
+
     /** Depois do fim de jogo: próximo jogo do campeonato, ou a quadra esvazia. */
     private void afterGame(ServerLevel sl) {
         if (league && round < 3) {
@@ -632,7 +641,7 @@ public class Volleyball extends Entity {
             say(sl, "§6§l🏆 Campeonato de Vôlei de Praia! §r§f" + teams[0] + " (seu time), " + teams[1] + ", " + teams[2] + " e " + teams[3] + ". 3 jogos até 12 pontos.");
         }
         humans.put(p.getUUID(), 0);
-        Sports.sendState(p, Sports.VOLLEY);
+        Sports.sendState(p, Sports.VOLLEY, league);
         p.sendSystemMessage(Component.literal("§aVocê está no jogo! §7Até 3 toques por lado, um de cada. §fEsquerdo§7 = manchete (passa para o parceiro), "
                 + "§fV§7 = levantar, §fdireito§7 = cortar (pule e mire onde quer que a bola caia)."));
         active = true;

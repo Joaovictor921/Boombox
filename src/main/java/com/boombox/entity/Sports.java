@@ -18,7 +18,7 @@ import java.util.List;
  * No vôlei: esquerdo = manchete (passa para o parceiro), V = levantar, direito = cortar.
  */
 public final class Sports {
-    public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7;
+    public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7, LEAVE = 8;
     public static final int NONE = 0, FOOTBALL = 1, VOLLEY = 2;
     public static final int AMISTOSO = 0, CAMPEONATO = 1;
 
@@ -35,7 +35,11 @@ public final class Sports {
     private Sports() {}
 
     public static void sendState(ServerPlayer p, int sport) {
-        ServerPlayNetworking.send(p, new Payloads.SportState(sport));
+        sendState(p, sport, false);
+    }
+
+    public static void sendState(ServerPlayer p, int sport, boolean league) {
+        ServerPlayNetworking.send(p, new Payloads.SportState(sport, league));
     }
 
     /** Distância entre duas cores (para não sortear times parecidos). */
@@ -118,6 +122,17 @@ public final class Sports {
     /** Partida em que essa pessoa está jogando (futebol primeiro). */
     public static void action(ServerPlayer p, int action) {
         ServerLevel sl = (ServerLevel) p.level();
+        if (action == LEAVE) {
+            // 3.5.2: sair do amistoso / desistir do campeonato (futebol ou vôlei)
+            for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(120))) {
+                if (b.teamOf(p) >= 0) { b.leave(p); return; }
+            }
+            for (Volleyball v : sl.getEntitiesOfClass(Volleyball.class, p.getBoundingBox().inflate(120))) {
+                if (v.sideOf(p) >= 0) { v.leave(p); return; }
+            }
+            sendState(p, NONE); // não estava em jogo nenhum: só limpa os botões
+            return;
+        }
         if (action <= FUT_POKE) {
             for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(80))) {
                 if (b.teamOf(p) >= 0) { b.playerAction(p, action); return; }

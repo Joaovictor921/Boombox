@@ -22,6 +22,11 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.5.2
+- **Sair do jogo**: no futebol e no vôlei, fale com o organizador e clique em **"Sair do amistoso"** ou **"Desistir do
+  campeonato"**. Também dá para apertar **K duas vezes** de qualquer lugar. No futebol os aldeões seguem numa pelada
+  entre eles; no vôlei a quadra fica livre de novo.
+
 ## Novidades da 3.5.1
 - **Ninguém de fora entra no campo nem na quadra**: aldeões, bichos e foliões que não estão no jogo são levados para
   fora, e monstro que nascer lá dentro some.

@@ -549,7 +549,7 @@ public class Ball extends Entity {
         }
         for (var e : humans.entrySet()) {
             if (sl.getEntity(e.getKey()) instanceof ServerPlayer p && p.distanceTo(this) < 56) {
-                p.sendOverlayMessage(Component.literal("§7Esq: chutar • Dir: passar • R: carrinho • G: colocar o pé"));
+                p.sendOverlayMessage(Component.literal("§7Esq: chutar • Dir: passar • R: carrinho • G: colocar o pé • K: sair"));
             }
         }
     }
@@ -649,7 +649,7 @@ public class Ball extends Entity {
             mode = FRIENDLY;
         }
         humans.put(p.getUUID(), TEAM_A);
-        Sports.sendState(p, Sports.FOOTBALL);
+        Sports.sendState(p, Sports.FOOTBALL, mode == LEAGUE);
         p.sendSystemMessage(Component.literal("§aVocê está no jogo! §7Passe por cima da bola para dominar. "
                 + "§fEsquerdo§7 chuta (correndo é mais forte, olhando para cima levanta), §fdireito§7 passa, "
                 + "§fR§7 dá carrinho (pode ser falta) e §fG§7 coloca o pé para roubar sem falta."));
@@ -727,6 +727,33 @@ public class Ball extends Entity {
                     p.sendSystemMessage(Component.literal("§6Você foi campeão com o " + teams[champ] + " e levou a Taça da Várzea!"));
                 }
             }
+        }
+    }
+
+    /**
+     * 3.5.2: a pessoa sai do amistoso ou desiste do campeonato. Ela sai do time (a camisa vai embora), o aldeão que
+     * estava no banco volta para o campo e os aldeões seguem numa pelada entre eles.
+     */
+    public void leave(ServerPlayer p) {
+        if (!(level() instanceof ServerLevel sl) || humans.remove(p.getUUID()) == null) return;
+        if (p.getUUID().equals(owner)) loseOwner();
+        Sports.sendState(p, Sports.NONE);
+        ItemStack chest = p.getItemBySlot(EquipmentSlot.CHEST);
+        if (chest.is(Items.LEATHER_CHESTPLATE) && chest.has(DataComponents.CUSTOM_NAME) && chest.getHoverName().getString().startsWith("Camisa do")) {
+            p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+        }
+        boolean wasLeague = mode == LEAGUE;
+        announce(wasLeague ? "§c" + p.getName().getString() + " desistiu do campeonato. §7O " + teams[0] + " saiu da competição."
+                : "§7" + p.getName().getString() + " saiu do amistoso.");
+        p.sendSystemMessage(Component.literal(wasLeague ? "§7Você desistiu do campeonato. Fale com o organizador quando quiser jogar de novo."
+                : "§7Você saiu do jogo. Fale com o organizador quando quiser jogar de novo."));
+        if (humans.isEmpty()) {
+            // ninguém mais jogando: volta a pelada dos aldeões, com times novos
+            mode = AUTO;
+            playedFor.clear();
+            startMatch(sl);
+        } else {
+            benched.clear();
         }
     }
 

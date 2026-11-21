@@ -46,7 +46,15 @@ public class MatchSetupScreen extends Screen {
                         .bounds(cx - 120 + (i % 6) * 40, top + 100 + (i / 6) * 22, 36, 18).build());
             }
         }
-        addRenderableWidget(Button.builder(Component.literal("§a§lJogar!"), b -> start()).bounds(cx - 120, top + 170, 116, 20).build());
+        if (SportsClient.sport() == sport) {
+            // 3.5.2: já está jogando: o botão é para sair (ou desistir do campeonato)
+            addRenderableWidget(Button.builder(Component.literal(SportsClient.league() ? "§c§lDesistir do campeonato" : "§c§lSair do amistoso"), b -> {
+                SportsClient.leave();
+                onClose();
+            }).bounds(cx - 120, top + 170, 116, 20).build());
+        } else {
+            addRenderableWidget(Button.builder(Component.literal("§a§lJogar!"), b -> start()).bounds(cx - 120, top + 170, 116, 20).build());
+        }
         // 3.5.1: escolher a música que toca na caixa do campo / da quadra
         addRenderableWidget(Button.builder(Component.literal("§d♪ Escolher a música"), b -> minecraft.gui.setScreen(DjRequestScreen.organizer(organizer)))
                 .bounds(cx - 120, top + 208, 240, 20).build());
