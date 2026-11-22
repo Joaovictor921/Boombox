@@ -112,6 +112,11 @@ public final class Blocks34 {
             BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.METAL).noOcclusion().lightLevel(s -> 6));
     public static final BlockEntityType<PlacarBlock.Entity> PLACAR_BE = be("placar", PlacarBlock.Entity::new, PLACAR);
 
+    // ---------------- 3.6: quadro do chaveamento da sinuca
+    public static final Block BRACKET_BOARD = block("quadro_chaveamento", BracketBoardBlock::new,
+            BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.WOOD).noOcclusion().noCollision());
+    public static final BlockEntityType<BracketBoardBlock.Entity> BRACKET_BOARD_BE = be("quadro_chaveamento", BracketBoardBlock.Entity::new, BRACKET_BOARD);
+
     // ---------------- luau
     public static final Item VIOLAO = item("violao", p -> new InstrumentItem(p, SoundEvents.NOTE_BLOCK_GUITAR), new Item.Properties().stacksTo(1));
     public static final Block TIKI_TORCH = block("tiki_torch", TikiTorchBlock::new, BlockBehaviour.Properties.of().strength(0.4f)

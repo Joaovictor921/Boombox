@@ -20,7 +20,7 @@ import java.util.List;
 public final class Sports {
     public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7, LEAVE = 8, GK_DIVE = 9;
     public static final int NONE = 0, FOOTBALL = 1, VOLLEY = 2;
-    public static final int AMISTOSO = 0, CAMPEONATO = 1, JUNTAR = 2; // 3.5.5: JUNTAR = entrar no time de quem já está jogando
+    public static final int AMISTOSO = 0, CAMPEONATO = 1, JUNTAR = 2, TABELA = 3; // TABELA (3.6) = só ver a tabela da copa // 3.5.5: JUNTAR = entrar no time de quem já está jogando
 
     /** Cores que dá para escolher para o time (e que os times sorteados usam). */
     public static final int[] COLORS = {0x2D5BE0, 0xE03030, 0x2E8B3A, 0xF0D020, 0xF0F0F0, 0x202020, 0x8E24AA, 0xE66A10, 0x10B0C8, 0xFF6FA8, 0x6D4C2F, 0x8A0E1E};
@@ -28,9 +28,11 @@ public final class Sports {
 
     private static final String[] FUT_NAMES = {"Real Taiga", "Atlético Savana", "Grêmio da Neve", "União da Planície", "Juventude do Deserto",
             "Ferroviário do Pântano", "Estrela do Mar", "Independente do Morro", "Esporte Clube Ladeira", "Vila Nova da Mina", "Bonsucesso do Rio",
-            "Operário da Pedreira"};
+            "Operário da Pedreira", "Unidos da Ponte", "Atlético Cascalho", "Tropeiros da Serra", "Ipê Amarelo FC", "Lagoa Azul EC",
+            "Canarinho do Brejo", "Sereno FC"};
     private static final String[] VOL_NAMES = {"Areia Quente", "Tubarões da Praia", "Coqueiral", "Maré Alta", "Sol Nascente", "Onda Azul",
-            "Gaivotas", "Pé na Areia", "Canga Branca", "Brisa do Mar"};
+            "Gaivotas", "Pé na Areia", "Canga Branca", "Brisa do Mar", "Duna Dourada", "Concha Rosa", "Recife de Coral", "Maresia",
+            "Farol do Sul", "Pôr do Sol", "Arraia Voadora"};
 
     private Sports() {}
 
@@ -44,6 +46,18 @@ public final class Sports {
 
     public static void sendState(ServerPlayer p, int sport, boolean league, int position) {
         ServerPlayNetworking.send(p, new Payloads.SportState(sport, league, position));
+    }
+
+    /** 3.6: manda a tabela da copa (grupos e chaveamento) para a tela da pessoa. */
+    public static void sendCup(ServerPlayer p, Cup cup, int sport) {
+        if (p instanceof net.fabricmc.fabric.api.entity.FakePlayer) return;
+        ServerPlayNetworking.send(p, new Payloads.CupState(sport, cup.encode()));
+    }
+
+    /** Uma cor bem diferente dessa (camisa do adversário quando as duas são parecidas). */
+    public static int contrast(int c) {
+        for (int x : COLORS) if (!similar(x, c)) return x;
+        return 0xFFFFFF - c;
     }
 
     /** Distância entre duas cores (para não sortear times parecidos). */

@@ -281,29 +281,44 @@ public class SinucaBlockEntity extends BlockEntity {
     // ------------------------------------------------------------ torneio de sinuca (3.4)
     private static final String[] RIVALS = {"Tião da Caçapa", "Biu Taco Fino", "Nenzinho", "Dona Cida", "Carlão do Giz", "Juninho Efeito",
             "Peixoto", "Rosinha Tabela", "Zé Bolinha", "Mestre Valdir"};
-    /** Quem está no torneio ("" = sem torneio), fase (0 = semifinal, 1 = final), adversários e nome do aldeão da vez. */
+    /**
+     * 3.6: chave de 8 (você e 7 aldeões): quartas (0), semifinal (1) e final (2). bracket: 0-7 quartas (em pares, o 0 é
+     * você), 8-11 semifinais, 12-13 final, 14 campeão ("" = ainda não se sabe). Fica guardada depois do torneio para o
+     * quadro mostrar como terminou.
+     */
     public String tourPlayer = "", botName = "";
     public int tourStage;
-    private final String[] tourOpp = {"", "", ""};
+    public final String[] bracket = new String[15];
+
+    {
+        java.util.Arrays.fill(bracket, "");
+    }
 
     public boolean tournamentRunning() {
         return !tourPlayer.isEmpty();
     }
 
-    /** Começa o torneio: chave com 4 (você e 3 aldeões). Semifinal contra um; a outra semi é jogada ao lado. */
+    public static String stageName(int stage) {
+        return stage == 0 ? "Quartas de final" : stage == 1 ? "Semifinal" : "Final";
+    }
+
+    /** Começa o torneio: chave de 8. Você pega um aldeão nas quartas; os outros jogos são jogados ao lado. */
     public boolean startTournament(ServerPlayer p) {
         if (tournamentRunning() && !tourPlayer.equals(p.getName().getString())) return false;
         List<String> pool = new ArrayList<>(List.of(RIVALS));
         java.util.Collections.shuffle(pool, rnd);
-        for (int i = 0; i < 3; i++) tourOpp[i] = pool.get(i);
+        java.util.Arrays.fill(bracket, "");
         tourPlayer = p.getName().getString();
+        bracket[0] = tourPlayer;
+        for (int i = 1; i < 8; i++) bracket[i] = pool.get(i - 1);
         tourStage = 0;
-        botName = tourOpp[0];
+        botName = bracket[1];
         againstBot = true;
         rack();
-        message = "Torneio! Semifinal: " + tourPlayer + " x " + botName;
-        tell("§6§l🎱 Torneio de Sinuca do Seu Zé! §r§fChave: §e" + tourPlayer + " x " + tourOpp[0] + "§f e §e" + tourOpp[1] + " x " + tourOpp[2]
-                + "§f. Ganhe a semifinal e a final para levar o troféu.");
+        message = "Torneio! Quartas: " + tourPlayer + " x " + botName;
+        tell("§6§l🎱 Torneio de Sinuca do Seu Zé! §r§fChave de 8: quartas, semifinal e final. Quartas: §e" + bracket[0] + " x " + bracket[1]
+                + "§f, " + bracket[2] + " x " + bracket[3] + ", " + bracket[4] + " x " + bracket[5] + " e " + bracket[6] + " x " + bracket[7] + ".");
+        if (level instanceof ServerLevel sl) hangBoard(sl);
         changed();
         return true;
     }
@@ -315,42 +330,112 @@ public class SinucaBlockEntity extends BlockEntity {
         }
     }
 
+    /** Primeiro lugar da chave de cada fase e onde vai o vencedor. */
+    private static int firstSlot(int stage) {
+        return stage == 0 ? 0 : stage == 1 ? 8 : 12;
+    }
+
+    private static int nextSlot(int slot) {
+        return slot < 8 ? 8 + slot / 2 : slot < 12 ? 12 + (slot - 8) / 2 : 14;
+    }
+
+    /** Joga (sorteando) os outros jogos da fase. */
+    private void playOthers(int stage) {
+        int first = firstSlot(stage), n = stage == 0 ? 8 : stage == 1 ? 4 : 2;
+        for (int a = first; a < first + n; a += 2) {
+            if (!bracket[nextSlot(a)].isEmpty() || bracket[a].isEmpty() || bracket[a + 1].isEmpty()) continue;
+            String w = rnd.nextBoolean() ? bracket[a] : bracket[a + 1];
+            bracket[nextSlot(a)] = w;
+            tell("§7" + stageName(stage) + ": §f" + w + "§7 ganhou de §f" + (w.equals(bracket[a]) ? bracket[a + 1] : bracket[a]) + "§7.");
+        }
+    }
+
     /** Fim de uma partida do torneio. */
     private void tournamentResult(ServerLevel sl, boolean playerWon) {
         if (!tournamentRunning()) return;
         ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(tourPlayer);
-        if (tourStage == 0) {
-            String other = rnd.nextBoolean() ? tourOpp[1] : tourOpp[2];
-            String loserOther = other.equals(tourOpp[1]) ? tourOpp[2] : tourOpp[1];
-            tell("§7Na outra semifinal, §f" + other + "§7 ganhou de §f" + loserOther + "§7.");
-            if (playerWon) {
-                tourStage = 1;
-                botName = other;
-                tell("§a§lVocê está na FINAL! §r§fAdversário: §e" + other + "§f. Ele joga melhor, hein...");
-            } else {
-                tell("§cEliminado na semifinal! §f" + botName + " ganhou e vai pegar " + other + " na final.");
-                endTournament();
+        int me = -1, first = firstSlot(tourStage), n = tourStage == 0 ? 8 : tourStage == 1 ? 4 : 2;
+        for (int i = first; i < first + n; i++) if (bracket[i].equals(tourPlayer)) me = i;
+        if (me < 0) { endTournament(); return; }
+        int opp = me ^ 1;
+        bracket[nextSlot(me)] = playerWon ? tourPlayer : bracket[opp];
+        playOthers(tourStage);
+        if (playerWon && tourStage == 2) {
+            tell("§6§l🏆 " + tourPlayer.toUpperCase() + " É CAMPEÃO DO TORNEIO DE SINUCA! 🏆");
+            if (p != null) {
+                ItemStack trophy = new ItemStack(Blocks34.TROFEU_SINUCA);
+                if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
+                com.boombox.Achievements.award(p, "rei_da_sinuca");
             }
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK, worldPosition.getX() + 0.5, worldPosition.getY() + 2, worldPosition.getZ() + 0.5, 60, 1, 1, 1, 0.15);
+            endTournament();
+        } else if (playerWon) {
+            tourStage++;
+            int mine = nextSlot(me);
+            botName = bracket[mine ^ 1];
+            tell("§a§lVocê passou! §r§f" + stageName(tourStage) + ": §e" + tourPlayer + " x " + botName + "§f." + (tourStage == 2 ? " Ele joga melhor, hein..." : ""));
+            message = "Torneio! " + stageName(tourStage) + ": " + tourPlayer + " x " + botName;
         } else {
-            if (playerWon) {
-                tell("§6§l🏆 " + tourPlayer.toUpperCase() + " É CAMPEÃO DO TORNEIO DE SINUCA! 🏆");
-                if (p != null) {
-                    ItemStack trophy = new ItemStack(Blocks34.TROFEU_SINUCA);
-                    if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
-                    com.boombox.Achievements.award(p, "rei_da_sinuca");
-                }
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK, worldPosition.getX() + 0.5, worldPosition.getY() + 2, worldPosition.getZ() + 0.5, 60, 1, 1, 1, 0.15);
-            } else {
-                tell("§cVice-campeão! §f" + botName + " levou o troféu dessa vez.");
+            tell("§cEliminado na " + stageName(tourStage).toLowerCase() + "! §f" + bracket[opp] + " segue no torneio.");
+            // o resto do torneio é jogado para o quadro mostrar o campeão
+            while (tourStage < 2) {
+                tourStage++;
+                playOthers(tourStage);
             }
+            if (!bracket[14].isEmpty()) tell("§6🏆 Campeão do torneio: §e" + bracket[14] + "§6!");
             endTournament();
         }
         changed();
     }
 
+    /** Só para o teste: resultado da partida do torneio. */
+    public void testResult(ServerLevel sl, boolean won) {
+        tournamentResult(sl, won);
+    }
+
     private void endTournament() {
         tourPlayer = "";
         tourStage = 0;
+    }
+
+    /**
+     * Pendura o quadro do chaveamento numa parede perto da mesa (se ainda não tem um): procura um lugar com 3x3 blocos
+     * livres na frente de uma parede, na altura dos olhos.
+     */
+    private void hangBoard(ServerLevel sl) {
+        BlockPos t = worldPosition;
+        for (BlockPos p : BlockPos.betweenClosed(t.offset(-10, -3, -10), t.offset(10, 3, 10))) {
+            if (sl.getBlockState(p).is(Blocks34.BRACKET_BOARD)) return;
+        }
+        BlockPos best = null;
+        net.minecraft.core.Direction bestD = null;
+        double bd = 1e9;
+        for (BlockPos p : BlockPos.betweenClosed(t.offset(-7, 1, -7), t.offset(7, 2, 7))) {
+            for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+                if (!boardFits(sl, p, d)) continue;
+                double dist = p.distSqr(t);
+                if (dist < bd) { bd = dist; best = p.immutable(); bestD = d; }
+            }
+        }
+        if (best == null) {
+            tell("§7(Pendure um §eQuadro do Chaveamento§7 na parede perto da mesa para ver a chave.)");
+            return;
+        }
+        sl.setBlock(best, Blocks34.BRACKET_BOARD.defaultBlockState().setValue(FacingBlock.FACING, bestD), Block.UPDATE_ALL);
+        tell("§7O Seu Zé pendurou o §equadro do chaveamento§7 na parede.");
+    }
+
+    private static boolean boardFits(ServerLevel sl, BlockPos p, net.minecraft.core.Direction d) {
+        net.minecraft.core.Direction across = d.getClockWise();
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                BlockPos q = p.relative(across, i).above(j);
+                if (!sl.getBlockState(q).isAir()) return false;
+                BlockPos wall = q.relative(d.getOpposite());
+                if (!sl.getBlockState(wall).isFaceSturdy(sl, wall, d)) return false;
+            }
+        }
+        return true;
     }
 
     public static String groupName(int g) {
@@ -469,7 +554,7 @@ public class SinucaBlockEntity extends BlockEntity {
             }
         }
         if (best == -1e9) ang = rnd.nextDouble() * Math.PI * 2;
-        double err = breakShot ? 0.05 : tournamentRunning() ? (tourStage == 1 ? 0.026 : 0.038) : 0.045;
+        double err = breakShot ? 0.05 : tournamentRunning() ? (tourStage == 2 ? 0.026 : tourStage == 1 ? 0.033 : 0.04) : 0.045;
         ang += (rnd.nextDouble() - 0.5) * err;
         message = "Tacada de " + side(turn);
         shoot(ang, breakShot ? 0.9 : Math.min(1, 0.25 + dist * 0.22 + rnd.nextDouble() * 0.1));
@@ -535,8 +620,8 @@ public class SinucaBlockEntity extends BlockEntity {
         tourPlayer = in_.getStringOr("TourPlayer", "");
         tourStage = in_.getIntOr("TourStage", 0);
         botName = in_.getStringOr("BotName", "");
-        String[] o = in_.getStringOr("TourOpp", "||").split("[|]", -1);
-        for (int i = 0; i < 3 && i < o.length; i++) tourOpp[i] = o[i];
+        String[] o = in_.getStringOr("Bracket", "").split("[|]", -1);
+        for (int i = 0; i < 15; i++) bracket[i] = i < o.length ? o[i] : "";
     }
 
     @Override
@@ -556,7 +641,7 @@ public class SinucaBlockEntity extends BlockEntity {
         out.putString("TourPlayer", tourPlayer);
         out.putInt("TourStage", tourStage);
         out.putString("BotName", botName);
-        out.putString("TourOpp", String.join("|", tourOpp));
+        out.putString("Bracket", String.join("|", bracket));
     }
 
     @Override

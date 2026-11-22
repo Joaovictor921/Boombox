@@ -83,7 +83,7 @@ public class Volleyball extends Entity {
     private boolean league;
     private final String[] teams = {"", "", "", ""};
     private final int[] colors = new int[4], pts = new int[4], wins = new int[4];
-    private int round;
+    private Cup cup;
 
     public Volleyball(EntityType<? extends Volleyball> type, Level level) {
         super(type, level);
@@ -272,7 +272,7 @@ public class Volleyball extends Entity {
         missed.clear();
         List<Entity> ps = sidePlayers(sl, team, serveSide);
         server = ps.isEmpty() ? null : ps.get(Math.floorMod(serverIdx[serveSide], ps.size())).getUUID();
-        entityData.set(INFO, (league ? "Jogo " + (round + 1) + "/3 • " : "Amistoso • ") + "saque: " + teamName(serveSide));
+        entityData.set(INFO, (league && cup != null ? cup.stageName() + " • " : "Amistoso • ") + "saque: " + teamName(serveSide));
         if (server != null && sl.getEntity(server) instanceof ServerPlayer p) {
             p.sendSystemMessage(Component.literal("§eSeu saque! §fVá para o fundo da quadra: botão de cortar = saque viagem (segure para mais força), botão de manchete = saque por baixo."));
         }
@@ -558,33 +558,30 @@ public class Volleyball extends Entity {
             if (winner == 0) for (ServerPlayer p : humanPlayers(sl)) Achievements.award(p, "campeao_do_volei");
             return;
         }
-        int opp = Math.min(3, round + 1);
-        if (winner == 0) { pts[0] += 3; wins[0]++; } else { pts[opp] += 3; wins[opp]++; }
-        List<Integer> others = new ArrayList<>();
-        for (int i = 1; i < 4; i++) if (i != opp) others.add(i);
-        int w = random.nextBoolean() ? others.get(0) : others.get(1);
-        pts[w] += 3;
-        wins[w]++;
-        say(sl, "§7No outro jogo: " + teams[w] + " venceu " + teams[w == others.get(0) ? others.get(1) : others.get(0)] + ".");
-        round++;
-        if (round >= 3) {
-            List<Integer> order = new ArrayList<>(List.of(0, 1, 2, 3));
-            order.sort((x, y) -> pts[y] - pts[x]);
-            int champ = order.get(0);
-            say(sl, "§6§l🏆 " + teams[champ].toUpperCase() + " É CAMPEÃO DO VÔLEI DE PRAIA! 🏆");
-            if (champ == 0) {
-                for (ServerPlayer p : humanPlayers(sl)) {
-                    ItemStack trophy = new ItemStack(Blocks34.TROFEU_VOLEI);
-                    if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
-                    Achievements.award(p, "campeao_do_volei");
-                    p.sendSystemMessage(Component.literal("§6Você levou o Troféu do Vôlei de Praia!"));
-                }
+        if (cup == null) return;
+        for (String m : cup.playerResult(a, b, 0, random)) say(sl, m);
+        for (ServerPlayer p : humanPlayers(sl)) Sports.sendCup(p, cup, Sports.VOLLEY);
+        if (cup.champion() == 0) {
+            for (ServerPlayer p : humanPlayers(sl)) {
+                ItemStack trophy = new ItemStack(Blocks34.TROFEU_VOLEI);
+                if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
+                Achievements.award(p, "campeao_do_volei");
+                p.sendSystemMessage(Component.literal("§6Você foi campeão da copa e levou o Troféu do Vôlei de Praia!"));
             }
-        } else {
-            StringBuilder t = new StringBuilder("§6Tabela: ");
-            for (int i = 0; i < 4; i++) t.append("§f").append(teams[i]).append(" §e").append(pts[i]).append(i < 3 ? "§7, " : "");
-            say(sl, t.toString());
         }
+    }
+
+    public Cup cup() {
+        return cup;
+    }
+
+    /** Só para o teste: fim de jogo com esse placar (o próximo jogo começa no tique seguinte). */
+    public void testEnd(int a, int b) {
+        if (!(level() instanceof ServerLevel sl)) return;
+        entityData.set(SCORE0, a);
+        entityData.set(SCORE1, b);
+        endGame(sl, a > b ? 0 : 1);
+        gameOver = 1;
     }
 
     private List<ServerPlayer> humanPlayers(ServerLevel sl) {
@@ -619,7 +616,7 @@ public class Volleyball extends Entity {
 
     /** Depois do fim de jogo: próximo jogo do campeonato, ou a quadra esvazia. */
     private void afterGame(ServerLevel sl) {
-        if (league && round < 3) {
+        if (league && cup != null && !cup.finished()) {
             startGame(sl);
             return;
         }
@@ -706,16 +703,10 @@ public class Volleyball extends Entity {
         if (league) {
             String n = name == null || name.isBlank() ? p.getName().getString() + " Vôlei" : name.trim();
             if (n.length() > 24) n = n.substring(0, 24);
-            teams[0] = n;
-            colors[0] = color & 0xFFFFFF;
-            var others = Sports.randomTeams(random, true, 3, List.of(n), List.of(colors[0]));
-            for (int i = 0; i < 3; i++) {
-                teams[i + 1] = others.get(i)[0];
-                colors[i + 1] = Integer.parseInt(others.get(i)[1]);
-            }
-            for (int i = 0; i < 4; i++) pts[i] = wins[i] = 0;
-            round = 0;
-            say(sl, "§6§l🏆 Campeonato de Vôlei de Praia! §r§f" + teams[0] + " (seu time), " + teams[1] + ", " + teams[2] + " e " + teams[3] + ". 3 jogos até 12 pontos.");
+            cup = new Cup(true);
+            cup.init(random, n, color);
+            say(sl, "§6§l🏆 Copa de Vôlei de Praia! §r§f16 duplas em 4 grupos. O " + cup.names[0] + " está no §eGrupo A§f com "
+                    + cup.names[1] + ", " + cup.names[2] + " e " + cup.names[3] + ". Os 2 primeiros vão para as quartas. Jogos até 12 pontos.");
         }
         humans.put(p.getUUID(), 0);
         Sports.sendState(p, Sports.VOLLEY, league);
@@ -728,11 +719,12 @@ public class Volleyball extends Entity {
     private void startGame(ServerLevel sl) {
         String a, b;
         int ca, cb;
-        if (league) {
-            a = teams[0];
-            ca = colors[0];
-            b = teams[Math.min(3, round + 1)];
-            cb = colors[Math.min(3, round + 1)];
+        if (league && cup != null && cup.opponent() >= 0) {
+            a = cup.names[0];
+            ca = cup.colors[0];
+            b = cup.names[cup.opponent()];
+            cb = cup.colors[cup.opponent()];
+            if (Sports.similar(ca, cb)) cb = Sports.contrast(ca);
             target = 12;
         } else {
             var t = Sports.randomTeams(random, true, 2, List.of(), List.of());
@@ -760,12 +752,12 @@ public class Volleyball extends Entity {
         spawnPlayer(sl, RaverRoles.VOLEI_B, 4.5, 1);
         for (Raver r : team(sl)) r.setShirt(0xFF000000 | teamColor(sideOf(r)));
         for (ServerPlayer p : humanPlayers(sl)) giveShirt(p, 0);
-        say(sl, (league ? "§6Jogo " + (round + 1) + " de 3: " : "§eAmistoso: ") + "§f" + a + " §7x §f" + b + " §7(até " + target + " pontos)");
+        say(sl, (league && cup != null ? "§6" + cup.stageName() + ": " : "§eAmistoso: ") + "§f" + a + " §7x §f" + b + " §7(até " + target + " pontos)");
         serveSide = random.nextInt(2);
         gameOver = 0;
         pause = 60;
         serving = false;
-        entityData.set(INFO, league ? "Jogo " + (round + 1) + "/3" : "Amistoso");
+        entityData.set(INFO, league && cup != null ? cup.stageName() : "Amistoso");
     }
 
     private void spawnPlayer(ServerLevel sl, int role, double dd, double ww) {

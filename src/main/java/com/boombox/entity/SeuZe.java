@@ -271,7 +271,7 @@ public class SeuZe extends PathfinderMob {
         }
         if (!free) takeEmeralds(p, TOURNAMENT_PRICE);
         table.startTournament(p);
-        say(p, "Inscrito! Chave de 4: ganhou a semifinal, vai pra final. Boa sorte, " + p.getName().getString() + "!");
+        say(p, "Inscrito! Chave de 8: quartas, semifinal e final. A chave tá no quadro. Boa sorte, " + p.getName().getString() + "!");
         playSound(SoundEvents.VILLAGER_CELEBRATE, 1f, 0.8f);
     }
 

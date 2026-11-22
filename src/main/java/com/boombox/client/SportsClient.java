@@ -43,6 +43,10 @@ public final class SportsClient {
             position = p.position();
             chargeStart = 0;
         });
+        ClientPlayNetworking.registerGlobalReceiver(Payloads.CupState.TYPE, (p, ctx) -> {
+            var cup = com.boombox.entity.Cup.decode(p.data());
+            ctx.client().execute(() -> ctx.client().gui.setScreen(new CupScreen(cup, p.sport())));
+        });
         Raver.openSetupHook = (id, s) -> Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.setScreen(new MatchSetupScreen(id, s)));
         HudElementRegistry.addLast(BoomboxMod.id("sports_keys"), (g, delta) -> {
             Minecraft mc = Minecraft.getInstance();

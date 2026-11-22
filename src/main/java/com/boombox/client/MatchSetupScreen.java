@@ -88,6 +88,10 @@ public class MatchSetupScreen extends Screen {
         }
         addRenderableWidget(Button.builder(Component.literal("§d♪ Música"), b -> minecraft.gui.setScreen(DjRequestScreen.organizer(organizer)))
                 .bounds(playing ? cx - 120 : cx + 34, by + 24, playing ? 240 : 86, 20).build());
+        // 3.6: grupos e chaveamento da copa
+        addRenderableWidget(Button.builder(Component.literal("§6🏆 Tabela da copa (grupos e chaveamento)"), b -> {
+            ClientPlayNetworking.send(new Payloads.MatchSetup(organizer, Sports.TABELA, "", 0, position));
+        }).bounds(cx - 120, by + 48, 240, 20).build());
     }
 
     private void start() {
@@ -103,12 +107,12 @@ public class MatchSetupScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         int cx = width / 2, top = height / 2 - 125;
-        int bottom = keysY(top) + 26 + 50;
+        int bottom = keysY(top) + 26 + 74;
         g.fill(cx - 130, top - 8, cx + 130, bottom, 0xE0101820);
         g.outline(cx - 130, top - 8, 260, bottom - top + 8, sport == Sports.FOOTBALL ? 0xFF3CB043 : 0xFFF0C040);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.centeredText(font, (sport == Sports.FOOTBALL ? "§a§l⚽ " : "§e§l🏐 ") + getTitle().getString(), cx, top, 0xFFFFFFFF);
-        g.centeredText(font, league ? "§73 jogos contra times de outras vilas, e um troféu para o campeão"
+        g.centeredText(font, league ? "§7Copa: 4 grupos, depois quartas, semifinal e final"
                 : "§7Um jogo contra um time sorteado (cores diferentes)", cx, top + 46, 0xFFFFFFFF);
         if (league) g.text(font, "§fCor do time: §e" + Sports.COLOR_NAMES[color], cx - 120, top + 87, 0xFFFFFFFF, false);
         if (league) {

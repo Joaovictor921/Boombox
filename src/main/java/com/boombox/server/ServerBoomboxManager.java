@@ -202,14 +202,16 @@ public final class ServerBoomboxManager {
                     player.sendSystemMessage(Component.literal("§7O campo ainda não está pronto (sem bola ou sem gols)."));
                     return;
                 }
-                ball.setup(player, p.mode(), p.name(), p.color(), p.position());
+                if (p.mode() == com.boombox.entity.Sports.TABELA) showCup(player, ball.cup(), com.boombox.entity.Sports.FOOTBALL);
+                else ball.setup(player, p.mode(), p.name(), p.color(), p.position());
             } else if (org.role() == com.boombox.entity.RaverRoles.ORG_VOLEI) {
                 var ball = com.boombox.entity.Sports.volleyNear(sl, org.position());
                 if (ball == null || !ball.hasCourt()) {
                     player.sendSystemMessage(Component.literal("§7A quadra ainda não está pronta (sem bola ou sem rede)."));
                     return;
                 }
-                ball.setup(player, p.mode(), p.name(), p.color());
+                if (p.mode() == com.boombox.entity.Sports.TABELA) showCup(player, ball.cup(), com.boombox.entity.Sports.VOLLEY);
+                else ball.setup(player, p.mode(), p.name(), p.color());
             }
         });
         ServerPlayNetworking.registerGlobalReceiver(Payloads.NeonEdit.TYPE, (p, ctx) -> {
@@ -975,5 +977,14 @@ public final class ServerBoomboxManager {
         ACTIVE.clear();
         GROUPS.clear();
         LEO_LINK_TRY.clear();
+    }
+
+    /** 3.6: tabela da copa do campo ou da quadra (ou um aviso, se não tem copa). */
+    private static void showCup(ServerPlayer player, com.boombox.entity.Cup cup, int sport) {
+        if (cup == null) {
+            player.sendSystemMessage(Component.literal("§7Nenhuma copa por aqui ainda. Marque um campeonato com o organizador!"));
+            return;
+        }
+        com.boombox.entity.Sports.sendCup(player, cup, sport);
     }
 }

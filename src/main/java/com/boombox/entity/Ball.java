@@ -100,11 +100,46 @@ public class Ball extends Entity {
     private ServerBossEvent bar;
 
     private int mode = AUTO;
-    /** Campeonato: 4 times (0 = o seu), pontos, gols pró e contra, rodada. */
-    private final String[] teams = {"", "", "", ""};
-    private final int[] colors = new int[4], pts = new int[4], gf = new int[4], ga = new int[4];
-    private int round;
+    /** 3.6: campeonato em formato de copa (grupos, quartas, semi e final). */
+    private Cup cup;
     private final Map<UUID, Set<Integer>> playedFor = new HashMap<>();
+    /** Prorrogação do mata-mata: tempo máximo (gol de ouro) e quem ganhou nos pênaltis (-1 = não teve). */
+    public static final int EXTRA = 1200;
+    private int shootout = -1;
+
+    public Cup cup() {
+        return cup;
+    }
+
+    public int phase() {
+        return phase;
+    }
+
+    /** Só para o teste: placar final e apito do fim do segundo tempo no próximo tique. */
+    public void testEnd(int a, int b) {
+        entityData.set(SCORE_A, a);
+        entityData.set(SCORE_B, b);
+        restartKind = -1;
+        goalPause = 0;
+        keeperHold = null;
+        phase = 2;
+        clock = HALF;
+    }
+
+    /** Só para o teste: acaba o intervalo de depois do jogo (vai para o próximo jogo). */
+    public void testSkipAfter() {
+        if (phase == 3) clock = AFTER;
+    }
+
+    /** Só para o teste: fim da prorrogação no próximo tique. */
+    public void testEndExtra() {
+        if (phase == 4) {
+            clock = EXTRA;
+            restartKind = -1;
+            goalPause = 0;
+            keeperHold = null;
+        }
+    }
 
     public Ball(EntityType<? extends Ball> type, Level level) {
         super(type, level);
@@ -570,6 +605,25 @@ public class Ball extends Entity {
             clock = 0;
             announce("§fComeça o §esegundo tempo§f!");
             setRestart(sl, KICKOFF, TEAM_B, center, true);
+        } else if (phase == 2 && clock >= HALF && !restarting() && mode == LEAGUE && cup != null && cup.knockout() && scoreA() == scoreB()) {
+            // 3.6: empate no mata-mata: prorrogação com gol de ouro
+            phase = 4;
+            clock = 0;
+            shootout = -1;
+            whistle(sl, 2);
+            loseOwner();
+            announce("§e§lEmpate! §r§fProrrogação com §egol de ouro§f: quem marcar primeiro passa. Se ninguém marcar, pênaltis.");
+            setRestart(sl, KICKOFF, random.nextInt(2), center, true);
+        } else if (phase == 4 && clock >= EXTRA && !restarting()) {
+            // ninguém marcou: pênaltis
+            phase = 3;
+            clock = 0;
+            whistle(sl, 3);
+            loseOwner();
+            shootout = random.nextInt(2);
+            int win = 3 + random.nextInt(3), lose = win - 1 - random.nextInt(2);
+            announce("§e§lPÊNALTIS! §r§f" + teamName(shootout) + " ganhou a disputa por " + win + " a " + lose + "!");
+            endMatch(sl);
         } else if (phase == 2 && clock >= HALF && !restarting()) {
             phase = 3;
             clock = 0;
@@ -584,7 +638,7 @@ public class Ball extends Entity {
             nextMatch(sl);
         }
         if (tickCount % 10 == 0) {
-            entityData.set(INFO, minute() + (mode == LEAGUE ? "  •  Rodada " + Math.min(3, round + 1) + "/3" : mode == FRIENDLY ? "  •  Amistoso" : ""));
+            entityData.set(INFO, minute() + (mode == LEAGUE && cup != null ? "  •  " + cup.stageName() : mode == FRIENDLY ? "  •  Amistoso" : ""));
         }
     }
 
@@ -608,6 +662,7 @@ public class Ball extends Entity {
     public String minute() {
         if (phase == 1) return "Intervalo";
         if (phase == 3) return "Fim de jogo";
+        if (phase == 4) return "Prorrogação (gol de ouro) " + (int) (clock * 15L / EXTRA) + "'";
         int m = (int) (clock * 45L / HALF) + (phase == 2 ? 45 : 0);
         return (phase == 0 ? "1º tempo " : "2º tempo ") + Math.min(phase == 0 ? 45 : 90, m) + "'";
     }
@@ -615,7 +670,7 @@ public class Ball extends Entity {
     private void scoreboard(ServerLevel sl) {
         if (bar == null) bar = new ServerBossEvent(UUID.randomUUID(), Component.literal(""), BossEvent.BossBarColor.GREEN, BossEvent.BossBarOverlay.NOTCHED_10);
         bar.setName(Component.literal("⚽ " + score() + "  •  " + info()));
-        bar.setProgress(phase == 1 || phase == 3 ? 1f : Math.min(1f, clock / (float) HALF));
+        bar.setProgress(phase == 1 || phase == 3 ? 1f : Math.min(1f, clock / (float) (phase == 4 ? EXTRA : HALF)));
         for (ServerPlayer p : sl.players()) {
             boolean near = p.distanceTo(this) < 56;
             if (near && !bar.getPlayers().contains(p)) bar.addPlayer(p);
@@ -706,6 +761,14 @@ public class Ball extends Entity {
         }
         announce("§a§lGOOOOOL do " + teamName(scorer) + "!" + who + " §r§f" + score());
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) == scorer)) r.celebrate(true);
+        if (phase == 4) {
+            // gol de ouro: acabou o jogo
+            announce("§6§lGOL DE OURO! §r§fO " + teamName(scorer) + " passa de fase!");
+            phase = 3;
+            clock = 0;
+            whistle(sl, 3);
+            endMatch(sl);
+        }
     }
 
     // ------------------------------------------------------------ amistoso e campeonato
@@ -733,18 +796,11 @@ public class Ball extends Entity {
             mode = LEAGUE;
             String n = name == null || name.isBlank() ? p.getName().getString() + " FC" : name.trim();
             if (n.length() > 24) n = n.substring(0, 24);
-            teams[0] = n;
-            colors[0] = color & 0xFFFFFF;
-            var others = Sports.randomTeams(random, false, 3, List.of(n), List.of(colors[0]));
-            for (int i = 0; i < 3; i++) {
-                teams[i + 1] = others.get(i)[0];
-                colors[i + 1] = Integer.parseInt(others.get(i)[1]);
-            }
-            for (int i = 0; i < 4; i++) pts[i] = gf[i] = ga[i] = 0;
-            round = 0;
+            cup = new Cup(false);
+            cup.init(random, n, color);
             playedFor.clear();
-            announce("§6§l🏆 Campeonato da Várzea! §r§f" + teams[0] + " (seu time), " + teams[1] + ", " + teams[2] + " e " + teams[3]
-                    + ". 3 rodadas, e a Taça para o campeão.");
+            announce("§6§l🏆 Copa da Várzea! §r§f16 times em 4 grupos. O " + cup.names[0] + " está no §eGrupo A§f com "
+                    + cup.names[1] + ", " + cup.names[2] + " e " + cup.names[3] + ". Os 2 primeiros vão para as quartas, depois semi e final.");
         } else {
             mode = FRIENDLY;
         }
@@ -759,11 +815,12 @@ public class Ball extends Entity {
     private void startMatch(ServerLevel sl) {
         String a, b;
         int ca, cb;
-        if (mode == LEAGUE) {
-            a = teams[0];
-            ca = colors[0];
-            b = teams[Math.min(3, round + 1)];
-            cb = colors[Math.min(3, round + 1)];
+        if (mode == LEAGUE && cup != null && cup.opponent() >= 0) {
+            a = cup.names[0];
+            ca = cup.colors[0];
+            b = cup.names[cup.opponent()];
+            cb = cup.colors[cup.opponent()];
+            if (Sports.similar(ca, cb)) cb = Sports.contrast(ca);
         } else {
             var t = Sports.randomTeams(random, false, 2, List.of(), List.of());
             a = t.get(0)[0];
@@ -782,7 +839,7 @@ public class Ball extends Entity {
         // cada pessoa entra no lugar do aldeão da posição que escolheu
         var all = rebench(sl);
         for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) giveShirt(p, e.getValue());
-        String kind = mode == LEAGUE ? "§6Rodada " + (round + 1) + " de 3: " : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
+        String kind = mode == LEAGUE && cup != null ? "§6" + cup.stageName() + ": " : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
         announce(kind + "§f" + a + " §7x §f" + b);
         setRestart(sl, KICKOFF, TEAM_A, center, true);
     }
@@ -852,27 +909,20 @@ public class Ball extends Entity {
         int winner = a > b ? TEAM_A : b > a ? TEAM_B : -1;
         announce("§e§lFIM DE JOGO! §r§f" + score() + " §7— " + (winner < 0 ? "Empate!" : "Vitória do " + teamName(winner) + "!"));
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) >= 0)) r.celebrate(teamOf(r) == winner);
-        if (mode != LEAGUE) return;
-        int away = Math.min(3, round + 1);
-        for (var e : humans.entrySet()) playedFor.computeIfAbsent(e.getKey(), k -> new HashSet<>()).add(e.getValue() == TEAM_A ? 0 : away);
-        record(0, away, a, b);
-        List<Integer> others = new ArrayList<>();
-        for (int i = 1; i < 4; i++) if (i != away) others.add(i);
-        int g1 = random.nextInt(4), g2 = random.nextInt(4);
-        record(others.get(0), others.get(1), g1, g2);
-        announce("§7Na outra partida da rodada: " + teams[others.get(0)] + " " + g1 + " x " + g2 + " " + teams[others.get(1)]);
-        round++;
-        table(sl, null);
-        if (round >= 3) {
-            int champ = standings().get(0);
-            announce("§6§l🏆 " + teams[champ].toUpperCase() + " É CAMPEÃO DA VÁRZEA! 🏆");
+        if (mode != LEAGUE || cup == null) return;
+        for (var e : humans.entrySet()) playedFor.computeIfAbsent(e.getKey(), k -> new HashSet<>()).add(0);
+        int tie = a == b && cup.knockout() ? (shootout >= 0 ? shootout : random.nextInt(2)) : 0;
+        shootout = -1;
+        for (String m : cup.playerResult(a, b, tie, random)) announce(m);
+        for (ServerPlayer h : humansOf(sl, TEAM_A)) Sports.sendCup(h, cup, Sports.FOOTBALL);
+        if (cup.champion() == 0) {
             sl.sendParticles(ParticleTypes.FIREWORK, center.x, center.y + 3, center.z, 120, 3, 2, 3, 0.2);
             for (var e : playedFor.entrySet()) {
-                if (e.getValue().contains(champ) && sl.getEntity(e.getKey()) instanceof ServerPlayer p) {
-                    ItemStack cup = new ItemStack(Blocks34.TACA_VARZEA);
-                    if (!p.getInventory().add(cup)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), cup);
+                if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) {
+                    ItemStack taca = new ItemStack(Blocks34.TACA_VARZEA);
+                    if (!p.getInventory().add(taca)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), taca);
                     Achievements.award(p, "campeao_da_varzea");
-                    p.sendSystemMessage(Component.literal("§6Você foi campeão com o " + teams[champ] + " e levou a Taça da Várzea!"));
+                    p.sendSystemMessage(Component.literal("§6Você foi campeão da copa com o " + cup.names[0] + " e levou a Taça da Várzea!"));
                 }
             }
         }
@@ -892,7 +942,7 @@ public class Ball extends Entity {
             p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
         }
         boolean wasLeague = mode == LEAGUE;
-        announce(wasLeague ? "§c" + p.getName().getString() + " desistiu do campeonato. §7O " + teams[0] + " saiu da competição."
+        announce(wasLeague ? "§c" + p.getName().getString() + " desistiu do campeonato. §7O " + (cup == null ? "time" : cup.names[0]) + " saiu da competição."
                 : "§7" + p.getName().getString() + " saiu do amistoso.");
         p.sendSystemMessage(Component.literal(wasLeague ? "§7Você desistiu do campeonato. Fale com o organizador quando quiser jogar de novo."
                 : "§7Você saiu do jogo. Fale com o organizador quando quiser jogar de novo."));
@@ -908,7 +958,7 @@ public class Ball extends Entity {
 
     /** Depois do apito final: próxima rodada do campeonato, ou volta a pelada dos aldeões. */
     private void nextMatch(ServerLevel sl) {
-        if (mode == LEAGUE && round < 3) {
+        if (mode == LEAGUE && cup != null && !cup.finished()) {
             startMatch(sl);
             return;
         }
@@ -927,32 +977,13 @@ public class Ball extends Entity {
         startMatch(sl);
     }
 
-    private void record(int x, int y, int sx, int sy) {
-        gf[x] += sx; ga[x] += sy; gf[y] += sy; ga[y] += sx;
-        if (sx > sy) pts[x] += 3;
-        else if (sy > sx) pts[y] += 3;
-        else { pts[x]++; pts[y]++; }
-    }
-
-    private List<Integer> standings() {
-        List<Integer> order = new ArrayList<>(List.of(0, 1, 2, 3));
-        order.sort((p, q) -> pts[p] != pts[q] ? pts[q] - pts[p] : (gf[q] - ga[q]) != (gf[p] - ga[p]) ? (gf[q] - ga[q]) - (gf[p] - ga[p]) : gf[q] - gf[p]);
-        return order;
-    }
-
+    /** Tabela da copa: abre a tela (grupos e chaveamento) para quem pediu. */
     public void table(ServerLevel sl, ServerPlayer only) {
-        if (mode != LEAGUE || teams[0].isEmpty()) {
+        if (cup == null) {
             if (only != null) only.sendSystemMessage(Component.literal("§7" + score() + " — " + info() + ". Fale com o organizador para marcar um amistoso ou um campeonato."));
             return;
         }
-        List<String> lines = new ArrayList<>();
-        lines.add("§6§l🏆 Tabela do Campeonato da Várzea §r§7(rodada " + Math.min(3, round) + "/3)");
-        int pos = 1;
-        for (int i : standings()) lines.add("§f" + pos++ + ". " + teams[i] + " §7— §e" + pts[i] + " pts §7(" + gf[i] + " gols pró, " + ga[i] + " contra)");
-        for (ServerPlayer p : only != null ? List.of(only) : sl.players()) {
-            if (only == null && p.distanceTo(this) > 56) continue;
-            for (String l : lines) p.sendSystemMessage(Component.literal(l));
-        }
+        if (only != null) Sports.sendCup(only, cup, Sports.FOOTBALL);
     }
 
     private void findField(ServerLevel sl) {
@@ -1118,18 +1149,6 @@ public class Ball extends Entity {
         entityData.set(SCORE_A, in.getIntOr("ScoreA", 0));
         entityData.set(SCORE_B, in.getIntOr("ScoreB", 0));
         mode = in.getIntOr("Mode", AUTO);
-        round = in.getIntOr("Round", 0);
-        String[] t = in.getStringOr("Teams", "").split("[|]", -1);
-        String[] c = in.getStringOr("League", "").split(",");
-        if (t.length == 4 && c.length == 16) {
-            for (int i = 0; i < 4; i++) {
-                teams[i] = t[i];
-                colors[i] = Integer.parseInt(c[i * 4]);
-                pts[i] = Integer.parseInt(c[i * 4 + 1]);
-                gf[i] = Integer.parseInt(c[i * 4 + 2]);
-                ga[i] = Integer.parseInt(c[i * 4 + 3]);
-            }
-        }
         // ninguém fica "preso" num jogo depois de sair do mundo: volta a pelada dos aldeões
         mode = AUTO;
     }
@@ -1139,13 +1158,5 @@ public class Ball extends Entity {
         out.putInt("ScoreA", scoreA());
         out.putInt("ScoreB", scoreB());
         out.putInt("Mode", mode);
-        out.putInt("Round", round);
-        out.putString("Teams", String.join("|", teams));
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < 4; i++) {
-            if (i > 0) b.append(',');
-            b.append(colors[i]).append(',').append(pts[i]).append(',').append(gf[i]).append(',').append(ga[i]);
-        }
-        out.putString("League", b.toString());
     }
 }

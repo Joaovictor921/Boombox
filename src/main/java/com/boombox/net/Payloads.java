@@ -272,7 +272,16 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 3.6: tabela da copa (grupos e chaveamento) para abrir a tela. */
+    public record CupState(int sport, String data) implements CustomPacketPayload {
+        public static final Type<CupState> TYPE = new Type<>(BoomboxMod.id("cup_state"));
+        public static final StreamCodec<ByteBuf, CupState> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, CupState::sport, ByteBufCodecs.stringUtf8(16384), CupState::data, CupState::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     public static void register() {
+        PayloadTypeRegistry.clientboundPlay().register(CupState.TYPE, CupState.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(SportAction.TYPE, SportAction.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(MatchSetup.TYPE, MatchSetup.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(SportState.TYPE, SportState.CODEC);

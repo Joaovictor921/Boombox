@@ -41,6 +41,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
+            if ("copa".equals(System.getenv("BOOMBOX_QUICK"))) {
+                copa(ctx, server);
+                return;
+            }
             if ("fut".equals(System.getenv("BOOMBOX_QUICK"))) {
                 server.runCommand("time set midnight"); // 3.5.3: tem que jogar de noite também
                 server.runCommand("forceload add 70 30 150 90");
@@ -1197,6 +1201,227 @@ public class BoomboxVisualTest implements FabricClientGameTest {
     }
 
     private static final double[] ZAG_MAX = {0}, ATA_MIN = {1};
+
+    private static void say(String s) {
+        System.out.println("[BoomboxTest] " + s);
+    }
+
+    /** 3.6: copa (grupos e mata-mata) no futebol e no vôlei, marcação dos aldeões e torneio de sinuca com o quadro. */
+    private static void copa(ClientGameTestContext ctx, TestServerContext server) {
+        // ---- 1) a lógica da copa sozinha: 400 copas com resultados sorteados
+        String logic = server.computeOnServer(s -> {
+            var rnd = net.minecraft.util.RandomSource.create(7);
+            int champs = 0, outGroups = 0, bad = 0, maxGames = 0;
+            for (int n = 0; n < 400; n++) {
+                var c = new com.boombox.entity.Cup(n % 2 == 1);
+                c.init(rnd, "Meu Time", 0xF0D020);
+                int games = 0;
+                while (!c.finished() && games < 10) {
+                    int a = rnd.nextInt(4), b = rnd.nextInt(4);
+                    if (c.volley) { if (rnd.nextBoolean()) { a = 12; b = rnd.nextInt(10); } else { b = 12; a = rnd.nextInt(10); } }
+                    c.playerResult(a, b, rnd.nextInt(2), rnd);
+                    games++;
+                }
+                maxGames = Math.max(maxGames, games);
+                if (c.champion() < 0 || c.champion() > 15) bad++;
+                if (c.champion() == 0) champs++;
+                if (c.out && c.ko[8] != 0 && java.util.Arrays.stream(c.ko, 0, 8).noneMatch(x -> x == 0)) outGroups++;
+                var d = com.boombox.entity.Cup.decode(c.encode());
+                if (d.champion() != c.champion() || d.stage != c.stage || !d.names[5].equals(c.names[5])) bad++;
+            }
+            return "copas=400 sem campeão ou erro=" + bad + " seu time campeão=" + champs + " caiu nos grupos=" + outGroups + " máx de jogos=" + maxGames;
+        });
+        say("copa lógica: " + logic);
+
+        // ---- 2) futebol: campo, marcação e a copa jogada de verdade
+        server.runCommand("time set noon");
+        server.runCommand("forceload add 70 30 150 90");
+        look(ctx, server, new Vec3(110.5, -40, 30.5), 0f, 45f);
+        ctx.waitTicks(60);
+        server.runCommand("place template boombox:varzea 80 -61 40");
+        ctx.waitTicks(60);
+        say("copa fut setup: " + server.computeOnServer(s -> {
+            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Bonde do Teste", 0xF0D020, 6);
+            var c = b.cup();
+            return "grupo A: " + c.names[0] + ", " + c.names[1] + ", " + c.names[2] + ", " + c.names[3] + " | jogo: " + b.teamName(0) + " x " + b.teamName(1) + " " + b.info();
+        }));
+        // a pessoa sai do campo para os aldeões jogarem 5 contra 5 (com o aldeão dela de volta)
+        server.runOnServer(s -> {
+            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.teleportTo(b.center().x, b.center().y + 12, b.center().z);
+        });
+        double[] zag = {0}, crowd = {0, 0}, marked = {0, 0};
+        int[] crowdMax = {0};
+        for (int i = 0; i < 60; i++) {
+            ctx.waitTicks(10);
+            server.runOnServer(s -> {
+                var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+                if (b.restarting()) return;
+                var rs = s.overworld().getEntities(ModEntities.RAVER, r -> b.teamOf(r) >= 0);
+                for (int team = 0; team < 2; team++) {
+                    int t = team;
+                    long near = rs.stream().filter(r -> b.teamOf(r) == t && r.stall != 1 && r.distanceTo(b) < 3.5).count();
+                    crowd[0] += near;
+                    crowd[1]++;
+                    crowdMax[0] = Math.max(crowdMax[0], (int) near);
+                }
+                for (var r : rs) {
+                    if (r.stall == 12) zag[0] = Math.max(zag[0], b.uFor(b.teamOf(r), r.position()) / b.length());
+                }
+                // marcação: atacantes do time que ataca têm alguém do outro time a menos de 3 blocos?
+                int att = b.lastTeam();
+                if (att < 0) return;
+                for (var a : rs) {
+                    if (b.teamOf(a) != att || a.stall == 1 || a.distanceTo(b) < 3) continue;
+                    if (b.uFor(att, a.position()) < b.length() * 0.5) continue;
+                    boolean m = rs.stream().anyMatch(d -> b.teamOf(d) == 1 - att && d.stall != 1 && d.distanceTo(a) < 3);
+                    marked[0] += m ? 1 : 0;
+                    marked[1]++;
+                }
+            });
+        }
+        say(String.format(Locale.ROOT, "copa fut IA: zagueiro mais avançado=%.2f do campo | perto da bola (3,5 blocos) por time: média %.2f, máximo %d | atacantes marcados no campo de ataque: %.0f%% (%d casos)",
+                zag[0], crowd[0] / Math.max(1, crowd[1]), crowdMax[0], 100 * marked[0] / Math.max(1, marked[1]), (int) marked[1]));
+        look(ctx, server, new Vec3(105.5, -42, 76.5), 180f, 45f);
+        ctx.waitTicks(20);
+        ctx.takeScreenshot("copa_fut_marcacao");
+        // grupos: 3 vitórias
+        for (int g = 0; g < 3; g++) {
+            int gg = g;
+            server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testEnd(2 + gg % 2, 1));
+            ctx.waitTicks(5);
+            say("copa fut rodada " + (g + 1) + ": " + server.computeOnServer(s -> {
+                var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+                var c = b.cup();
+                return c.stageName() + " pts=" + c.pts[0] + " fora=" + c.out + " fase do jogo=" + b.phase();
+            }));
+            if (g == 0) {
+                ctx.waitTicks(10);
+                ctx.takeScreenshot("copa_tela_grupos");
+            }
+            server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testSkipAfter());
+            ctx.waitTicks(5);
+        }
+        ctx.takeScreenshot("copa_tela_chave");
+        say("copa fut chave: " + server.computeOnServer(s -> {
+            var c = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).cup();
+            StringBuilder sb = new StringBuilder();
+            for (int k = 0; k < 8; k++) sb.append(c.names[c.ko[k]]).append(k % 2 == 0 ? " x " : " | ");
+            return sb + "adversário=" + (c.opponent() < 0 ? "-" : c.names[c.opponent()]);
+        }));
+        // quartas: empate -> prorrogação, gol de ouro do time A
+        server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testEnd(1, 1));
+        ctx.waitTicks(5);
+        say("copa fut quartas empate: fase do jogo=" + server.computeOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).phase() + " "
+                + s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).minute()));
+        server.runOnServer(s -> {
+            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+            b.forcePlay();
+            Vec3 g = b.goal(1);
+            b.setPos(g.x + 2.5, g.y + 0.3, g.z + 1.0);
+            b.setDeltaMovement(new Vec3(0.8, 0.02, 0));
+        });
+        ctx.waitTicks(15);
+        say("copa fut gol de ouro: " + server.computeOnServer(s -> {
+            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+            return "placar " + b.scoreA() + "x" + b.scoreB() + " fase do jogo=" + b.phase() + " copa=" + b.cup().stageName();
+        }));
+        server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testSkipAfter());
+        ctx.waitTicks(5);
+        // semi: vitória; final: empate, prorrogação sem gol e pênaltis
+        server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testEnd(3, 0));
+        ctx.waitTicks(5);
+        server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testSkipAfter());
+        ctx.waitTicks(5);
+        say("copa fut antes da final: " + server.computeOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).cup().stageName()
+                + " " + s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).teamName(1)));
+        server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testEnd(0, 0));
+        ctx.waitTicks(5);
+        server.runOnServer(s -> s.overworld().getEntities(ModEntities.BALL, e -> true).get(0).testEndExtra());
+        ctx.waitTicks(5);
+        say("copa fut final: " + server.computeOnServer(s -> {
+            var b = s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+            var c = b.cup();
+            var pl = s.getPlayerList().getPlayers().get(0);
+            int tacas = pl.getInventory().countItem(com.boombox.bar.Blocks34.TACA_VARZEA.asItem());
+            return "copa=" + c.stageName() + " acabou=" + c.finished() + " campeão=" + (c.champion() < 0 ? "?" : c.names[c.champion()]) + " taças no inventário=" + tacas;
+        }));
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("copa_tela_final");
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+
+        // ---- 3) vôlei: grupos e eliminação nas quartas
+        server.runCommand("forceload add -60 40 0 100");
+        look(ctx, server, new Vec3(-29.5, -55, 72.5), 160f, 30f);
+        ctx.waitTicks(40);
+        server.runCommand("place template boombox:volei_praia -40 -61 60");
+        ctx.waitTicks(60);
+        server.runOnServer(s -> {
+            var v = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.teleportTo(-35.5, -60, 66.5);
+            v.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Areia Teste", 0x8E24AA);
+        });
+        for (int g = 0; g < 5; g++) {
+            int gg = g;
+            server.runOnServer(s -> {
+                var v = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                if (v.cup() == null || v.cup().finished()) return;
+                if (v.cup().knockout()) v.testEnd(6, 12); // perde nas quartas
+                else v.testEnd(12, 4 + gg);
+            });
+            ctx.waitTicks(5);
+            say("copa vôlei jogo " + (g + 1) + ": " + server.computeOnServer(s -> {
+                var v = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                var c = v.cup();
+                return c.stageName() + " pts=" + c.pts[0] + " fora=" + c.out + " campeão=" + (c.champion() < 0 ? "?" : c.names[c.champion()]) + " quadra ativa=" + v.active() + " " + v.info();
+            }));
+        }
+        ctx.takeScreenshot("copa_volei_tela");
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+
+        // ---- 4) sinuca: chave de 8 e o quadro na parede
+        server.runCommand("forceload add 20 30 70 90");
+        server.runCommand("place template boombox:ze_bar 30 -61 40");
+        ctx.waitTicks(60);
+        String sin = server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            com.boombox.bar.SinucaBlockEntity t = null;
+            for (var p : net.minecraft.core.BlockPos.betweenClosed(new net.minecraft.core.BlockPos(20, -64, 30), new net.minecraft.core.BlockPos(70, -50, 90))) {
+                if (s.overworld().getBlockEntity(p) instanceof com.boombox.bar.SinucaBlockEntity st) { t = st; break; }
+            }
+            if (t == null) return "sem mesa";
+            pl.teleportTo(t.getBlockPos().getX() + 0.5, t.getBlockPos().getY(), t.getBlockPos().getZ() + 2.5);
+            t.startTournament(pl);
+            String quadro = "nenhum";
+            for (var p : net.minecraft.core.BlockPos.betweenClosed(t.getBlockPos().offset(-10, -3, -10), t.getBlockPos().offset(10, 3, 10))) {
+                var st = s.overworld().getBlockState(p);
+                if (st.is(com.boombox.bar.Blocks34.BRACKET_BOARD)) { quadro = p.toShortString() + " virado para " + st.getValue(com.boombox.bar.FacingBlock.FACING); BOARD[0] = p.immutable(); BOARD_DIR[0] = st.getValue(com.boombox.bar.FacingBlock.FACING); }
+            }
+            String q = "quartas: " + String.join(", ", java.util.Arrays.copyOf(t.bracket, 8));
+            t.testResult(s.overworld(), true);
+            String f1 = " | depois das quartas: fase=" + t.tourStage + " adversário=" + t.botName;
+            t.testResult(s.overworld(), true);
+            String f2 = " | depois da semi: fase=" + t.tourStage + " adversário=" + t.botName;
+            t.testResult(s.overworld(), false);
+            String f3 = " | final perdida: torneio rolando=" + t.tournamentRunning() + " campeão=" + t.bracket[14] + " semis=" + String.join(", ", java.util.Arrays.copyOfRange(t.bracket, 8, 14));
+            return "quadro=" + quadro + " " + q + f1 + f2 + f3;
+        });
+        say("copa sinuca: " + sin);
+        if (BOARD[0] != null) {
+            Vec3 front = Vec3.atCenterOf(BOARD[0]).add(BOARD_DIR[0].getStepX() * 2.6, -0.1, BOARD_DIR[0].getStepZ() * 2.6);
+            look(ctx, server, front.subtract(0, 1.62, 0), BOARD_DIR[0].getOpposite().toYRot(), 5f);
+            server.runOnServer(s -> s.getPlayerList().getPlayers().forEach(pl -> { pl.getAbilities().flying = true; pl.onUpdateAbilities(); }));
+            ctx.waitTicks(30);
+            ctx.takeScreenshot("copa_sinuca_quadro");
+        }
+    }
+
+    private static final net.minecraft.core.BlockPos[] BOARD = {null};
+    private static final net.minecraft.core.Direction[] BOARD_DIR = {null};
 
     private static void look(ClientGameTestContext ctx, TestServerContext server, Vec3 at, float yaw, float pitch) {
         server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f %.1f %.1f", at.x, at.y, at.z, yaw, pitch));

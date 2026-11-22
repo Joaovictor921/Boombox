@@ -22,6 +22,34 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.6.0
+**Futebol: cada um no seu lugar e com marcação**:
+- **O zagueiro não sobe**: ele fica do meio de campo para trás e não corre atrás da bola que passou do meio. Com a bola
+  no pé, ele toca ou manda para a frente, em vez de sair driblando.
+- **Menos gente na bola**: só um de cada time vai na bola e um outro dá apoio. O resto guarda a posição.
+- **Marcação**: quando o outro time ataca, cada aldeão pega um adversário da sua zona e fica entre ele e o gol.
+  O zagueiro pega o atacante mais perigoso, depois vêm o lateral, o volante, os meias e as pontas. O atacante fica na
+  frente esperando o contra-ataque. Você também é marcado.
+
+**Campeonato de futebol e de vôlei virou uma Copa**:
+- **16 times em 4 grupos de 4**. Seu time está no grupo A e joga 3 rodadas. Os outros jogos são simulados ao mesmo tempo.
+- **Os 2 primeiros de cada grupo vão para as quartas de final**, depois semifinal e final. O primeiro de um grupo pega o
+  segundo de outro.
+- **Mata-mata no futebol**: empate vai para a **prorrogação com gol de ouro** (quem marcar primeiro passa). Se ninguém
+  marcar, vai para os **pênaltis**.
+- Se o seu time cair, a copa continua simulada até o fim, e aparece quem foi o campeão.
+- **Tela da copa**, com duas abas que você escolhe:
+  - **Grupos**: a tabela de cada grupo (jogos, pontos e saldo) e os seus resultados.
+  - **Chaveamento**: quartas, semifinais, final e campeão, com os placares.
+  - A tela abre sozinha depois de cada jogo da copa. Também dá para abrir pelo botão **"Tabela da copa"** no organizador.
+
+**Torneio de sinuca com quartas, semifinal e final**:
+- A chave agora é de **8 jogadores** (você e 7 aldeões). Os aldeões jogam melhor a cada fase.
+- **Quadro do Chaveamento**: quando o torneio começa, o Seu Zé pendura um quadro na parede perto da mesa. Ele mostra a
+  chave com o nome de todos os jogadores: quem passou, quem caiu (em cinza) e o campeão. O seu nome aparece em amarelo.
+- O quadro também pode ser fabricado (gravetos, papel e carpete verde) e pendurado onde você quiser. Ele mostra a mesa
+  de sinuca mais perto.
+
 ## Novidades da 3.5.5
 **Jogue com o seu amigo no mesmo time** (futebol e vôlei):
 - Um de vocês marca o amistoso ou o campeonato com o organizador, como sempre. O outro fala com o mesmo organizador e

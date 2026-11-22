@@ -105,5 +105,6 @@
   "key.category.boombox.sports": "Boombox: sports",
   "key.boombox.sair_jogo": "Leave match / forfeit (sports)",
   "block.boombox.goal_large": "Large Goal",
-  "key.boombox.chutar": "Shoot (hold for power)"
+  "key.boombox.chutar": "Shoot (hold for power)",
+  "block.boombox.quadro_chaveamento": "Bracket Board"
 }

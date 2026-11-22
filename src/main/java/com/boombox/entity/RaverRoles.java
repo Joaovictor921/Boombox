@@ -251,9 +251,14 @@ public final class RaverRoles {
         mates.sort((p, q) -> Double.compare(p.distanceToSqr(b), q.distanceToSqr(b)));
         // 3.5.4: cada um na sua posição: só disputa a bola quem tem ela na sua zona (zagueiro não sobe, ponta fica aberta)
         var zoned = mates.stream().filter(m -> inZone(m, ball, team, b)).toList();
-        if (!zoned.isEmpty()) mates = new java.util.ArrayList<>(zoned);
+        double fBall = ball.uFor(team, b) / ball.length();
+        // 3.6: fora da zona de todo mundo, vai só quem é do meio para a frente (o zagueiro nunca sobe atrás da bola)
+        mates = new java.util.ArrayList<>(!zoned.isEmpty() ? zoned : mates.stream().filter(m -> !defender(m) || fBall < 0.4).toList());
+        Raver chaser = mates.isEmpty() ? null : mates.get(0);
         int rank = mates.indexOf(r);
         if (rank < 0) rank = 99;
+        if (rank == 1 && defender(r) && fBall > 0.4) rank = 99; // o zagueiro não vira apoio lá na frente
+        if (defender(r) && fBall > 0.45) rank = 99; // e nem vai atrás da bola que passou do meio
         boolean humanNear = level.players().stream().anyMatch(p -> ball.teamOf(p) == team && p.position().distanceTo(b) < r.position().distanceTo(b));
         if (humanNear) rank++; // uma pessoa do time está mais perto: ela que vai na bola
         net.minecraft.world.entity.Entity carrierRival = null;
@@ -271,6 +276,7 @@ public final class RaverRoles {
                     header(r, ball, level, team, attack);
                 } else {
                     Vec3 land = b.add(ball.getDeltaMovement().scale(Math.max(2, high * 4)));
+                    if (defender(r) && ball.uFor(team, land) > ball.length() * 0.45) land = ball.teamPoint(team, ball.length() * 0.45, ball.vFor(team, land));
                     go(r, land.x, r.getY(), land.z, 0.95);
                 }
                 return true;
@@ -288,6 +294,9 @@ public final class RaverRoles {
                 Vec3 toGoal = new Vec3(attack.x - b.x, 0, attack.z - b.z).normalize();
                 Vec3 lead = b.add(ball.getDeltaMovement().scale(6));
                 Vec3 target = d > 2.5 ? lead.subtract(toGoal.scale(0.7)) : b;
+                if (defender(r) && ball.uFor(team, target) > ball.length() * 0.45) {
+                    target = ball.teamPoint(team, ball.length() * 0.45, ball.vFor(team, target));
+                }
                 go(r, target.x, b.y, target.z, 0.95);
             }
             return true;
@@ -306,9 +315,87 @@ public final class RaverRoles {
             go(r, spot.x, spot.y, spot.z, 0.8);
             return true;
         }
+        // 3.6: marcação: quando o outro time ataca, cada um pega um adversário da sua zona (pelo lado do próprio gol)
+        boolean defending = rivalHasIt || (ball.ownerTeam() != team && ball.lastTeam() != team);
+        if (defending) {
+            Vec3 mark = markSpot(r, ball, level, team, own, chaser, carrierRival);
+            if (mark != null) {
+                go(r, mark.x, mark.y, mark.z, 0.8);
+                return true;
+            }
+        }
         Vec3 slot = formationSlot(r, ball, level, team);
         if (r.position().distanceTo(slot) > 1.2) go(r, slot.x, slot.y, slot.z, 0.65);
         return true;
+    }
+
+    /** Zagueiro (fica atrás, não passa do meio). */
+    static boolean defender(Raver m) {
+        return m.stall == 3 || m.stall == 4 || m.stall == 12;
+    }
+
+    /** Ordem de quem escolhe primeiro quem marcar: zagueiro, laterais, volante, meias, pontas (o atacante não marca). */
+    private static int markOrder(Raver m) {
+        return switch (m.stall) {
+            case 3, 4, 12 -> 0;
+            case 2, 5 -> 1;
+            case 6 -> 2;
+            case 7, 8, 13 -> 3;
+            case 9, 10, 14 -> 4;
+            default -> 9;
+        };
+    }
+
+    /** Onde cada posição marca (fração do campo a partir do próprio gol, e o lado): é a zona de defesa dela. */
+    private static boolean markZone(Raver m, Ball ball, int team, Vec3 at) {
+        double f = ball.uFor(team, at) / ball.length(), side = ball.vFor(team, at), hw = ball.halfWidth();
+        return switch (m.stall) {
+            case 3, 4, 12 -> f <= 0.45;
+            case 2 -> f <= 0.65 && side <= hw * 0.3;
+            case 5 -> f <= 0.65 && side >= -hw * 0.3;
+            case 6 -> f <= 0.6;
+            case 7, 8, 13 -> f >= 0.1 && f <= 0.75;
+            case 9, 14 -> f >= 0.15 && f <= 0.65 && side <= hw * 0.4;
+            case 10 -> f >= 0.15 && f <= 0.65 && side >= -hw * 0.4;
+            default -> false;
+        };
+    }
+
+    /**
+     * 3.6: lugar de marcação desse aldeão: os do time, na ordem (zagueiro primeiro), pegam o adversário mais perigoso
+     * (o mais perto do gol) que está na zona deles, e ficam entre ele e o gol. null = ninguém para marcar.
+     */
+    private static Vec3 markSpot(Raver r, Ball ball, ServerLevel level, int team, Vec3 own, Raver chaser, net.minecraft.world.entity.Entity carrier) {
+        if (markOrder(r) >= 9) return null;
+        Vec3 c = ball.center();
+        var line = level.getEntitiesOfClass(Raver.class, new AABB(c, c).inflate(48),
+                m -> ball.teamOf(m) == team && m.stall != 1 && m != chaser && markOrder(m) < 9);
+        line.sort((p, q) -> markOrder(p) != markOrder(q) ? markOrder(p) - markOrder(q) : p.stall - q.stall);
+        java.util.List<net.minecraft.world.entity.Entity> rivals = new java.util.ArrayList<>(
+                level.getEntitiesOfClass(Raver.class, new AABB(c, c).inflate(48), o -> ball.teamOf(o) == 1 - team && o.stall != 1));
+        rivals.addAll(ball.humansOf(level, 1 - team));
+        if (carrier != null) rivals.remove(carrier); // esse é do que vai na bola
+        rivals.sort((p, q) -> Double.compare(ball.uFor(team, p.position()), ball.uFor(team, q.position())));
+        java.util.Set<net.minecraft.world.entity.Entity> taken = new java.util.HashSet<>();
+        for (Raver m : line) {
+            net.minecraft.world.entity.Entity pick = null;
+            for (var o : rivals) {
+                if (taken.contains(o) || !markZone(m, ball, team, o.position())) continue;
+                pick = o;
+                break;
+            }
+            if (pick == null) continue;
+            taken.add(pick);
+            if (m != r) continue;
+            Vec3 o = pick.position();
+            Vec3 toGoal = new Vec3(own.x - o.x, 0, own.z - o.z).normalize();
+            Vec3 spot = o.add(toGoal.scale(1.6));
+            double u = ball.uFor(team, spot), v = ball.vFor(team, spot);
+            if (defender(r)) u = Math.min(u, ball.length() * 0.45);
+            u = Math.max(1.5, u);
+            return ball.teamPoint(team, u, Math.max(-ball.halfWidth() + 0.8, Math.min(ball.halfWidth() - 0.8, v)));
+        }
+        return null;
     }
 
     /**
@@ -331,9 +418,9 @@ public final class RaverRoles {
         double f = ball.uFor(team, at) / ball.length(), side = ball.vFor(team, at), hw = ball.halfWidth();
         double margin = 0.08;
         return switch (m.stall) {
-            case 3, 4, 12 -> f <= 0.5 + margin;
-            case 2 -> f <= 0.75 + margin && side <= hw * 0.2;
-            case 5 -> f <= 0.75 + margin && side >= -hw * 0.2;
+            case 3, 4, 12 -> f <= 0.45; // 3.6: zagueiro não passa do meio, sem folga
+            case 2 -> f <= 0.7 && side <= hw * 0.2;
+            case 5 -> f <= 0.7 && side >= -hw * 0.2;
             case 6 -> f >= 0.1 - margin && f <= 0.7 + margin;
             case 7, 8, 13 -> f >= 0.2 - margin && f <= 0.9 + margin;
             case 9, 14 -> f >= 0.35 - margin && side <= hw * 0.25;
@@ -363,6 +450,8 @@ public final class RaverRoles {
             u += Math.sin(t) * 1.2;
             v += Math.cos(t * 0.8) * 1.0;
             u = Math.max(2, Math.min(L - 2, u));
+            if (defender(r)) u = Math.min(u, L * 0.42);
+            if (r.stall == 2 || r.stall == 5) u = Math.min(u, L * 0.65);
             v = Math.max(-hw + 0.8, Math.min(hw - 0.8, v));
             return ball.teamPoint(team, u, v);
         }
@@ -487,6 +576,17 @@ public final class RaverRoles {
                 r.settle = 3;
                 return;
             }
+        }
+        // 3.6: zagueiro não sai driblando: toca para alguém ou manda para frente
+        if (defender(r) && ball.uFor(team, b) > ball.length() * 0.25) {
+            if (best != null && bestScore > -8) {
+                ball.kick(r, Ball.passTo(b, best.position().add(best.getDeltaMovement().scale(8))));
+            } else {
+                Vec3 dir = toGoal.add((rnd.nextDouble() - 0.5) * 0.5, 0, (rnd.nextDouble() - 0.5) * 0.5).normalize();
+                ball.kick(r, dir.scale(0.85).add(0, 0.16, 0));
+            }
+            r.settle = 8;
+            return;
         }
         // 5) conduz: toquinho para frente, desviando do marcador mais perto
         Vec3 dir = toGoal;
