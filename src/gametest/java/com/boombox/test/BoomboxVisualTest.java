@@ -228,6 +228,19 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                     return b.teamName(0) + " x " + b.teamName(1) + " jogadores=" + b.playerCount() + " lado da pessoa=" + b.sideOf(pl);
                 });
                 System.out.println("[BoomboxTest] vol setup: " + setup);
+                // 3.5.5: o amigo entra na dupla, um terceiro não consegue atropelar o jogo, e o amigo sai
+                String amigoVol = server.computeOnServer(s -> {
+                    var b = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+                    var amigo = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Amigo"));
+                    var intruso = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Intruso"));
+                    b.setup(amigo, com.boombox.entity.Sports.JUNTAR, "", 0);
+                    String entrou = "entrou: lado do amigo=" + b.sideOf(amigo) + " pessoas=" + b.humanCount() + " aldeões=" + b.playerCount();
+                    b.setup(intruso, com.boombox.entity.Sports.AMISTOSO, "", 0);
+                    String intr = " | intruso tentou amistoso: time ainda=" + b.teamName(0) + " pessoas=" + b.humanCount();
+                    b.leave(amigo);
+                    return entrou + intr + " | amigo saiu: ativo=" + b.active() + " pessoas=" + b.humanCount() + " aldeões=" + b.playerCount();
+                });
+                System.out.println("[BoomboxTest] vol amigo: " + amigoVol);
                 // 3.5.1: aldeão e zumbi dentro da quadra, carnaval do lado e pedido de música ao organizador
                 server.runCommand("summon minecraft:villager -32.5 -60 64.5");
                 server.runCommand("summon minecraft:zombie -27.5 -60 68.5");
@@ -291,6 +304,18 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                     var pl = s.getPlayerList().getPlayers().get(0);
                     b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Desistentes FC", 0x2E8B3A);
                     String antes2 = "antes: time=" + b.teamOf(pl) + " modo=" + b.mode() + " " + b.teamName(0);
+                    // 3.5.5: amigo entra de goleiro no mesmo time
+                    var amigo = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Amigo"));
+                    var intruso = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Intruso"));
+                    int benchAntes = b.benchedCount();
+                    b.setup(amigo, com.boombox.entity.Sports.JUNTAR, "", 0, 0);
+                    String amigoFut = " | amigo: time=" + b.teamOf(amigo) + " posição=" + com.boombox.entity.Sports.POSITIONS[b.positionOf(amigo)]
+                            + " banco " + benchAntes + "->" + b.benchedCount();
+                    b.setup(intruso, com.boombox.entity.Sports.AMISTOSO, "", 0, 6);
+                    amigoFut += " | intruso: modo=" + b.mode() + " time=" + b.teamName(0) + " intruso no jogo=" + b.teamOf(intruso);
+                    b.leave(amigo);
+                    amigoFut += " | amigo saiu: banco=" + b.benchedCount() + " modo=" + b.mode();
+                    System.out.println("[BoomboxTest] fut amigo:" + amigoFut);
                     com.boombox.entity.Sports.action(pl, com.boombox.entity.Sports.LEAVE);
                     return antes2 + " | depois: time=" + b.teamOf(pl) + " modo=" + b.mode() + " " + b.teamName(0) + " x " + b.teamName(1);
                 });

@@ -596,6 +596,21 @@ public class Volleyball extends Entity {
     /** 3.5.2: a pessoa sai do amistoso ou desiste do campeonato: o jogo acaba e a quadra esvazia. */
     public void leave(ServerPlayer p) {
         if (!(level() instanceof ServerLevel sl) || !humans.containsKey(p.getUUID())) return;
+        if (humans.size() > 1) {
+            // 3.5.5: o amigo continua, com um aldeão no lugar de quem saiu
+            humans.remove(p.getUUID());
+            Sports.sendState(p, Sports.NONE);
+            ItemStack chest = p.getItemBySlot(EquipmentSlot.CHEST);
+            if (chest.is(Items.LEATHER_CHESTPLATE) && chest.has(DataComponents.CUSTOM_NAME) && chest.getHoverName().getString().startsWith("Regata")) {
+                p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+            }
+            if (humansOn(0) < 2 && team(sl).stream().noneMatch(r -> sideOf(r) == 0)) {
+                spawnPlayer(sl, RaverRoles.VOLEI_A, -3, -1);
+                for (Raver r : team(sl)) r.setShirt(0xFF000000 | teamColor(sideOf(r)));
+            }
+            say(sl, "§7" + p.getName().getString() + " saiu do jogo. Um aldeão entra no lugar.");
+            return;
+        }
         say(sl, league ? "§c" + p.getName().getString() + " desistiu do campeonato de vôlei." : "§7" + p.getName().getString() + " saiu do amistoso de vôlei.");
         league = false;
         gameOver = 0;
@@ -633,10 +648,53 @@ public class Volleyball extends Entity {
     }
 
     // ------------------------------------------------------------ organizador: amistoso ou campeonato
+    public int humanCount() {
+        return humans.size();
+    }
+
+    private int humansOn(int side) {
+        int n = 0;
+        for (int s : humans.values()) if (s == side) n++;
+        return n;
+    }
+
+    /** 3.5.5: o amigo entra no time de quem já está jogando, no lugar do parceiro aldeão. */
+    public void join(ServerLevel sl, ServerPlayer p) {
+        if (humans.containsKey(p.getUUID())) {
+            p.sendSystemMessage(Component.literal("§7Você já está no jogo!"));
+            return;
+        }
+        List<ServerPlayer> mates = humanPlayers(sl);
+        if (!active || mates.isEmpty()) {
+            p.sendSystemMessage(Component.literal("§7Ninguém está jogando agora. Marque um amistoso ou um campeonato, e o seu amigo entra no seu time."));
+            return;
+        }
+        if (humansOn(0) >= 2) {
+            p.sendSystemMessage(Component.literal("§7O time já tem dois jogadores (é dupla contra dupla)."));
+            return;
+        }
+        for (Raver r : team(sl)) {
+            if (sideOf(r) != 0) continue;
+            sl.sendParticles(ParticleTypes.POOF, r.getX(), r.getY() + 1, r.getZ(), 6, 0.3, 0.5, 0.3, 0.02);
+            players.remove(r.getUUID());
+            r.discard();
+        }
+        humans.put(p.getUUID(), 0);
+        giveShirt(p, 0);
+        Sports.sendState(p, Sports.VOLLEY, league);
+        String friend = mates.get(0).getName().getString();
+        say(sl, "§b" + p.getName().getString() + " fez dupla com " + friend + " no " + teamName(0) + "!");
+        p.sendSystemMessage(Component.literal("§aVocê é a dupla de " + friend + "! §7A manchete (botão direito) passa a bola para o seu parceiro."));
+    }
+
     public void setup(ServerPlayer p, int mode, String name, int color) {
         if (!(level() instanceof ServerLevel sl) || !hasCourt()) return;
+        if (mode == Sports.JUNTAR) {
+            join(sl, p);
+            return;
+        }
         if (active && !humans.containsKey(p.getUUID())) {
-            p.sendSystemMessage(Component.literal("§7Já tem jogo rolando nessa quadra. Espere acabar!"));
+            p.sendSystemMessage(Component.literal("§7Já tem jogo rolando nessa quadra. Para jogar junto, use §e\"Entrar no time do amigo\"§7."));
             return;
         }
         // tira quem estava jogando antes (inclusive os aldeões das quadras da 3.4)
@@ -697,7 +755,7 @@ public class Volleyball extends Entity {
             if (sideOf(r) == 1) { players.remove(r.getUUID()); r.discard(); }
             else hasPartner = true;
         }
-        if (!hasPartner) spawnPlayer(sl, RaverRoles.VOLEI_A, -3, -1);
+        if (!hasPartner && humansOn(0) < 2) spawnPlayer(sl, RaverRoles.VOLEI_A, -3, -1);
         spawnPlayer(sl, RaverRoles.VOLEI_B, 3, -1);
         spawnPlayer(sl, RaverRoles.VOLEI_B, 4.5, 1);
         for (Raver r : team(sl)) r.setShirt(0xFF000000 | teamColor(sideOf(r)));

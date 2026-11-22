@@ -716,6 +716,15 @@ public class Ball extends Entity {
 
     public void setup(ServerPlayer p, int setupMode, String name, int color, int position) {
         if (!(level() instanceof ServerLevel sl) || !hasGoals()) return;
+        if (setupMode == Sports.JUNTAR) {
+            join(sl, p, position);
+            return;
+        }
+        if (mode != AUTO && !humans.isEmpty() && !humans.containsKey(p.getUUID())) {
+            String who = humansOf(sl, TEAM_A).stream().map(h -> h.getName().getString()).findFirst().orElse("alguém");
+            p.sendSystemMessage(Component.literal("§7" + who + " já está jogando aqui. Use §e\"Entrar no time do amigo\"§7 para jogar junto!"));
+            return;
+        }
         humans.clear();
         humanPos.clear();
         humanPos.put(p.getUUID(), Math.max(0, Math.min(Sports.POSITIONS.length - 1, position)));
@@ -770,7 +779,16 @@ public class Ball extends Entity {
         entityData.set(SCORE_B, 0);
         phase = 0;
         clock = 0;
-        // a pessoa entra no lugar do centroavante (ou do último da linha) do time A
+        // cada pessoa entra no lugar do aldeão da posição que escolheu
+        var all = rebench(sl);
+        for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) giveShirt(p, e.getValue());
+        String kind = mode == LEAGUE ? "§6Rodada " + (round + 1) + " de 3: " : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
+        announce(kind + "§f" + a + " §7x §f" + b);
+        setRestart(sl, KICKOFF, TEAM_A, center, true);
+    }
+
+    /** Põe no banco o aldeão da posição de cada pessoa do time e acerta as camisas. */
+    private List<Raver> rebench(ServerLevel sl) {
         benched.clear();
         var all = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(50, 10, 50), r -> r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B);
         for (var e : humans.entrySet()) {
@@ -790,14 +808,43 @@ public class Ball extends Entity {
             }
             if (pick != null) benched.add(pick.getUUID());
         }
+        if (owner != null && benched.contains(owner)) loseOwner();
         for (Raver r : all) {
             int t = teamOf(r);
             r.setShirt(t < 0 ? 0 : (teamColor(t) | 0xFF000000));
         }
-        for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) giveShirt(p, e.getValue());
-        String kind = mode == LEAGUE ? "§6Rodada " + (round + 1) + " de 3: " : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
-        announce(kind + "§f" + a + " §7x §f" + b);
-        setRestart(sl, KICKOFF, TEAM_A, center, true);
+        return all;
+    }
+
+    public int benchedCount() {
+        return benched.size();
+    }
+
+    /** 3.5.5: o amigo entra no time de quem já está jogando, na posição que escolheu (o aldeão dela vai para o banco). */
+    public void join(ServerLevel sl, ServerPlayer p, int position) {
+        if (humans.containsKey(p.getUUID())) {
+            p.sendSystemMessage(Component.literal("§7Você já está no jogo!"));
+            return;
+        }
+        List<ServerPlayer> mates = humansOf(sl, TEAM_A);
+        if (mode == AUTO || mates.isEmpty()) {
+            p.sendSystemMessage(Component.literal("§7Ninguém está jogando agora. Marque um amistoso ou um campeonato, e o seu amigo entra no seu time."));
+            return;
+        }
+        if (mates.size() >= 4) {
+            p.sendSystemMessage(Component.literal("§7O time já está cheio de gente (4 jogadores)."));
+            return;
+        }
+        int pos = Math.max(0, Math.min(Sports.POSITIONS.length - 1, position));
+        humanPos.put(p.getUUID(), pos);
+        humans.put(p.getUUID(), TEAM_A);
+        rebench(sl);
+        giveShirt(p, TEAM_A);
+        Sports.sendState(p, Sports.FOOTBALL, mode == LEAGUE, pos);
+        String friend = mates.get(0).getName().getString();
+        announce("§b" + p.getName().getString() + " entrou no " + teamName(TEAM_A) + " com " + friend + ", de " + Sports.POSITIONS[pos] + "!");
+        p.sendSystemMessage(Component.literal("§aVocê está no time de " + friend + ", de §e" + Sports.POSITIONS[pos]
+                + "§a! §7O passe (botão direito) também vai para o seu amigo."));
     }
 
     private void endMatch(ServerLevel sl) {
@@ -855,7 +902,7 @@ public class Ball extends Entity {
             playedFor.clear();
             startMatch(sl);
         } else {
-            benched.clear();
+            rebench(sl); // o amigo continua: só o aldeão da posição de quem saiu volta para o campo
         }
     }
 

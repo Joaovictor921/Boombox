@@ -20,7 +20,7 @@ import java.util.List;
 public final class Sports {
     public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7, LEAVE = 8, GK_DIVE = 9;
     public static final int NONE = 0, FOOTBALL = 1, VOLLEY = 2;
-    public static final int AMISTOSO = 0, CAMPEONATO = 1;
+    public static final int AMISTOSO = 0, CAMPEONATO = 1, JUNTAR = 2; // 3.5.5: JUNTAR = entrar no time de quem já está jogando
 
     /** Cores que dá para escolher para o time (e que os times sorteados usam). */
     public static final int[] COLORS = {0x2D5BE0, 0xE03030, 0x2E8B3A, 0xF0D020, 0xF0F0F0, 0x202020, 0x8E24AA, 0xE66A10, 0x10B0C8, 0xFF6FA8, 0x6D4C2F, 0x8A0E1E};

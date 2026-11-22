@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-3.5.4.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,18 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.5.5
+**Jogue com o seu amigo no mesmo time** (futebol e vôlei):
+- Um de vocês marca o amistoso ou o campeonato com o organizador, como sempre. O outro fala com o mesmo organizador e
+  aperta **"Entrar no time do amigo"**.
+- **Futebol**: o amigo escolhe a posição dele na tela (pode ser goleiro, por exemplo) e o aldeão dessa posição vai para o
+  banco. Cabem até 4 pessoas no time. Os aldeões e o passe (botão direito) também tocam a bola para o amigo.
+- **Vôlei**: o amigo entra no lugar do parceiro aldeão, e vocês dois fazem a dupla contra a dupla de aldeões.
+- No campeonato, os dois levam o troféu se o time for campeão.
+- Se um sair, o outro continua jogando: um aldeão volta para o lugar de quem saiu.
+- Quem chegar depois não atrapalha mais o jogo: se já tem gente jogando, "Jogar!" avisa para usar "Entrar no time do
+  amigo" em vez de começar outra partida por cima.
 
 ## Novidades da 3.5.4
 **Vôlei**:
@@ -476,23 +488,5 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build   # o jar sai em build/libs/
+./gradlew build
 ```
-
-## Versões
-| Versão | Minecraft | Download |
-|---|---|---|
-| 3.5.4 | 26.3 (Fabric) | [Releases → v3.5.4](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.4) |
-| 3.5.0 | 26.3 (Fabric) | [Releases → v3.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.0) |
-| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
-| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
-| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
-| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
-| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
-| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
-| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
-
-Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
-
-## Licença
-MIT
