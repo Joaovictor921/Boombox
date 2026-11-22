@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Baixe o `boombox-3.7.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,38 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.7.0
+**Futebol**:
+- **Só o campo bom**: as vilas não geram mais o campinho pequeno da várzea. Se o campo grande não couber, a vila fica
+  sem campo.
+- **Saída depois do gol**: o time que fez o gol fica no campo dele até o time que levou o gol tocar na bola. Se você
+  tentar passar do meio antes disso, volta para o seu campo.
+- **Barreira na falta**, conforme a distância do gol:
+  - falta no campo de quem cobra (do meio para trás): sem barreira;
+  - no campo de ataque, perto do meio: 1 aldeão;
+  - no meio do campo de ataque: 2;
+  - perto do gol: 3.
+  - No pênalti não tem barreira.
+  - A barreira se forma a 3,5 blocos da bola, na linha do gol, e pula na hora do chute. O cobrador tenta passar por
+    cima e cair no gol, mas às vezes bate nela.
+
+**Jogador contra jogador** (futebol, vôlei e sinuca):
+- **Futebol e vôlei**: na tela do organizador, quem chega depois escolhe **"Entrar no time do amigo"** ou **"Jogar
+  contra o amigo"**. Contra o amigo, você entra no time adversário e um aldeão de lá vai para o banco (no vôlei, do outro
+  lado da rede).
+  - Funciona no amistoso e na copa. Na copa, a taça é de quem joga pelo time da copa.
+- **Torneio de sinuca com mais gente**: enquanto as quartas não acabam, outras pessoas podem se inscrever com o Seu Zé.
+  Cada uma entra na chave no lugar de um aldeão. Quando duas pessoas se encontram, é jogador contra jogador na mesa.
+- **Sinuca fora do torneio**: se tem um aldeão jogando com você, outra pessoa pode tacar na vez dele e assumir o lugar.
+
+**Chaveamento em tela de verdade** (futebol, vôlei e sinuca):
+- **Tecla J** (dá para trocar nos controles): abre a tela da copa (grupos e chaveamento) ou a chave do torneio de sinuca
+  mais perto.
+- **Sinuca**: a chave de 8 tem tela própria, com quem passou, quem caiu, as pessoas em amarelo e o jogo que está na mesa
+  agora. Ela abre ao se inscrever, depois de cada jogo do torneio, clicando no quadro do chaveamento ou com a tecla J.
+- Clicar na bola de futebol ou de vôlei (sem estar jogando) também abre a tela da copa.
+- Menos texto no chat: os resultados dos outros jogos ficam só na tela.
 
 ## Novidades da 3.6.0
 **Futebol: cada um no seu lugar e com marcação**:
@@ -516,5 +548,42 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build
+./gradlew build   # o jar sai em build/libs/
 ```
+
+
+## Versões
+| Versão | Minecraft | Download |
+|---|---|---|
+| 3.7.0 | 26.3 (Fabric) | [Releases → v3.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.7.0) |
+| 3.6.0 | 26.3 (Fabric) | [Releases → v3.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.6.0) |
+| 3.5.5 | 26.3 (Fabric) | [Releases → v3.5.5](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.5) |
+| 3.5.4 | 26.3 (Fabric) | [Releases → v3.5.4](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.4) |
+| 3.5.3 | 26.3 (Fabric) | [Releases → v3.5.3](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.3) |
+| 3.5.2 | 26.3 (Fabric) | [Releases → v3.5.2](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.2) |
+| 3.5.1 | 26.3 (Fabric) | [Releases → v3.5.1](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.1) |
+| 3.5.0 | 26.3 (Fabric) | [Releases → v3.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.0) |
+| 3.4.1 | 26.3 (Fabric) | [Releases → v3.4.1](https://github.com/Joaovictor921/Boombox/releases/tag/v3.4.1) |
+| 3.4.0 | 26.3 (Fabric) | [Releases → v3.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.4.0) |
+| 3.3.2 | 26.3 (Fabric) | [Releases → v3.3.2](https://github.com/Joaovictor921/Boombox/releases/tag/v3.3.2) |
+| 3.3.1 | 26.3 (Fabric) | [Releases → v3.3.1](https://github.com/Joaovictor921/Boombox/releases/tag/v3.3.1) |
+| 3.3.0 | 26.3 (Fabric) | [Releases → v3.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.3.0) |
+| 3.2.0 | 26.3 (Fabric) | [Releases → v3.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.2.0) |
+| 3.1.0 | 26.3 (Fabric) | [Releases → v3.1.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.1.0) |
+| 3.0.0 | 26.3 (Fabric) | [Releases → v3.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.0.0) |
+| 2.4.0 | 26.3 (Fabric) | [Releases → v2.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.4.0) |
+| 2.3.0 | 26.3 (Fabric) | [Releases → v2.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.3.0) |
+| 2.2.0 | 26.3 (Fabric) | [Releases → v2.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.2.0) |
+| 2.1.0 | 26.3 (Fabric) | [Releases → v2.1.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.1.0) |
+| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
+| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
+| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
+| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
+| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
+| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
+| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
+
+Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
+
+## Licença
+MIT

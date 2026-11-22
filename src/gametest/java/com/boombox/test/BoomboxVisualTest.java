@@ -41,6 +41,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
+            if ("v37".equals(System.getenv("BOOMBOX_QUICK"))) {
+                v37(ctx, server);
+                return;
+            }
             if ("copa".equals(System.getenv("BOOMBOX_QUICK"))) {
                 copa(ctx, server);
                 return;
@@ -1134,7 +1138,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                     seu.order(pl, 0, 3);
                     for (BlockPos q : BlockPos.betweenClosed(seu.blockPosition().offset(-14, -3, -14), seu.blockPosition().offset(14, 3, 14))) {
                         if (s.overworld().getBlockEntity(q) instanceof com.boombox.bar.SinucaBlockEntity t && t.tournamentRunning()) {
-                            return "torneio de " + t.tourPlayer + " fase=" + t.tourStage + " adversário=" + t.botName;
+                            return "torneio de " + String.join(",", t.tourHumans) + " fase=" + t.tourStage + " adversário=" + t.botName;
                         }
                     }
                 }
@@ -1418,6 +1422,187 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             ctx.waitTicks(30);
             ctx.takeScreenshot("copa_sinuca_quadro");
         }
+    }
+
+    private static com.boombox.entity.Ball ball(net.minecraft.server.MinecraftServer s) {
+        return s.overworld().getEntities(ModEntities.BALL, e -> true).get(0);
+    }
+
+    /** 3.7: saída depois do gol, barreira na falta, jogador contra jogador (futebol, vôlei, sinuca) e tela da sinuca. */
+    private static void v37(ClientGameTestContext ctx, TestServerContext server) {
+        server.runCommand("time set noon");
+        server.runCommand("forceload add 70 30 150 90");
+        look(ctx, server, new Vec3(110.5, -40, 30.5), 0f, 45f);
+        ctx.waitTicks(60);
+        server.runCommand("place template boombox:varzea 80 -61 40");
+        ctx.waitTicks(60);
+        server.runOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            ball(s).setup(pl, com.boombox.entity.Sports.AMISTOSO, "", 0, 6);
+            pl.getAbilities().flying = false;
+            pl.onUpdateAbilities();
+        });
+        ctx.waitTicks(20);
+        // ---- jogador contra jogador no futebol
+        say("v37 fut contra: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var amigo = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Rival"));
+            int antes = b.benchedCount();
+            b.setup(amigo, com.boombox.entity.Sports.CONTRA, "", 0, 0);
+            long goleirosB = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TEAM_B && r.stall == 1 && b.isBenched(r)).size();
+            return "time do rival=" + b.teamOf(amigo) + " (1 = adversário) banco " + antes + "->" + b.benchedCount() + " goleiro do time B no banco=" + goleirosB;
+        }));
+        // ---- gol do time A: o time A fica no seu campo até o B dar a saída
+        server.runOnServer(s -> {
+            var b = ball(s);
+            b.forcePlay();
+            Vec3 g = b.goal(1);
+            b.setPos(g.x + 2.5, g.y + 0.3, g.z + 1.0);
+            b.setDeltaMovement(new Vec3(0.8, 0.02, 0));
+        });
+        ctx.waitTicks(15);
+        say("v37 gol: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            Vec3 other = b.teamPoint(0, b.length() * 0.75, 0);
+            pl.teleportTo(other.x, other.y + 0.5, other.z); // tenta ficar no campo do adversário
+            return "placar " + b.scoreA() + "x" + b.scoreB() + " trava (time que marcou)=" + b.kickoffLock();
+        }));
+        ctx.waitTicks(10);
+        say("v37 trava: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            return String.format(Locale.ROOT, "pessoa do time A voltou para u=%.2f do campo (meio = 0.50)", b.uFor(0, pl.position()) / b.length());
+        }));
+        int[] lockedUntil = {-1};
+        for (int i = 0; i < 20; i++) {
+            ctx.waitTicks(10);
+            int ii = i;
+            server.runOnServer(s -> { if (ball(s).kickoffLock() < 0 && lockedUntil[0] < 0) lockedUntil[0] = ii; });
+        }
+        say("v37 saída: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            return "trava depois da saída=" + b.kickoffLock() + " (liberou em ~" + (lockedUntil[0] * 10) + " tiques) último a tocar=time " + b.lastTeam();
+        }));
+        // ---- barreira: tamanho conforme a distância do gol
+        StringBuilder walls = new StringBuilder();
+        double[] fr = {0.3, 0.55, 0.68, 0.82};
+        for (double f : fr) {
+            server.runOnServer(s -> {
+                var b = ball(s);
+                b.forcePlay();
+                Vec3 p = b.teamPoint(0, b.length() * f, 2.0);
+                b.setPos(p.x, p.y, p.z);
+                b.setDeltaMovement(Vec3.ZERO);
+                b.foul(0);
+            });
+            ctx.waitTicks(2);
+            walls.append((String) server.computeOnServer(s -> {
+                var b = ball(s);
+                return String.format(Locale.ROOT, "%.2f do campo (%.0f blocos do gol): barreira=%d; ", f, b.restartSpot().distanceTo(b.goal(1)), b.wallCount());
+            }));
+        }
+        say("v37 barreira: " + walls);
+        ctx.waitTicks(55);
+        say("v37 barreira no lugar: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            StringBuilder sb = new StringBuilder();
+            for (var r : s.overworld().getEntities(ModEntities.RAVER, r -> b.wallIndex(r) >= 0)) {
+                sb.append(String.format(Locale.ROOT, "%.1f ", r.position().distanceTo(b.wallSpot(b.wallIndex(r)))));
+            }
+            return "distância de cada um até o lugar dele na barreira: " + sb;
+        }));
+        double[] cam = server.computeOnServer(s -> {
+            var b = ball(s);
+            Vec3 at = b.restartSpot();
+            Vec3 g = b.goal(1);
+            Vec3 back = at.subtract(new Vec3(g.x - at.x, 0, g.z - at.z).normalize().scale(4)).add(0, 1.2, 0);
+            return new double[]{back.x, back.y, back.z, Math.toDegrees(Math.atan2(-(g.x - at.x), g.z - at.z))};
+        });
+        look(ctx, server, new Vec3(cam[0], cam[1], cam[2]), (float) cam[3], 12f);
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("v37_barreira");
+        // cobranças perto do gol: barreira, gol ou fora
+        int[] res = {0, 0, 0};
+        for (int k = 0; k < 6; k++) {
+            int kk = k;
+            int[] before = new int[2];
+            server.runOnServer(s -> {
+                var b = ball(s);
+                var pl = s.getPlayerList().getPlayers().get(0);
+                pl.teleportTo(b.center().x, b.center().y + 20, b.center().z);
+                b.forcePlay();
+                Vec3 p = b.teamPoint(0, b.length() - 10, (kk % 3 - 1) * 2.5);
+                b.setPos(p.x, p.y, p.z);
+                b.setDeltaMovement(Vec3.ZERO);
+                b.foul(0);
+                before[0] = b.scoreA();
+            });
+            int hitsBefore = server.computeOnServer(s -> ball(s).wallHits);
+            ctx.waitTicks(150);
+            int after = server.computeOnServer(s -> ball(s).scoreA());
+            int hits = server.computeOnServer(s -> ball(s).wallHits) - hitsBefore;
+            if (after > before[0]) res[0]++;
+            else if (hits > 0) res[1]++;
+            else res[2]++;
+        }
+        say("v37 cobranças com barreira de 3 (6 faltas): gols=" + res[0] + " na barreira=" + res[1] + " por cima, fora ou goleiro=" + res[2]);
+        // ---- vôlei: contra o amigo
+        server.runCommand("forceload add -60 40 0 100");
+        look(ctx, server, new Vec3(-29.5, -55, 72.5), 160f, 30f);
+        ctx.waitTicks(40);
+        server.runCommand("place template boombox:volei_praia -40 -61 60");
+        ctx.waitTicks(60);
+        say("v37 vôlei contra: " + server.computeOnServer(s -> {
+            var v = s.overworld().getEntities(ModEntities.VOLLEYBALL, e -> true).get(0);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.teleportTo(-35.5, -60, 66.5);
+            v.setup(pl, com.boombox.entity.Sports.AMISTOSO, "", 0);
+            var rival = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Rival"));
+            v.setup(rival, com.boombox.entity.Sports.CONTRA, "", 0);
+            long ladoB = s.overworld().getEntities(ModEntities.RAVER, r -> v.sideOf(r) == 1).size();
+            long ladoA = s.overworld().getEntities(ModEntities.RAVER, r -> v.sideOf(r) == 0).size();
+            return "lado do rival=" + v.sideOf(rival) + " aldeões do lado dele=" + ladoB + " do seu lado=" + ladoA + " pessoas=" + v.humanCount();
+        }));
+        // ---- sinuca: duas pessoas na chave, jogador contra jogador na semi
+        server.runCommand("forceload add 20 30 70 90");
+        server.runCommand("place template boombox:ze_bar 30 -61 40");
+        ctx.waitTicks(60);
+        say("v37 sinuca: " + server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            com.boombox.bar.SinucaBlockEntity t = null;
+            for (var p : net.minecraft.core.BlockPos.betweenClosed(new net.minecraft.core.BlockPos(20, -64, 30), new net.minecraft.core.BlockPos(70, -50, 90))) {
+                if (s.overworld().getBlockEntity(p) instanceof com.boombox.bar.SinucaBlockEntity st) { t = st; break; }
+            }
+            if (t == null) return "sem mesa";
+            pl.teleportTo(t.getBlockPos().getX() + 0.5, t.getBlockPos().getY(), t.getBlockPos().getZ() + 2.5);
+            var rival = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Rival"));
+            t.startTournament(pl);
+            boolean entrou = t.startTournament(rival);
+            String q = "rival entrou=" + entrou + " quartas: " + String.join(", ", java.util.Arrays.copyOf(t.bracket, 8));
+            String m1 = " | mesa 1: " + t.tableLabel();
+            t.testResult(s.overworld(), true);
+            String m2 = " | mesa 2: " + t.tableLabel();
+            t.testResult(s.overworld(), true);
+            String m3 = " | mesa 3 (" + com.boombox.bar.SinucaBlockEntity.stageName(t.tourStage) + "): " + t.tableLabel() + " contra aldeão=" + t.againstBot;
+            t.testResult(s.overworld(), false);
+            String m4 = " | mesa 4 (" + com.boombox.bar.SinucaBlockEntity.stageName(t.tourStage) + "): " + t.tableLabel();
+            t.testResult(s.overworld(), true);
+            String fim = " | rolando=" + t.tournamentRunning() + " campeão=" + t.bracket[14];
+            t.sendBracket(pl);
+            return q + m1 + m2 + m3 + m4 + fim;
+        }));
+        ctx.waitTicks(20);
+        ctx.takeScreenshot("v37_sinuca_tela");
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+        // tecla da tabela (J) perto da mesa: abre a mesma tela
+        server.runOnServer(s -> com.boombox.entity.Sports.openTable(s.getPlayerList().getPlayers().get(0), s.overworld()));
+        ctx.waitTicks(10);
+        say("v37 tecla J: tela aberta=" + ctx.computeOnClient(mc -> mc.gui.screen() == null ? "nenhuma" : mc.gui.screen().getClass().getSimpleName()));
+    }
+
+    private static Vec3 ball0(TestServerContext server) {
+        return server.computeOnServer(s -> ball(s).position());
     }
 
     private static final net.minecraft.core.BlockPos[] BOARD = {null};

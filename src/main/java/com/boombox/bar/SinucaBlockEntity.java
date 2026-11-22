@@ -133,9 +133,10 @@ public class SinucaBlockEntity extends BlockEntity {
         }
         moving = false;
         group[0] = group[1] = 0;
-        names[0] = tournamentRunning() ? tourPlayer : "";
+        names[0] = "";
         names[1] = againstBot ? BOT : "";
         if (!tournamentRunning()) botName = "";
+        setTableNames();
         turn = 0;
         winner = -1;
         breakShot = true;
@@ -170,9 +171,15 @@ public class SinucaBlockEntity extends BlockEntity {
             return;
         }
         String me = p.getName().getString();
-        if (tournamentRunning() && !me.equals(tourPlayer)) {
-            p.sendOverlayMessage(Component.literal("§eTá rolando o torneio de " + tourPlayer + ". Espera acabar!"));
+        if (tournamentRunning() && !me.equals(names[0]) && !me.equals(names[1])) {
+            p.sendOverlayMessage(Component.literal("§eTá rolando o torneio: na mesa agora é " + tableLabel() + ". Espera a sua vez!"));
             return;
+        }
+        if (!tournamentRunning() && BOT.equals(names[turn]) && !me.equals(names[1 - turn])) {
+            // 3.7: outra pessoa assume o lugar do aldeão: jogador contra jogador
+            names[turn] = me;
+            botName = "";
+            message = me + " assumiu o lugar do aldeão: jogador contra jogador!";
         }
         if (againstBot && names[1].isEmpty()) names[1] = BOT;
         if (names[turn].isEmpty()) {
@@ -194,7 +201,8 @@ public class SinucaBlockEntity extends BlockEntity {
     public static void serverTick(Level level, BlockPos pos, BlockState state, SinucaBlockEntity be) {
         if (!(level instanceof ServerLevel sl)) return;
         if (level.getGameTime() % 40 == 0) {
-            boolean bot = be.tournamentRunning() || !sl.getEntitiesOfClass(Raver.class, new AABB(pos).inflate(8), Raver::playingPool).isEmpty();
+            boolean bot = be.tournamentRunning() ? BOT.equals(be.names[1])
+                    : !sl.getEntitiesOfClass(Raver.class, new AABB(pos).inflate(8), Raver::playingPool).isEmpty() && (be.names[1].isEmpty() || BOT.equals(be.names[1]));
             if (bot != be.againstBot) {
                 be.againstBot = bot;
                 if (bot && be.names[1].isEmpty()) be.names[1] = BOT;
@@ -273,7 +281,7 @@ public class SinucaBlockEntity extends BlockEntity {
         if (Math.abs(v) > 0.03) sl.playSound(null, worldPosition, SoundEvents.WOOL_HIT, SoundSource.BLOCKS, 0.5f, 0.8f);
     }
 
-    private String side(int s) {
+    public String side(int s) {
         if (BOT.equals(names[s]) && !botName.isEmpty()) return botName;
         return names[s].isEmpty() ? (s == 0 ? "Jogador 1" : "Jogador 2") : names[s];
     }
@@ -282,12 +290,16 @@ public class SinucaBlockEntity extends BlockEntity {
     private static final String[] RIVALS = {"Tião da Caçapa", "Biu Taco Fino", "Nenzinho", "Dona Cida", "Carlão do Giz", "Juninho Efeito",
             "Peixoto", "Rosinha Tabela", "Zé Bolinha", "Mestre Valdir"};
     /**
-     * 3.6: chave de 8 (você e 7 aldeões): quartas (0), semifinal (1) e final (2). bracket: 0-7 quartas (em pares, o 0 é
-     * você), 8-11 semifinais, 12-13 final, 14 campeão ("" = ainda não se sabe). Fica guardada depois do torneio para o
-     * quadro mostrar como terminou.
+     * 3.6/3.7: chave de 8: quartas (0), semifinal (1) e final (2). bracket: 0-7 quartas (em pares), 8-11 semifinais,
+     * 12-13 final, 14 campeão ("" = ainda não se sabe). Na 3.7 mais gente pode entrar na chave (no lugar de um aldeão,
+     * enquanto as quartas não acabaram): quando duas pessoas se encontram, é jogador contra jogador na mesa.
+     * Fica tudo guardado depois do torneio para o quadro e a tela mostrarem como terminou.
      */
-    public String tourPlayer = "", botName = "";
+    public final List<String> tourHumans = new ArrayList<>();
+    public String botName = "";
     public int tourStage;
+    /** Primeiro lugar (na chave) do jogo que está na mesa agora; -1 = sem torneio. */
+    public int tourMatch = -1;
     public final String[] bracket = new String[15];
 
     {
@@ -295,31 +307,92 @@ public class SinucaBlockEntity extends BlockEntity {
     }
 
     public boolean tournamentRunning() {
-        return !tourPlayer.isEmpty();
+        return tourMatch >= 0;
+    }
+
+    public boolean inTournament(String name) {
+        return tournamentRunning() && tourHumans.contains(name);
+    }
+
+    private boolean human(String n) {
+        return !n.isEmpty() && tourHumans.contains(n);
     }
 
     public static String stageName(int stage) {
         return stage == 0 ? "Quartas de final" : stage == 1 ? "Semifinal" : "Final";
     }
 
-    /** Começa o torneio: chave de 8. Você pega um aldeão nas quartas; os outros jogos são jogados ao lado. */
+    /** Quem está jogando na mesa agora ("A x B"). */
+    public String tableLabel() {
+        return side(0) + " x " + side(1);
+    }
+
+    /** Nomes dos dois lados da mesa para o jogo do torneio (pessoa x aldeão, ou pessoa x pessoa). */
+    private void setTableNames() {
+        if (tourMatch < 0) return;
+        String a = bracket[tourMatch], b = bracket[tourMatch + 1];
+        if (human(a) && human(b)) {
+            names[0] = a;
+            names[1] = b;
+            botName = "";
+            againstBot = false;
+        } else {
+            names[0] = human(a) ? a : b;
+            names[1] = BOT;
+            botName = human(a) ? b : a;
+            againstBot = true;
+        }
+    }
+
+    /** Começa o torneio (chave de 8 com aldeões), ou põe a pessoa na chave de um torneio que já está rolando. */
     public boolean startTournament(ServerPlayer p) {
-        if (tournamentRunning() && !tourPlayer.equals(p.getName().getString())) return false;
+        String me = p.getName().getString();
+        if (tournamentRunning()) return joinTournament(p);
         List<String> pool = new ArrayList<>(List.of(RIVALS));
         java.util.Collections.shuffle(pool, rnd);
         java.util.Arrays.fill(bracket, "");
-        tourPlayer = p.getName().getString();
-        bracket[0] = tourPlayer;
+        tourHumans.clear();
+        tourHumans.add(me);
+        bracket[0] = me;
         for (int i = 1; i < 8; i++) bracket[i] = pool.get(i - 1);
         tourStage = 0;
-        botName = bracket[1];
-        againstBot = true;
+        tourMatch = 0;
         rack();
-        message = "Torneio! Quartas: " + tourPlayer + " x " + botName;
-        tell("§6§l🎱 Torneio de Sinuca do Seu Zé! §r§fChave de 8: quartas, semifinal e final. Quartas: §e" + bracket[0] + " x " + bracket[1]
-                + "§f, " + bracket[2] + " x " + bracket[3] + ", " + bracket[4] + " x " + bracket[5] + " e " + bracket[6] + " x " + bracket[7] + ".");
+        message = "Torneio! " + stageName(0) + ": " + tableLabel();
+        tell("§6§l🎱 Torneio de Sinuca do Seu Zé! §r§fChave de 8: quartas, semifinal e final. Quem quiser jogar contra "
+                + me + " pode se inscrever com o Seu Zé até o fim das quartas.");
         if (level instanceof ServerLevel sl) hangBoard(sl);
         changed();
+        sendBracket(p);
+        return true;
+    }
+
+    /**
+     * 3.7: mais uma pessoa entra na chave, no lugar de um aldeão de um jogo das quartas que ainda não foi jogado (de
+     * preferência num jogo sem ninguém, para as pessoas só se cruzarem mais para a frente).
+     */
+    public boolean joinTournament(ServerPlayer p) {
+        String me = p.getName().getString();
+        if (tourHumans.contains(me)) return true;
+        if (tourStage != 0) return false;
+        int slot = -1;
+        for (int pass = 0; pass < 2 && slot < 0; pass++) {
+            for (int a = 0; a < 8 && slot < 0; a += 2) {
+                if (a == tourMatch || !bracket[nextSlot(a)].isEmpty()) continue;
+                boolean hasHuman = human(bracket[a]) || human(bracket[a + 1]);
+                if (pass == 0 && hasHuman) continue;
+                slot = human(bracket[a + 1]) ? a : a + 1;
+            }
+        }
+        if (slot < 0) return false;
+        String bot = bracket[slot];
+        bracket[slot] = me;
+        tourHumans.add(me);
+        String rival = bracket[slot ^ 1];
+        tell("§b" + me + " entrou no torneio no lugar de " + bot + "! §fNas quartas pega §e" + rival
+                + (human(rival) ? "§f: jogador contra jogador!" : "§f."));
+        changed();
+        sendBracket(p);
         return true;
     }
 
@@ -335,67 +408,102 @@ public class SinucaBlockEntity extends BlockEntity {
         return stage == 0 ? 0 : stage == 1 ? 8 : 12;
     }
 
+    private static int slotCount(int stage) {
+        return stage == 0 ? 8 : stage == 1 ? 4 : 2;
+    }
+
     private static int nextSlot(int slot) {
         return slot < 8 ? 8 + slot / 2 : slot < 12 ? 12 + (slot - 8) / 2 : 14;
     }
 
-    /** Joga (sorteando) os outros jogos da fase. */
-    private void playOthers(int stage) {
-        int first = firstSlot(stage), n = stage == 0 ? 8 : stage == 1 ? 4 : 2;
-        for (int a = first; a < first + n; a += 2) {
+    /** Joga (sorteando) os jogos da fase que não têm ninguém de verdade. */
+    private void playBotGames(int stage) {
+        for (int a = firstSlot(stage); a < firstSlot(stage) + slotCount(stage); a += 2) {
             if (!bracket[nextSlot(a)].isEmpty() || bracket[a].isEmpty() || bracket[a + 1].isEmpty()) continue;
-            String w = rnd.nextBoolean() ? bracket[a] : bracket[a + 1];
-            bracket[nextSlot(a)] = w;
-            tell("§7" + stageName(stage) + ": §f" + w + "§7 ganhou de §f" + (w.equals(bracket[a]) ? bracket[a + 1] : bracket[a]) + "§7.");
+            if (human(bracket[a]) || human(bracket[a + 1])) continue;
+            bracket[nextSlot(a)] = rnd.nextBoolean() ? bracket[a] : bracket[a + 1];
         }
     }
 
-    /** Fim de uma partida do torneio. */
-    private void tournamentResult(ServerLevel sl, boolean playerWon) {
+    /** Próximo jogo da fase com gente de verdade que ainda não foi jogado (-1 = nenhum). */
+    private int nextHumanGame(int stage) {
+        for (int a = firstSlot(stage); a < firstSlot(stage) + slotCount(stage); a += 2) {
+            if (!bracket[nextSlot(a)].isEmpty() || bracket[a].isEmpty() || bracket[a + 1].isEmpty()) continue;
+            if (human(bracket[a]) || human(bracket[a + 1])) return a;
+        }
+        return -1;
+    }
+
+    /** Fim de uma partida do torneio na mesa ("winner" = lado da mesa que ganhou). */
+    private void tournamentResult(ServerLevel sl, int winner) {
         if (!tournamentRunning()) return;
-        ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(tourPlayer);
-        int me = -1, first = firstSlot(tourStage), n = tourStage == 0 ? 8 : tourStage == 1 ? 4 : 2;
-        for (int i = first; i < first + n; i++) if (bracket[i].equals(tourPlayer)) me = i;
-        if (me < 0) { endTournament(); return; }
-        int opp = me ^ 1;
-        bracket[nextSlot(me)] = playerWon ? tourPlayer : bracket[opp];
-        playOthers(tourStage);
-        if (playerWon && tourStage == 2) {
-            tell("§6§l🏆 " + tourPlayer.toUpperCase() + " É CAMPEÃO DO TORNEIO DE SINUCA! 🏆");
-            if (p != null) {
-                ItemStack trophy = new ItemStack(Blocks34.TROFEU_SINUCA);
-                if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
-                com.boombox.Achievements.award(p, "rei_da_sinuca");
-            }
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK, worldPosition.getX() + 0.5, worldPosition.getY() + 2, worldPosition.getZ() + 0.5, 60, 1, 1, 1, 0.15);
-            endTournament();
-        } else if (playerWon) {
+        String w = BOT.equals(names[winner]) ? botName : names[winner];
+        String l = BOT.equals(names[1 - winner]) ? botName : names[1 - winner];
+        bracket[nextSlot(tourMatch)] = w;
+        if (human(l)) tell("§c" + l + " foi eliminado na " + stageName(tourStage).toLowerCase() + ". §f" + w + " segue no torneio.");
+        if (human(w) && tourStage < 2) tell("§a§l" + w + " passou! §r§fVai para a " + stageName(tourStage + 1).toLowerCase() + ".");
+        // próximo jogo com gente: nessa fase, ou na próxima
+        int next = nextHumanGame(tourStage);
+        while (next < 0 && tourStage < 2) {
+            playBotGames(tourStage);
             tourStage++;
-            int mine = nextSlot(me);
-            botName = bracket[mine ^ 1];
-            tell("§a§lVocê passou! §r§f" + stageName(tourStage) + ": §e" + tourPlayer + " x " + botName + "§f." + (tourStage == 2 ? " Ele joga melhor, hein..." : ""));
-            message = "Torneio! " + stageName(tourStage) + ": " + tourPlayer + " x " + botName;
-        } else {
-            tell("§cEliminado na " + stageName(tourStage).toLowerCase() + "! §f" + bracket[opp] + " segue no torneio.");
-            // o resto do torneio é jogado para o quadro mostrar o campeão
-            while (tourStage < 2) {
-                tourStage++;
-                playOthers(tourStage);
+            next = nextHumanGame(tourStage);
+        }
+        if (next < 0) {
+            playBotGames(tourStage);
+            String champ = bracket[14];
+            if (human(champ)) {
+                tell("§6§l🏆 " + champ.toUpperCase() + " É CAMPEÃO DO TORNEIO DE SINUCA! 🏆");
+                ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(champ);
+                if (p != null) {
+                    ItemStack trophy = new ItemStack(Blocks34.TROFEU_SINUCA);
+                    if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
+                    com.boombox.Achievements.award(p, "rei_da_sinuca");
+                }
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK, worldPosition.getX() + 0.5, worldPosition.getY() + 2, worldPosition.getZ() + 0.5, 60, 1, 1, 1, 0.15);
+            } else if (!champ.isEmpty()) {
+                tell("§6🏆 Campeão do torneio: §e" + champ + "§6!");
             }
-            if (!bracket[14].isEmpty()) tell("§6🏆 Campeão do torneio: §e" + bracket[14] + "§6!");
             endTournament();
+        } else {
+            tourMatch = next;
+            setTableNames();
+            message = "Torneio! " + stageName(tourStage) + ": " + tableLabel();
+            tell("§fPróximo jogo na mesa (" + stageName(tourStage).toLowerCase() + "): §e" + tableLabel()
+                    + (againstBot ? "" : " §b(jogador contra jogador)") + (tourStage == 2 && againstBot ? "§f. Ele joga melhor, hein..." : "§f."));
         }
         changed();
+        for (String h : tourHumans) {
+            ServerPlayer hp = sl.getServer().getPlayerList().getPlayerByName(h);
+            if (hp != null && hp.level() == sl && hp.blockPosition().distSqr(worldPosition) < 32 * 32) sendBracket(hp);
+        }
     }
 
-    /** Só para o teste: resultado da partida do torneio. */
+    /** Só para o teste: resultado da partida do torneio (true = o lado 0 da mesa ganhou). */
     public void testResult(ServerLevel sl, boolean won) {
-        tournamentResult(sl, won);
+        tournamentResult(sl, won ? 0 : 1);
     }
 
     private void endTournament() {
-        tourPlayer = "";
+        tourMatch = -1;
         tourStage = 0;
+        botName = "";
+    }
+
+    /** 3.7: dados da chave para a tela do chaveamento. */
+    public String screenData() {
+        return String.join("\t", bracket) + "\n" + String.join("\t", tourHumans) + "\n" + tourStage + "\n" + (tournamentRunning() ? 1 : 0)
+                + "\n" + (tournamentRunning() ? tableLabel() : "");
+    }
+
+    /** Abre a tela do chaveamento para essa pessoa. */
+    public void sendBracket(ServerPlayer p) {
+        if (p instanceof net.fabricmc.fabric.api.entity.FakePlayer) return;
+        if (bracket[0].isEmpty()) {
+            p.sendSystemMessage(Component.literal("§7Nenhum torneio de sinuca ainda. Fale com o Seu Zé para começar um (3 esmeraldas)."));
+            return;
+        }
+        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, new com.boombox.net.Payloads.CupState(com.boombox.entity.Sports.SINUCA, screenData()));
     }
 
     /**
@@ -472,7 +580,7 @@ public class SinucaBlockEntity extends BlockEntity {
                 message = winner == me ? side(me) + " matou a 8 e ganhou a partida!"
                         : side(me) + " matou a 8 antes da hora" + (foul ? " (com falta)" : "") + ". " + side(opp) + " ganhou!";
                 sl.playSound(null, worldPosition, winner == me ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_NO, SoundSource.BLOCKS, 1f, 1f);
-                if (tournamentRunning()) tournamentResult(sl, names[winner].equals(tourPlayer));
+                if (tournamentRunning()) tournamentResult(sl, winner);
                 if (winner == me && !names[me].equals(BOT)) {
                     ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(names[me]);
                     if (p != null) {
@@ -617,7 +725,9 @@ public class SinucaBlockEntity extends BlockEntity {
         againstBot = in_.getBooleanOr("AgainstBot", false);
         moving = in_.getBooleanOr("Moving", false);
         message = in_.getStringOr("Msg", message);
-        tourPlayer = in_.getStringOr("TourPlayer", "");
+        tourHumans.clear();
+        for (String h : in_.getStringOr("Humans", "").split("[|]")) if (!h.isEmpty()) tourHumans.add(h);
+        tourMatch = in_.getIntOr("TourMatch", -1);
         tourStage = in_.getIntOr("TourStage", 0);
         botName = in_.getStringOr("BotName", "");
         String[] o = in_.getStringOr("Bracket", "").split("[|]", -1);
@@ -638,7 +748,8 @@ public class SinucaBlockEntity extends BlockEntity {
         out.putBoolean("AgainstBot", againstBot);
         out.putBoolean("Moving", moving);
         out.putString("Msg", message);
-        out.putString("TourPlayer", tourPlayer);
+        out.putString("Humans", String.join("|", tourHumans));
+        out.putInt("TourMatch", tourMatch);
         out.putInt("TourStage", tourStage);
         out.putString("BotName", botName);
         out.putString("Bracket", String.join("|", bracket));

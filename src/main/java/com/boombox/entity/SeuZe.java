@@ -252,6 +252,11 @@ public class SeuZe extends PathfinderMob {
     }
 
     /** Torneio de sinuca: inscrição de 3 esmeraldas, na mesa de sinuca do bar. */
+    private static void giveEmeralds(ServerPlayer p, int n) {
+        net.minecraft.world.item.ItemStack em = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD, n);
+        if (!p.getInventory().add(em)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), em);
+    }
+
     private void tournament(ServerPlayer p, boolean free) {
         com.boombox.bar.SinucaBlockEntity table = null;
         for (var pos : net.minecraft.core.BlockPos.betweenClosed(blockPosition().offset(-14, -3, -14), blockPosition().offset(14, 3, 14))) {
@@ -262,16 +267,30 @@ public class SeuZe extends PathfinderMob {
             return;
         }
         if (table.tournamentRunning()) {
-            say(p, table.tourPlayer.equals(p.getName().getString()) ? "Seu torneio já tá rolando! Vai lá pra mesa." : "Já tem torneio rolando, espera acabar.");
-            return;
+            if (table.inTournament(p.getName().getString())) {
+                say(p, "Você já tá na chave! Vai lá pra mesa.");
+                table.sendBracket(p);
+                return;
+            }
+            if (table.tourStage != 0) {
+                say(p, "As inscrições fecharam: o torneio já passou das quartas. Espera acabar!");
+                table.sendBracket(p);
+                return;
+            }
         }
         if (!free && countEmeralds(p) < TOURNAMENT_PRICE) {
             say(p, "A inscrição do torneio é " + TOURNAMENT_PRICE + " esmeraldas. O prêmio é um troféu de verdade!");
             return;
         }
         if (!free) takeEmeralds(p, TOURNAMENT_PRICE);
-        table.startTournament(p);
-        say(p, "Inscrito! Chave de 8: quartas, semifinal e final. A chave tá no quadro. Boa sorte, " + p.getName().getString() + "!");
+        boolean joining = table.tournamentRunning();
+        if (!table.startTournament(p)) {
+            if (!free) giveEmeralds(p, TOURNAMENT_PRICE);
+            say(p, "A chave já tá cheia de gente, freguês. Fica pro próximo!");
+            return;
+        }
+        say(p, joining ? "Inscrito! Você entrou na chave no lugar de um aldeão. Boa sorte, " + p.getName().getString() + "!"
+                : "Inscrito! Chave de 8: quartas, semifinal e final. Quem quiser pode entrar também. Boa sorte, " + p.getName().getString() + "!");
         playSound(SoundEvents.VILLAGER_CELEBRATE, 1f, 0.8f);
     }
 

@@ -106,5 +106,6 @@
   "key.boombox.sair_jogo": "Sair do jogo / desistir (esportes)",
   "block.boombox.goal_large": "Gol Grande",
   "key.boombox.chutar": "Chutar (segure para mais força)",
-  "block.boombox.quadro_chaveamento": "Quadro do Chaveamento"
+  "block.boombox.quadro_chaveamento": "Quadro do Chaveamento",
+  "key.boombox.tabela": "Tabela / chaveamento (copa e sinuca)"
 }

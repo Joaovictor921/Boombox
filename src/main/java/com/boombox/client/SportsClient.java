@@ -19,7 +19,7 @@ import net.minecraft.network.chat.Component;
  */
 public final class SportsClient {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(BoomboxMod.id("sports"));
-    public static KeyMapping SLIDE, POKE, SET, LEAVE;
+    public static KeyMapping SLIDE, POKE, SET, LEAVE, TABLE;
     private static int sport;
     private static boolean league;
     /** Posição escolhida no futebol (0 = goleiro: a tecla de carrinho vira "pular na bola"). */
@@ -37,6 +37,7 @@ public final class SportsClient {
         POKE = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.colocar_pe", InputConstants.Type.KEYBOARD, InputConstants.KEY_G, CATEGORY));
         SET = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.levantar", InputConstants.Type.KEYBOARD, InputConstants.KEY_V, CATEGORY));
         LEAVE = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.sair_jogo", InputConstants.Type.KEYBOARD, InputConstants.KEY_K, CATEGORY));
+        TABLE = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.boombox.tabela", InputConstants.Type.KEYBOARD, InputConstants.KEY_J, CATEGORY));
         ClientPlayNetworking.registerGlobalReceiver(Payloads.SportState.TYPE, (p, ctx) -> {
             sport = p.sport();
             league = p.league();
@@ -44,6 +45,11 @@ public final class SportsClient {
             chargeStart = 0;
         });
         ClientPlayNetworking.registerGlobalReceiver(Payloads.CupState.TYPE, (p, ctx) -> {
+            if (p.sport() == Sports.SINUCA) {
+                var screen = new SinucaBracketScreen(p.data());
+                ctx.client().execute(() -> ctx.client().gui.setScreen(screen));
+                return;
+            }
             var cup = com.boombox.entity.Cup.decode(p.data());
             ctx.client().execute(() -> ctx.client().gui.setScreen(new CupScreen(cup, p.sport())));
         });
@@ -142,6 +148,7 @@ public final class SportsClient {
             send(sport == Sports.VOLLEY ? Sports.VOL_SPIKE : Sports.FUT_SHOOT, Math.max(0.05f, charge()));
             chargeStart = 0;
         }
+        while (TABLE.consumeClick()) send(Sports.OPEN_TABLE);
         while (SLIDE.consumeClick()) if (sport == Sports.FOOTBALL) send(position == 0 ? Sports.GK_DIVE : Sports.FUT_SLIDE);
         while (POKE.consumeClick()) if (sport == Sports.FOOTBALL) send(Sports.FUT_POKE);
         while (SET.consumeClick()) if (sport == Sports.VOLLEY) send(Sports.VOL_SET);

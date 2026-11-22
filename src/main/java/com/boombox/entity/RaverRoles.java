@@ -329,6 +329,40 @@ public final class RaverRoles {
         return true;
     }
 
+    /**
+     * 3.7: chute da falta por cima da barreira: procura (simulando a bola) uma força e uma altura que passem a barreira
+     * (3,5 blocos, uns 2 de altura) e caiam no gol, mirando num canto. Às vezes não dá e bate na barreira.
+     */
+    private static Vec3 overTheWall(Raver r, Ball ball, Vec3 spot, int team) {
+        var rnd = r.getRandom();
+        Vec3 g = ball.goal(team == Ball.TEAM_A ? 1 : 0);
+        Vec3 axis = new Vec3(g.x - spot.x, 0, g.z - spot.z).normalize();
+        Vec3 sideV = new Vec3(-axis.z, 0, axis.x);
+        Vec3 aim = g.add(sideV.scale((rnd.nextBoolean() ? 1 : -1) * (0.6 + rnd.nextDouble() * 0.8)));
+        Vec3 dir = new Vec3(aim.x - spot.x, 0, aim.z - spot.z);
+        double dist = dir.length();
+        dir = dir.normalize();
+        Vec3 best = null;
+        for (int tries = 0; tries < 60 && best == null; tries++) {
+            double h = 0.55 + rnd.nextDouble() * 0.6, vy = 0.3 + rnd.nextDouble() * 0.4;
+            double x = 0, y = 0, vh = h, v = vy, atWall = -1, atGoal = -1;
+            for (int t = 0; t < 80 && x < dist; t++) {
+                v -= 0.045;
+                x += vh;
+                y += v;
+                vh *= 0.99;
+                v *= 0.98;
+                if (atWall < 0 && x >= 3.5) atWall = y;
+                if (x >= dist) atGoal = y;
+                if (y < -0.5) break;
+            }
+            if (atWall > 2.4 && atGoal > 0.2 && atGoal < 2.6) best = dir.scale(h).add(0, vy, 0);
+        }
+        // não achou (ou "errou" de propósito, 25%): chute forte rasteiro, que pode bater na barreira
+        if (best == null || rnd.nextDouble() < 0.25) best = dir.scale(1.0).add(0, 0.1 + rnd.nextDouble() * 0.1, 0);
+        return best;
+    }
+
     /** Zagueiro (fica atrás, não passa do meio). */
     static boolean defender(Raver m) {
         return m.stall == 3 || m.stall == 4 || m.stall == 12;
@@ -780,6 +814,13 @@ public final class RaverRoles {
                 if (human) taker = false;
             }
         }
+        // 3.7: barreira da falta
+        if (!ours && kind == Ball.FREE_KICK && ball.wallIndex(r) >= 0) {
+            Vec3 w = ball.wallSpot(ball.wallIndex(r));
+            if (r.position().distanceTo(w) > 0.3) go(r, w.x, w.y, w.z, 0.8);
+            r.getLookControl().setLookAt(spot.x, spot.y + 0.5, spot.z);
+            return;
+        }
         if (taker) {
             Vec3 target = switch (kind) {
                 case Ball.KICKOFF, Ball.THROW_IN -> nearestMate(r, ball, level, team, spot);
@@ -807,6 +848,8 @@ public final class RaverRoles {
                     vel = Ball.passTo(spot, target);
                 } else if (kind == Ball.CORNER) {
                     vel = dir.scale(Math.min(1.0, 0.35 + spot.distanceTo(target) * 0.06)).add(0, 0.35, 0);
+                } else if (kind == Ball.FREE_KICK && ball.wallCount() > 0) {
+                    vel = overTheWall(r, ball, spot, team);
                 } else {
                     vel = dir.scale(Math.min(1.0, 0.45 + spot.distanceTo(target) * 0.035)).add(0, 0.12, 0);
                 }

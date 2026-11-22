@@ -3,6 +3,7 @@ package com.boombox.entity;
 import com.boombox.net.Payloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.phys.AABB;
@@ -19,8 +20,10 @@ import java.util.List;
  */
 public final class Sports {
     public static final int FUT_SHOOT = 1, FUT_PASS = 2, FUT_SLIDE = 3, FUT_POKE = 4, VOL_BUMP = 5, VOL_SET = 6, VOL_SPIKE = 7, LEAVE = 8, GK_DIVE = 9;
-    public static final int NONE = 0, FOOTBALL = 1, VOLLEY = 2;
-    public static final int AMISTOSO = 0, CAMPEONATO = 1, JUNTAR = 2, TABELA = 3; // TABELA (3.6) = só ver a tabela da copa // 3.5.5: JUNTAR = entrar no time de quem já está jogando
+    public static final int NONE = 0, FOOTBALL = 1, VOLLEY = 2, SINUCA = 3;
+    /** 3.7: tecla da tabela (abre a tela da copa ou da chave de sinuca mais perto). */
+    public static final int OPEN_TABLE = 10;
+    public static final int AMISTOSO = 0, CAMPEONATO = 1, JUNTAR = 2, TABELA = 3, CONTRA = 4; // CONTRA (3.7) = entrar no time adversário // TABELA (3.6) = só ver a tabela da copa // 3.5.5: JUNTAR = entrar no time de quem já está jogando
 
     /** Cores que dá para escolher para o time (e que os times sorteados usam). */
     public static final int[] COLORS = {0x2D5BE0, 0xE03030, 0x2E8B3A, 0xF0D020, 0xF0F0F0, 0x202020, 0x8E24AA, 0xE66A10, 0x10B0C8, 0xFF6FA8, 0x6D4C2F, 0x8A0E1E};
@@ -58,6 +61,26 @@ public final class Sports {
     public static int contrast(int c) {
         for (int x : COLORS) if (!similar(x, c)) return x;
         return 0xFFFFFF - c;
+    }
+
+    /** 3.7: a tela do chaveamento: da copa em que a pessoa joga, ou da copa / torneio de sinuca mais perto. */
+    public static void openTable(ServerPlayer p, ServerLevel sl) {
+        for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(120))) {
+            if (b.teamOf(p) >= 0 && b.cup() != null) { sendCup(p, b.cup(), FOOTBALL); return; }
+        }
+        for (Volleyball v : sl.getEntitiesOfClass(Volleyball.class, p.getBoundingBox().inflate(80))) {
+            if (v.sideOf(p) >= 0 && v.cup() != null) { sendCup(p, v.cup(), VOLLEY); return; }
+        }
+        for (var pos : net.minecraft.core.BlockPos.betweenClosed(p.blockPosition().offset(-12, -4, -12), p.blockPosition().offset(12, 4, 12))) {
+            if (sl.getBlockEntity(pos) instanceof com.boombox.bar.SinucaBlockEntity t && !t.bracket[0].isEmpty()) { t.sendBracket(p); return; }
+        }
+        for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(70))) {
+            if (b.cup() != null) { sendCup(p, b.cup(), FOOTBALL); return; }
+        }
+        for (Volleyball v : sl.getEntitiesOfClass(Volleyball.class, p.getBoundingBox().inflate(40))) {
+            if (v.cup() != null) { sendCup(p, v.cup(), VOLLEY); return; }
+        }
+        p.sendSystemMessage(Component.literal("§7Nenhuma copa ou torneio por perto. Marque um campeonato com o organizador do campo ou da quadra, ou fale com o Seu Zé para o torneio de sinuca."));
     }
 
     /** Distância entre duas cores (para não sortear times parecidos). */
@@ -151,6 +174,10 @@ public final class Sports {
     /** Partida em que essa pessoa está jogando (futebol primeiro). */
     public static void action(ServerPlayer p, int action, float power) {
         ServerLevel sl = (ServerLevel) p.level();
+        if (action == OPEN_TABLE) {
+            openTable(p, sl);
+            return;
+        }
         if (action == LEAVE) {
             // 3.5.2: sair do amistoso / desistir do campeonato (futebol ou vôlei)
             for (Ball b : sl.getEntitiesOfClass(Ball.class, p.getBoundingBox().inflate(120))) {

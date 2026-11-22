@@ -172,7 +172,7 @@ public class Cup {
                     }
                 }
             }
-            msgs.add(others.append(" (o resto na tabela)").toString());
+            msgs.add("§7Os outros jogos da rodada já foram jogados: veja a tabela na tela (tecla da tabela, J).");
             stage++;
             if (stage == GROUP_ROUNDS) drawBracket(msgs, rnd);
             else {

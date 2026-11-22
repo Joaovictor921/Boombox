@@ -37,6 +37,20 @@ public class BracketBoardBlock extends FacingBlock implements EntityBlock {
         };
     }
 
+    /** 3.7: clique no quadro abre a tela do chaveamento. */
+    @Override
+    protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, net.minecraft.world.entity.player.Player player,
+                                                                  net.minecraft.world.phys.BlockHitResult hit) {
+        if (level instanceof net.minecraft.server.level.ServerLevel sl && player instanceof net.minecraft.server.level.ServerPlayer sp
+                && level.getBlockEntity(pos) instanceof Entity be) {
+            be.lastScan = -1000;
+            SinucaBlockEntity t = be.findTable(level);
+            if (t != null) t.sendBracket(sp);
+            else sp.sendSystemMessage(net.minecraft.network.chat.Component.literal("§7Sem mesa de sinuca perto desse quadro."));
+        }
+        return net.minecraft.world.InteractionResult.SUCCESS;
+    }
+
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new Entity(pos, state);

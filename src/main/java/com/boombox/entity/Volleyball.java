@@ -595,14 +595,16 @@ public class Volleyball extends Entity {
         if (!(level() instanceof ServerLevel sl) || !humans.containsKey(p.getUUID())) return;
         if (humans.size() > 1) {
             // 3.5.5: o amigo continua, com um aldeão no lugar de quem saiu
-            humans.remove(p.getUUID());
+            int leftSide = humans.remove(p.getUUID());
             Sports.sendState(p, Sports.NONE);
             ItemStack chest = p.getItemBySlot(EquipmentSlot.CHEST);
             if (chest.is(Items.LEATHER_CHESTPLATE) && chest.has(DataComponents.CUSTOM_NAME) && chest.getHoverName().getString().startsWith("Regata")) {
                 p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
             }
-            if (humansOn(0) < 2 && team(sl).stream().noneMatch(r -> sideOf(r) == 0)) {
-                spawnPlayer(sl, RaverRoles.VOLEI_A, -3, -1);
+            long onSide = team(sl).stream().filter(r -> sideOf(r) == leftSide).count() + humansOn(leftSide);
+            if (onSide < 2) {
+                if (leftSide == 0) spawnPlayer(sl, RaverRoles.VOLEI_A, -3, -1);
+                else spawnPlayer(sl, RaverRoles.VOLEI_B, 3, -1);
                 for (Raver r : team(sl)) r.setShirt(0xFF000000 | teamColor(sideOf(r)));
             }
             say(sl, "§7" + p.getName().getString() + " saiu do jogo. Um aldeão entra no lugar.");
@@ -655,8 +657,12 @@ public class Volleyball extends Entity {
         return n;
     }
 
-    /** 3.5.5: o amigo entra no time de quem já está jogando, no lugar do parceiro aldeão. */
     public void join(ServerLevel sl, ServerPlayer p) {
+        join(sl, p, 0);
+    }
+
+    /** 3.5.5 / 3.7: o amigo entra no time de quem já está jogando (lado 0) ou do outro lado da rede (lado 1, contra ele). */
+    public void join(ServerLevel sl, ServerPlayer p, int side) {
         if (humans.containsKey(p.getUUID())) {
             p.sendSystemMessage(Component.literal("§7Você já está no jogo!"));
             return;
@@ -666,32 +672,39 @@ public class Volleyball extends Entity {
             p.sendSystemMessage(Component.literal("§7Ninguém está jogando agora. Marque um amistoso ou um campeonato, e o seu amigo entra no seu time."));
             return;
         }
-        if (humansOn(0) >= 2) {
-            p.sendSystemMessage(Component.literal("§7O time já tem dois jogadores (é dupla contra dupla)."));
+        if (humansOn(side) >= 2) {
+            p.sendSystemMessage(Component.literal("§7Esse lado já tem dois jogadores (é dupla contra dupla)."));
             return;
         }
+        // sai um aldeão desse lado para a pessoa entrar
         for (Raver r : team(sl)) {
-            if (sideOf(r) != 0) continue;
+            if (sideOf(r) != side) continue;
             sl.sendParticles(ParticleTypes.POOF, r.getX(), r.getY() + 1, r.getZ(), 6, 0.3, 0.5, 0.3, 0.02);
             players.remove(r.getUUID());
             r.discard();
+            if (side == 1) break; // do outro lado sai só um (a dupla fica aldeão + pessoa)
         }
-        humans.put(p.getUUID(), 0);
-        giveShirt(p, 0);
+        humans.put(p.getUUID(), side);
+        giveShirt(p, side);
         Sports.sendState(p, Sports.VOLLEY, league);
         String friend = mates.get(0).getName().getString();
-        say(sl, "§b" + p.getName().getString() + " fez dupla com " + friend + " no " + teamName(0) + "!");
-        p.sendSystemMessage(Component.literal("§aVocê é a dupla de " + friend + "! §7A manchete (botão direito) passa a bola para o seu parceiro."));
+        if (side == 0) {
+            say(sl, "§b" + p.getName().getString() + " fez dupla com " + friend + " no " + teamName(0) + "!");
+            p.sendSystemMessage(Component.literal("§aVocê é a dupla de " + friend + "! §7A manchete (botão direito) passa a bola para o seu parceiro."));
+        } else {
+            say(sl, "§c§l" + p.getName().getString() + " entrou no " + teamName(1) + ", contra " + friend + "! §r§fJogador contra jogador.");
+            p.sendSystemMessage(Component.literal("§aVocê está do outro lado da rede, no §c" + teamName(1) + "§a, contra " + friend + "!"));
+        }
     }
 
     public void setup(ServerPlayer p, int mode, String name, int color) {
         if (!(level() instanceof ServerLevel sl) || !hasCourt()) return;
-        if (mode == Sports.JUNTAR) {
-            join(sl, p);
+        if (mode == Sports.JUNTAR || mode == Sports.CONTRA) {
+            join(sl, p, mode == Sports.CONTRA ? 1 : 0);
             return;
         }
         if (active && !humans.containsKey(p.getUUID())) {
-            p.sendSystemMessage(Component.literal("§7Já tem jogo rolando nessa quadra. Para jogar junto, use §e\"Entrar no time do amigo\"§7."));
+            p.sendSystemMessage(Component.literal("§7Já tem jogo rolando nessa quadra. Use §e\"Entrar no time do amigo\"§7 ou §c\"Jogar contra o amigo\"§7."));
             return;
         }
         // tira quem estava jogando antes (inclusive os aldeões das quadras da 3.4)
@@ -748,10 +761,10 @@ public class Volleyball extends Entity {
             else hasPartner = true;
         }
         if (!hasPartner && humansOn(0) < 2) spawnPlayer(sl, RaverRoles.VOLEI_A, -3, -1);
-        spawnPlayer(sl, RaverRoles.VOLEI_B, 3, -1);
-        spawnPlayer(sl, RaverRoles.VOLEI_B, 4.5, 1);
+        if (humansOn(1) < 1) spawnPlayer(sl, RaverRoles.VOLEI_B, 3, -1);
+        if (humansOn(1) < 2) spawnPlayer(sl, RaverRoles.VOLEI_B, 4.5, 1);
         for (Raver r : team(sl)) r.setShirt(0xFF000000 | teamColor(sideOf(r)));
-        for (ServerPlayer p : humanPlayers(sl)) giveShirt(p, 0);
+        for (ServerPlayer p : humanPlayers(sl)) giveShirt(p, sideOf(p));
         say(sl, (league && cup != null ? "§6" + cup.stageName() + ": " : "§eAmistoso: ") + "§f" + a + " §7x §f" + b + " §7(até " + target + " pontos)");
         serveSide = random.nextInt(2);
         gameOver = 0;
@@ -840,6 +853,10 @@ public class Volleyball extends Entity {
 
     @Override
     public InteractionResult interact(Player player, InteractionHand hand, Vec3 at) {
+        if (player instanceof ServerPlayer sp && cup != null) {
+            Sports.sendCup(sp, cup, Sports.VOLLEY); // 3.7: a tabela da copa na tela
+            return InteractionResult.SUCCESS;
+        }
         if (player instanceof ServerPlayer sp && sideOf(sp) < 0) {
             sp.sendSystemMessage(Component.literal(active ? "§6" + teamName(0) + " " + score(0) + " x " + score(1) + " " + teamName(1)
                     : "§7Quadra livre. Fale com o organizador do vôlei para marcar um amistoso ou um campeonato."));

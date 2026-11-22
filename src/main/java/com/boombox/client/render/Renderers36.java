@@ -29,7 +29,8 @@ public final class Renderers36 {
         public static class State extends BlockEntityRenderState {
             public Direction facing = Direction.NORTH;
             public final String[] slots = new String[15];
-            public String player = "", status = "";
+            public final java.util.Set<String> humans = new java.util.HashSet<>();
+            public String status = "";
             public boolean any;
         }
 
@@ -52,7 +53,7 @@ public final class Renderers36 {
             s.facing = bs.hasProperty(FacingBlock.FACING) ? bs.getValue(FacingBlock.FACING) : Direction.NORTH;
             java.util.Arrays.fill(s.slots, "");
             s.any = false;
-            s.player = "";
+            s.humans.clear();
             s.status = "";
             if (be.getLevel() == null) return;
             SinucaBlockEntity t = be.findTable(be.getLevel());
@@ -62,8 +63,8 @@ public final class Renderers36 {
             }
             System.arraycopy(t.bracket, 0, s.slots, 0, 15);
             s.any = !t.bracket[0].isEmpty();
-            s.player = t.bracket[0];
-            if (t.tournamentRunning()) s.status = SinucaBlockEntity.stageName(t.tourStage) + " • jogando: " + t.tourPlayer;
+            s.humans.addAll(t.tourHumans);
+            if (t.tournamentRunning()) s.status = SinucaBlockEntity.stageName(t.tourStage) + " • na mesa: " + t.tableLabel();
             else if (s.any) s.status = t.bracket[14].isEmpty() ? "Torneio encerrado" : "Campeão: " + t.bracket[14];
             else s.status = "Fale com o Seu Zé para entrar (3 esmeraldas)";
         }
@@ -126,7 +127,7 @@ public final class Renderers36 {
             for (int i = 0; i < 15; i++) {
                 String n = s.slots[i];
                 boolean lost = !n.isEmpty() && i < 14 && !s.slots[next(i)].isEmpty() && !s.slots[next(i)].equals(n);
-                int color = n.isEmpty() ? 0xFF8AA08A : n.equals(s.player) ? 0xFFFFE060 : lost ? 0xFF9AA89A : 0xFFF2F2EA;
+                int color = n.isEmpty() ? 0xFF8AA08A : s.humans.contains(n) ? 0xFFFFE060 : lost ? 0xFF9AA89A : 0xFFF2F2EA;
                 String label = n.isEmpty() ? "?" : shorten(font, n, 74);
                 if (i == 14 && !n.isEmpty()) label = "🏆 " + label;
                 text(ps, collector, font, label, SLOT_X[i], SLOT_Y[i], i == 14 ? 1f / 105f : 1f / 132f, color);

@@ -79,19 +79,25 @@ public class MatchSetupScreen extends Screen {
         }
         addRenderableWidget(Button.builder(Component.literal("Agora não"), b -> onClose()).bounds(cx + 4, by, 116, 20).build());
         boolean playing = SportsClient.sport() == sport;
+        int row = by + 24;
         if (!playing) {
-            // 3.5.5: jogar no mesmo time de quem já está em campo
+            // 3.5.5: jogar no mesmo time de quem já está em campo; 3.7: ou no time adversário (jogador contra jogador)
             addRenderableWidget(Button.builder(Component.literal("§bEntrar no time do amigo"), b -> {
                 ClientPlayNetworking.send(new Payloads.MatchSetup(organizer, Sports.JUNTAR, "", 0, position));
                 onClose();
-            }).bounds(cx - 120, by + 24, 150, 20).build());
+            }).bounds(cx - 120, row, 116, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("§cJogar contra o amigo"), b -> {
+                ClientPlayNetworking.send(new Payloads.MatchSetup(organizer, Sports.CONTRA, "", 0, position));
+                onClose();
+            }).bounds(cx + 4, row, 116, 20).build());
+            row += 24;
         }
         addRenderableWidget(Button.builder(Component.literal("§d♪ Música"), b -> minecraft.gui.setScreen(DjRequestScreen.organizer(organizer)))
-                .bounds(playing ? cx - 120 : cx + 34, by + 24, playing ? 240 : 86, 20).build());
+                .bounds(cx - 120, row, 116, 20).build());
         // 3.6: grupos e chaveamento da copa
-        addRenderableWidget(Button.builder(Component.literal("§6🏆 Tabela da copa (grupos e chaveamento)"), b -> {
+        addRenderableWidget(Button.builder(Component.literal("§6🏆 Tabela da copa"), b -> {
             ClientPlayNetworking.send(new Payloads.MatchSetup(organizer, Sports.TABELA, "", 0, position));
-        }).bounds(cx - 120, by + 48, 240, 20).build());
+        }).bounds(cx + 4, row, 116, 20).build());
     }
 
     private void start() {

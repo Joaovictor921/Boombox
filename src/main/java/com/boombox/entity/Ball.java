@@ -106,6 +106,42 @@ public class Ball extends Entity {
     /** Prorrogação do mata-mata: tempo máximo (gol de ouro) e quem ganhou nos pênaltis (-1 = não teve). */
     public static final int EXTRA = 1200;
     private int shootout = -1;
+    /** 3.7: depois do gol, o time que marcou não passa do meio até o outro tocar na bola (-1 = livre). */
+    private int kickoffLock = -1;
+    /** 3.7: barreira da falta (aldeões do time que defende) e quanto tempo ela ainda pode travar a bola. */
+    private final List<UUID> wall = new ArrayList<>();
+    private int wallTimer;
+    /** Quantas vezes a barreira travou a bola (para o teste). */
+    public int wallHits;
+
+    public int kickoffLock() {
+        return kickoffLock;
+    }
+
+    /** Tamanho da barreira: falta no campo de quem cobra = sem barreira; perto do meio 1; no meio do ataque 2; perto do gol 3. */
+    public int wallSizeFor(int team, Vec3 spot) {
+        double f = uFor(team, spot) / length;
+        if (f <= 0.5) return 0;
+        double d = spot.distanceTo(goal(team == TEAM_A ? 1 : 0));
+        return d <= 12 ? 3 : d <= 17 ? 2 : 1;
+    }
+
+    public int wallIndex(Entity e) {
+        return wall.indexOf(e.getUUID());
+    }
+
+    public int wallCount() {
+        return wall.size();
+    }
+
+    /** Lugar do i-ésimo da barreira: 3,5 blocos da bola, na linha do gol, lado a lado. */
+    public Vec3 wallSpot(int i) {
+        Vec3 g = goal(restartTeam == TEAM_A ? 1 : 0);
+        Vec3 dir = new Vec3(g.x - restartSpot.x, 0, g.z - restartSpot.z).normalize();
+        Vec3 side = new Vec3(-dir.z, 0, dir.x);
+        double off = (i - (wall.size() - 1) / 2.0) * 0.75;
+        return restartSpot.add(dir.scale(3.5)).add(side.scale(off));
+    }
 
     public Cup cup() {
         return cup;
@@ -267,7 +303,12 @@ public class Ball extends Entity {
     public void kick(Entity who, Vec3 vel) {
         int team = teamOf(who);
         if (!canKick(team)) return;
+        if (restartKind == FREE_KICK && !wall.isEmpty() && level() instanceof ServerLevel sl) {
+            wallTimer = 30;
+            for (UUID id : wall) if (sl.getEntity(id) instanceof Raver r && r.onGround()) r.jumpFromGround();
+        }
         if (restartKind >= 0) restartKind = -1;
+        if (kickoffLock >= 0 && team == 1 - kickoffLock) kickoffLock = -1;
         keeperHold = null;
         if (owner != null) loseOwner();
         double sp = vel.length();
@@ -326,6 +367,28 @@ public class Ball extends Entity {
             setDeltaMovement(v);
         }
         if (!(level() instanceof ServerLevel sl)) return;
+        if (wallTimer > 0) {
+            wallTimer--;
+            for (UUID id : wall) {
+                if (!(sl.getEntity(id) instanceof Raver r)) continue;
+                double hd = Math.hypot(getX() - r.getX(), getZ() - r.getZ());
+                if (hd < 0.6 && getY() < groundY() + 2.2) { // a barreira (com o pulo) cobre uns 2,2 blocos
+                    Vec3 v = getDeltaMovement();
+                    setDeltaMovement(-v.x * 0.35 + (random.nextDouble() - 0.5) * 0.2, Math.max(0.12, Math.abs(v.y) * 0.5), -v.z * 0.35 + (random.nextDouble() - 0.5) * 0.2);
+                    lastTeam = teamOf(r);
+                    lastKicker = r.getUUID();
+                    lastKickTick = tickCount;
+                    playSound(SoundEvents.WOOL_HIT, 1f, 0.6f);
+                    for (ServerPlayer p : sl.players()) if (p.distanceTo(this) < 40) p.sendOverlayMessage(Component.literal("§eNa barreira!"));
+                    wallHits++;
+                    wallTimer = 0;
+                    wall.clear();
+                    break;
+                }
+            }
+            if (wallTimer == 0) wall.clear();
+        }
+        if (kickoffLock >= 0 && tickCount % 2 == 0) holdHalf(sl);
         if (!hasGoals()) {
             if (tickCount % 20 == 1) findField(sl);
             return;
@@ -595,6 +658,7 @@ public class Ball extends Entity {
         clock++;
         if (phase == 0 && clock >= HALF && !restarting()) {
             phase = 1;
+            kickoffLock = -1;
             clock = 0;
             whistle(sl, 3);
             loseOwner();
@@ -691,6 +755,20 @@ public class Ball extends Entity {
         restartSpot = spot;
         restartTaker = null;
         restartTimer = kind == KICKOFF ? 80 : kind == PENALTY ? 90 : 50;
+        wall.clear();
+        wallTimer = 0;
+        if (kind == FREE_KICK) {
+            int n = wallSizeFor(team, spot);
+            if (n > 0) {
+                Vec3 g = goal(team == TEAM_A ? 1 : 0);
+                Vec3 mid = spot.add(new Vec3(g.x - spot.x, 0, g.z - spot.z).normalize().scale(3.5));
+                var defs = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(50, 10, 50),
+                        r -> teamOf(r) == 1 - team && r.stall != 1);
+                defs.sort((a, b) -> Double.compare(a.distanceToSqr(mid), b.distanceToSqr(mid)));
+                for (int i = 0; i < n && i < defs.size(); i++) wall.add(defs.get(i).getUUID());
+                restartTimer = 70; // tempo para a barreira se formar
+            }
+        }
         keeperHold = null;
         loseOwner();
         setPos(spot.x, center == null ? spot.y : center.y, spot.z);
@@ -701,7 +779,7 @@ public class Ball extends Entity {
             case THROW_IN -> "§ePriii! Saiu pela lateral. §fLateral para o " + who + ".";
             case GOAL_KICK -> "§ePriii! Saiu pela linha de fundo. §fTiro de meta do " + who + ".";
             case CORNER -> "§ePriii! Escanteio para o " + who + "!";
-            case FREE_KICK -> "§c§lFALTA! §fTiro livre para o " + who + ".";
+            case FREE_KICK -> "§c§lFALTA! §fTiro livre para o " + who + (wall.isEmpty() ? ", sem barreira." : ", barreira de " + wall.size() + ".");
             case PENALTY -> "§c§lPÊNALTI! §fFalta dentro da área: pênalti para o " + who + "!";
             default -> "§fSaída de bola do " + who + ".";
         };
@@ -750,6 +828,7 @@ public class Ball extends Entity {
         else entityData.set(SCORE_B, scoreB() + 1);
         lastTeam = scorer;
         goalPause = 80;
+        kickoffLock = scorer;
         loseOwner();
         sl.playSound(null, blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 1f, 1.2f);
         sl.sendParticles(ParticleTypes.FIREWORK, getX(), getY() + 1, getZ(), 50, 0.6, 0.6, 0.6, 0.12);
@@ -779,13 +858,13 @@ public class Ball extends Entity {
 
     public void setup(ServerPlayer p, int setupMode, String name, int color, int position) {
         if (!(level() instanceof ServerLevel sl) || !hasGoals()) return;
-        if (setupMode == Sports.JUNTAR) {
-            join(sl, p, position);
+        if (setupMode == Sports.JUNTAR || setupMode == Sports.CONTRA) {
+            join(sl, p, position, setupMode == Sports.CONTRA ? TEAM_B : TEAM_A);
             return;
         }
         if (mode != AUTO && !humans.isEmpty() && !humans.containsKey(p.getUUID())) {
             String who = humansOf(sl, TEAM_A).stream().map(h -> h.getName().getString()).findFirst().orElse("alguém");
-            p.sendSystemMessage(Component.literal("§7" + who + " já está jogando aqui. Use §e\"Entrar no time do amigo\"§7 para jogar junto!"));
+            p.sendSystemMessage(Component.literal("§7" + who + " já está jogando aqui. Use §e\"Entrar no time do amigo\"§7 ou §c\"Jogar contra o amigo\"§7!"));
             return;
         }
         humans.clear();
@@ -836,6 +915,7 @@ public class Ball extends Entity {
         entityData.set(SCORE_B, 0);
         phase = 0;
         clock = 0;
+        kickoffLock = -1;
         // cada pessoa entra no lugar do aldeão da posição que escolheu
         var all = rebench(sl);
         for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) giveShirt(p, e.getValue());
@@ -849,18 +929,18 @@ public class Ball extends Entity {
         benched.clear();
         var all = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(50, 10, 50), r -> r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B);
         for (var e : humans.entrySet()) {
-            if (e.getValue() != TEAM_A) continue;
+            int role = e.getValue() == TEAM_A ? RaverRoles.TEAM_A : RaverRoles.TEAM_B;
             int[] slots = Sports.POSITION_SLOTS[humanPos.getOrDefault(e.getKey(), 6)];
             Raver pick = null;
             outer:
             for (int slot : slots) {
                 for (Raver r : all) {
-                    if (r.role() == RaverRoles.TEAM_A && !benched.contains(r.getUUID()) && r.stall == slot) { pick = r; break outer; }
+                    if (r.role() == role && !benched.contains(r.getUUID()) && r.stall == slot) { pick = r; break outer; }
                 }
             }
             if (pick == null && slots[0] != 1) {
                 for (Raver r : all) {
-                    if (r.role() == RaverRoles.TEAM_A && !benched.contains(r.getUUID()) && r.stall != 1) { pick = r; break; } // campo sem essa posição
+                    if (r.role() == role && !benched.contains(r.getUUID()) && r.stall != 1) { pick = r; break; } // campo sem essa posição
                 }
             }
             if (pick != null) benched.add(pick.getUUID());
@@ -879,29 +959,55 @@ public class Ball extends Entity {
 
     /** 3.5.5: o amigo entra no time de quem já está jogando, na posição que escolheu (o aldeão dela vai para o banco). */
     public void join(ServerLevel sl, ServerPlayer p, int position) {
+        join(sl, p, position, TEAM_A);
+    }
+
+    /** 3.7: entra no time A (com quem marcou o jogo) ou no time B (contra ele: jogador contra jogador). */
+    public void join(ServerLevel sl, ServerPlayer p, int position, int team) {
         if (humans.containsKey(p.getUUID())) {
             p.sendSystemMessage(Component.literal("§7Você já está no jogo!"));
             return;
         }
-        List<ServerPlayer> mates = humansOf(sl, TEAM_A);
-        if (mode == AUTO || mates.isEmpty()) {
-            p.sendSystemMessage(Component.literal("§7Ninguém está jogando agora. Marque um amistoso ou um campeonato, e o seu amigo entra no seu time."));
+        List<ServerPlayer> playing = new ArrayList<>(humansOf(sl, TEAM_A));
+        playing.addAll(humansOf(sl, TEAM_B));
+        if (mode == AUTO || playing.isEmpty()) {
+            p.sendSystemMessage(Component.literal("§7Ninguém está jogando agora. Marque um amistoso ou um campeonato, e o seu amigo entra no seu time ou no time adversário."));
             return;
         }
+        List<ServerPlayer> mates = humansOf(sl, team);
         if (mates.size() >= 4) {
-            p.sendSystemMessage(Component.literal("§7O time já está cheio de gente (4 jogadores)."));
+            p.sendSystemMessage(Component.literal("§7Esse time já está cheio de gente (4 jogadores)."));
             return;
         }
         int pos = Math.max(0, Math.min(Sports.POSITIONS.length - 1, position));
         humanPos.put(p.getUUID(), pos);
-        humans.put(p.getUUID(), TEAM_A);
+        humans.put(p.getUUID(), team);
         rebench(sl);
-        giveShirt(p, TEAM_A);
+        giveShirt(p, team);
         Sports.sendState(p, Sports.FOOTBALL, mode == LEAGUE, pos);
-        String friend = mates.get(0).getName().getString();
-        announce("§b" + p.getName().getString() + " entrou no " + teamName(TEAM_A) + " com " + friend + ", de " + Sports.POSITIONS[pos] + "!");
-        p.sendSystemMessage(Component.literal("§aVocê está no time de " + friend + ", de §e" + Sports.POSITIONS[pos]
-                + "§a! §7O passe (botão direito) também vai para o seu amigo."));
+        String friend = playing.get(0).getName().getString();
+        if (team == TEAM_A) {
+            announce("§b" + p.getName().getString() + " entrou no " + teamName(TEAM_A) + " com " + friend + ", de " + Sports.POSITIONS[pos] + "!");
+            p.sendSystemMessage(Component.literal("§aVocê está no time de " + friend + ", de §e" + Sports.POSITIONS[pos]
+                    + "§a! §7O passe (botão direito) também vai para o seu amigo."));
+        } else {
+            announce("§c§l" + p.getName().getString() + " entrou no " + teamName(TEAM_B) + ", contra " + friend + "! §r§fJogador contra jogador, de "
+                    + Sports.POSITIONS[pos] + ".");
+            p.sendSystemMessage(Component.literal("§aVocê está no §c" + teamName(TEAM_B) + "§a, contra " + friend + ", de §e" + Sports.POSITIONS[pos] + "§a!"));
+        }
+    }
+
+    /** 3.7: depois do gol, quem marcou fica no seu campo até o outro time dar a saída (tocar na bola). */
+    private void holdHalf(ServerLevel sl) {
+        double half = length / 2;
+        for (ServerPlayer h : humansOf(sl, kickoffLock)) {
+            Vec3 pos = h.position();
+            if (uFor(kickoffLock, pos) <= half + 0.2) continue;
+            Vec3 back = teamPoint(kickoffLock, half - 1.0, vFor(kickoffLock, pos));
+            h.teleportTo(back.x, Math.max(pos.y, center.y), back.z);
+            h.setDeltaMovement(Vec3.ZERO);
+            h.sendOverlayMessage(Component.literal("§eEspere o outro time dar a saída: até ele tocar na bola, o seu time fica no seu campo."));
+        }
     }
 
     private void endMatch(ServerLevel sl) {
@@ -910,7 +1016,7 @@ public class Ball extends Entity {
         announce("§e§lFIM DE JOGO! §r§f" + score() + " §7— " + (winner < 0 ? "Empate!" : "Vitória do " + teamName(winner) + "!"));
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) >= 0)) r.celebrate(teamOf(r) == winner);
         if (mode != LEAGUE || cup == null) return;
-        for (var e : humans.entrySet()) playedFor.computeIfAbsent(e.getKey(), k -> new HashSet<>()).add(0);
+        for (var e : humans.entrySet()) if (e.getValue() == TEAM_A) playedFor.computeIfAbsent(e.getKey(), k -> new HashSet<>()).add(0);
         int tie = a == b && cup.knockout() ? (shootout >= 0 ? shootout : random.nextInt(2)) : 0;
         shootout = -1;
         for (String m : cup.playerResult(a, b, tie, random)) announce(m);
