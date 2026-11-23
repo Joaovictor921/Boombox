@@ -22,6 +22,12 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.7.2
+- **Campo de futebol muito mais fácil de achar**: antes só 35% das vilas sorteavam o campo, e ele ainda precisava
+  caber do lado de uma rua. Agora toda vila tenta ter o campo. Se ele não couber do lado de uma rua, vai num lugar aberto
+  em volta da vila. Num mundo de teste, 43 de 47 vilas ganharam campo.
+- Vale só para as partes do mundo que ainda não foram geradas: em mundos antigos, ande para longe para achar vilas novas.
+
 ## Novidades da 3.7.1
 **Futebol**:
 - **Quanto mais força no chute, mais alto a bola vai**. Com o botão segurado até o fim, a bola sobe (e pode passar por

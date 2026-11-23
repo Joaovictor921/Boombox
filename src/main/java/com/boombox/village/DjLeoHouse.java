@@ -145,8 +145,11 @@ public final class DjLeoHouse {
         // 3.3: quermesse (35%), feira de domingo (40%) e campinho de várzea (35%)
         if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(0), new BlockPos(0, 0, 6), shuffler);
         if (rnd.nextFloat() < 0.4f) placeBeside(builder, ctx, center, extra(1), new BlockPos(0, 0, 5), shuffler);
-        // 3.7: só o campo bom (o grande); se ele não couber, a vila fica sem campo
-        if (rnd.nextFloat() < 0.35f) placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 15), shuffler);
+        // 3.7.2: toda vila tenta ter o campo de futebol. Primeiro do lado de uma rua; se não couber (o campo é grande),
+        // vai num lugar aberto em volta da vila
+        if (!placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 15), shuffler)) {
+            placeAround(builder, ctx, center, extra(2), shuffler);
+        }
         // em junho a vila também ganha um arraiá
         if (com.boombox.bar.ShowTime.isJune()) {
             StructurePoolElement a = arraiaElement;
@@ -224,6 +227,49 @@ public final class DjLeoHouse {
         if (bestBox != null && bestSlope <= MAX_SLOPE_FALLBACK) {
             builder.addPiece(new PoolElementStructurePiece(manager, house, bestOrigin, 0, bestRot, bestBox, LiquidSettings.IGNORE_WATERLOGGING));
             return true;
+        }
+        return false;
+    }
+
+    /**
+     * 3.7.2: coloca a peça num lugar livre em volta da vila (anéis cada vez mais longe do centro), no terreno menos
+     * inclinado de cada anel. Usado pelo campo de futebol, que é grande demais para caber sempre do lado de uma rua.
+     */
+    private static boolean placeAround(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center,
+                                       StructurePoolElement piece, Random shuffler) {
+        var manager = ctx.structureTemplateManager();
+        var gen = ctx.chunkGenerator();
+        var heights = ctx.heightAccessor();
+        var randomState = ctx.randomState();
+        Rotation[] rots = {Rotation.NONE, Rotation.CLOCKWISE_90};
+        double turn = shuffler.nextDouble() * Math.PI * 2;
+        for (int r = 30; r <= 90; r += 10) {
+            BoundingBox bestBox = null;
+            BlockPos bestOrigin = null;
+            Rotation bestRot = null;
+            int bestSlope = Integer.MAX_VALUE;
+            for (int a = 0; a < 16 && bestSlope > MAX_SLOPE; a++) {
+                double ang = turn + a * Math.PI / 8;
+                int x = center.getX() + (int) Math.round(Math.cos(ang) * r), z = center.getZ() + (int) Math.round(Math.sin(ang) * r);
+                int ground = gen.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, heights, randomState) - 1;
+                for (Rotation rot : rots) {
+                    // centraliza a peça no ponto do anel
+                    BoundingBox b0 = piece.getBoundingBox(manager, new BlockPos(x, ground, z), rot);
+                    BlockPos origin = new BlockPos(2 * x - (b0.minX() + b0.maxX()) / 2, ground, 2 * z - (b0.minZ() + b0.maxZ()) / 2);
+                    BoundingBox box = piece.getBoundingBox(manager, origin, rot);
+                    if (builder.findCollisionPiece(box) != null) continue;
+                    int slope = slope(gen, heights, randomState, box, ground);
+                    if (slope < 0 || slope >= bestSlope) continue;
+                    bestSlope = slope;
+                    bestBox = box;
+                    bestOrigin = origin;
+                    bestRot = rot;
+                }
+            }
+            if (bestBox != null && bestSlope <= MAX_SLOPE_FALLBACK) {
+                builder.addPiece(new PoolElementStructurePiece(manager, piece, bestOrigin, 0, bestRot, bestBox, LiquidSettings.IGNORE_WATERLOGGING));
+                return true;
+            }
         }
         return false;
     }

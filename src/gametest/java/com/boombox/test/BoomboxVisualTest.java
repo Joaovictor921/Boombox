@@ -32,10 +32,55 @@ import java.util.Locale;
 public class BoomboxVisualTest implements FabricClientGameTest {
     private static final int HX = 30, HY = -61, HZ = 0; // canto da casa
 
+    /** 3.7.2: num mundo normal, quantas vilas ganharam o campo de futebol. */
+    private void vila(ClientGameTestContext ctx) {
+        try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
+            TestServerContext server = sp.getServer();
+            for (int seed = 0; seed < 1; seed++) {
+                String r = server.computeOnServer(s -> {
+                    var sl = s.overworld();
+                    java.util.Set<Long> seen = new java.util.HashSet<>();
+                    int villages = 0, fields = 0;
+                    StringBuilder where = new StringBuilder();
+                    for (int gx = -3; gx <= 3; gx++) for (int gz = -3; gz <= 3; gz++) {
+                        var hit = sl.getChunkSource().getGenerator().findNearestMapStructure(sl,
+                                sl.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.tags.StructureTags.VILLAGE),
+                                new BlockPos(gx * 1500, 64, gz * 1500), 20, false);
+                        if (hit == null) continue;
+                        BlockPos p = hit.getFirst();
+                        if (!seen.add(net.minecraft.world.level.ChunkPos.containing(p).pack())) continue;
+                        var chunk = sl.getChunk(p.getX() >> 4, p.getZ() >> 4, net.minecraft.world.level.chunk.status.ChunkStatus.STRUCTURE_STARTS);
+                        for (var st : chunk.getAllStarts().values()) {
+                            if (!st.isValid()) continue;
+                            villages++;
+                            boolean f = false;
+                            double d = 0;
+                            for (var pc : st.getPieces()) {
+                                if (pc instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pe && pe.getElement().toString().contains("boombox:varzea")) {
+                                    f = true;
+                                    var bb = pc.getBoundingBox();
+                                    d = Math.hypot((bb.minX() + bb.maxX()) / 2.0 - p.getX(), (bb.minZ() + bb.maxZ()) / 2.0 - p.getZ());
+                                }
+                            }
+                            if (f) fields++;
+                            where.append(String.format(Locale.ROOT, "(%d,%d %s) ", p.getX(), p.getZ(), f ? String.format(Locale.ROOT, "campo a %.0f", d) : "sem campo"));
+                        }
+                    }
+                    return "vilas=" + villages + " com campo=" + fields + " " + where;
+                });
+                System.out.println("[BoomboxTest] vila: " + r);
+            }
+        }
+    }
+
     @Override
     public void runTest(ClientGameTestContext ctx) {
         HttpServer http = startBeatServer();
         String url = "http://127.0.0.1:" + http.getAddress().getPort() + "/batida.wav";
+        if ("vila".equals(System.getenv("BOOMBOX_QUICK"))) {
+            vila(ctx);
+            return;
+        }
         try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
             sp.getConnection().waitForChunksRender();
             TestServerContext server = sp.getServer();
