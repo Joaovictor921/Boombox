@@ -217,9 +217,53 @@ public final class Tools {
         return res.body();
     }
 
+    /**
+     * 3.7.1: download que trava (internet caiu no meio) não pode ficar esperando para sempre: se passar 30 segundos sem
+     * chegar nada, a conexão é fechada e o download falha. Na próxima música o mod tenta de novo.
+     */
+    private static InputStream guard(InputStream raw) {
+        long[] last = {System.currentTimeMillis()};
+        var watchdog = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "boombox-download-watchdog");
+            t.setDaemon(true);
+            return t;
+        });
+        watchdog.scheduleAtFixedRate(() -> {
+            if (System.currentTimeMillis() - last[0] > 30_000) {
+                BoomboxMod.LOGGER.warn("Download parado há 30 s; desistindo (tenta de novo na próxima música)");
+                try {
+                    raw.close();
+                } catch (IOException ignored) {
+                }
+                watchdog.shutdown();
+            }
+        }, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
+        return new java.io.FilterInputStream(raw) {
+            @Override
+            public int read() throws IOException {
+                int b = super.read();
+                last[0] = System.currentTimeMillis();
+                return b;
+            }
+
+            @Override
+            public int read(byte[] buf, int off, int len) throws IOException {
+                int n = super.read(buf, off, len);
+                last[0] = System.currentTimeMillis();
+                return n;
+            }
+
+            @Override
+            public void close() throws IOException {
+                watchdog.shutdownNow();
+                super.close();
+            }
+        };
+    }
+
     private static void download(String url, Path target) {
         Path tmp = target.resolveSibling(target.getFileName() + ".part");
-        try (InputStream in = open(url)) {
+        try (InputStream in = guard(open(url))) {
             Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
             Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
@@ -229,7 +273,7 @@ public final class Tools {
 
     private static void downloadZipEntry(String url, String entrySuffix, Path target) {
         Path tmp = target.resolveSibling(target.getFileName() + ".part");
-        try (ZipInputStream zip = new ZipInputStream(open(url))) {
+        try (ZipInputStream zip = new ZipInputStream(guard(open(url)))) {
             ZipEntry e;
             while ((e = zip.getNextEntry()) != null) {
                 String name = e.getName().replace('\\', '/');

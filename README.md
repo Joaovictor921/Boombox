@@ -4,7 +4,7 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
 
 ## Instalação
 1. Instale o **Fabric Loader 0.19.5+** e o **Fabric API** para Minecraft 26.3.
-2. Baixe o `boombox-3.7.0.jar` na aba [Releases](https://github.com/Joaovictor921/Boombox/releases/latest) e coloque-o na pasta `mods` **do cliente de cada jogador e do servidor**.
+2. Copie `build/libs/boombox-3.1.0.jar` para a pasta `mods` **do cliente de cada jogador e do servidor**.
 3. Na primeira vez que alguém entra num mundo, o mod baixa sozinho (Windows) para `.minecraft/boombox/bin`:
    - `yt-dlp` (YouTube), `ffmpeg` (decodificar o áudio) e `deno` (o yt-dlp precisa dele para o YouTube).
    - No Linux/macOS o `ffmpeg` precisa estar instalado (`sudo apt install ffmpeg` / `brew install ffmpeg`).
@@ -21,6 +21,24 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Parar**.
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
+
+## Novidades da 3.7.1
+**Futebol**:
+- **Quanto mais força no chute, mais alto a bola vai**. Com o botão segurado até o fim, a bola sobe (e pode passar por
+  cima do gol). Para chutar rasteiro, é preciso dosar a força. Chutar com tudo não é mais gol garantido.
+- **Goleiro pega mais a bola rasteira**. Bola forte e no canto, perto do travessão, continua difícil.
+- **Falta mais fácil**: cada um da barreira só pula às vezes (cerca de 1 em 3). No chão, a barreira é mais baixa, então
+  um chute com força média passa por cima. Os aldeões também batem a falta por cima da barreira com mais acerto.
+- **Bola do goleiro**: com a bola na mão do goleiro, ou no tiro de meta, o time adversário não pode entrar na área. Só os
+  jogadores do time do goleiro podem.
+- **Espaço no lateral e no escanteio**: o time adversário tem que ficar a 4 blocos da bola até ela ser cobrada.
+- **Pulo do goleiro (você) mais confiável**: antes, às vezes o botão não fazia nada logo depois de você se mexer. Agora
+  vale o corpo todo no caminho do pulo: se a bola passa perto de onde você voou, você agarra.
+
+**Música**:
+- Se a internet travar no meio do download das ferramentas de áudio (ffmpeg, yt-dlp e deno, na primeira vez), o mod
+  desiste depois de 30 segundos parado e tenta de novo na próxima música. Antes ele ficava esperando para sempre e a
+  música não tocava.
 
 ## Novidades da 3.7.0
 **Futebol**:
@@ -548,42 +566,5 @@ A música continua mesmo se o servidor reiniciar.
 ## Compilar
 Precisa de JDK 25+:
 ```
-./gradlew build   # o jar sai em build/libs/
+./gradlew build
 ```
-
-
-## Versões
-| Versão | Minecraft | Download |
-|---|---|---|
-| 3.7.0 | 26.3 (Fabric) | [Releases → v3.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.7.0) |
-| 3.6.0 | 26.3 (Fabric) | [Releases → v3.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.6.0) |
-| 3.5.5 | 26.3 (Fabric) | [Releases → v3.5.5](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.5) |
-| 3.5.4 | 26.3 (Fabric) | [Releases → v3.5.4](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.4) |
-| 3.5.3 | 26.3 (Fabric) | [Releases → v3.5.3](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.3) |
-| 3.5.2 | 26.3 (Fabric) | [Releases → v3.5.2](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.2) |
-| 3.5.1 | 26.3 (Fabric) | [Releases → v3.5.1](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.1) |
-| 3.5.0 | 26.3 (Fabric) | [Releases → v3.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.5.0) |
-| 3.4.1 | 26.3 (Fabric) | [Releases → v3.4.1](https://github.com/Joaovictor921/Boombox/releases/tag/v3.4.1) |
-| 3.4.0 | 26.3 (Fabric) | [Releases → v3.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.4.0) |
-| 3.3.2 | 26.3 (Fabric) | [Releases → v3.3.2](https://github.com/Joaovictor921/Boombox/releases/tag/v3.3.2) |
-| 3.3.1 | 26.3 (Fabric) | [Releases → v3.3.1](https://github.com/Joaovictor921/Boombox/releases/tag/v3.3.1) |
-| 3.3.0 | 26.3 (Fabric) | [Releases → v3.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.3.0) |
-| 3.2.0 | 26.3 (Fabric) | [Releases → v3.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.2.0) |
-| 3.1.0 | 26.3 (Fabric) | [Releases → v3.1.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.1.0) |
-| 3.0.0 | 26.3 (Fabric) | [Releases → v3.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v3.0.0) |
-| 2.4.0 | 26.3 (Fabric) | [Releases → v2.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.4.0) |
-| 2.3.0 | 26.3 (Fabric) | [Releases → v2.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.3.0) |
-| 2.2.0 | 26.3 (Fabric) | [Releases → v2.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.2.0) |
-| 2.1.0 | 26.3 (Fabric) | [Releases → v2.1.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.1.0) |
-| 2.0.0 | 26.3 (Fabric) | [Releases → v2.0.0](https://github.com/Joaovictor921/Boombox/releases/tag/v2.0.0) |
-| 1.7.0 | 26.3 (Fabric) | [Releases → v1.7.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.7.0) |
-| 1.6.0 | 26.3 (Fabric) | [Releases → v1.6.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.6.0) |
-| 1.5.0 | 26.3 (Fabric) | [Releases → v1.5.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.5.0) |
-| 1.4.0 | 26.3 (Fabric) | [Releases → v1.4.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.4.0) |
-| 1.3.0 | 26.3 (Fabric) | [Releases → v1.3.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.3.0) |
-| 1.2.0 | 26.3 (Fabric) | [Releases → v1.2.0](https://github.com/Joaovictor921/Boombox/releases/tag/v1.2.0) |
-
-Também no CurseForge: [Synced Boombox](https://www.curseforge.com/minecraft/mc-mods/synced-boombox)
-
-## Licença
-MIT

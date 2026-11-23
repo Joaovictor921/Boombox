@@ -1524,7 +1524,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         ctx.takeScreenshot("v37_barreira");
         // cobranças perto do gol: barreira, gol ou fora
         int[] res = {0, 0, 0};
-        for (int k = 0; k < 6; k++) {
+        for (int k = 0; k < 10; k++) {
             int kk = k;
             int[] before = new int[2];
             server.runOnServer(s -> {
@@ -1539,14 +1539,82 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                 before[0] = b.scoreA();
             });
             int hitsBefore = server.computeOnServer(s -> ball(s).wallHits);
-            ctx.waitTicks(150);
+            ctx.waitTicks(170);
             int after = server.computeOnServer(s -> ball(s).scoreA());
             int hits = server.computeOnServer(s -> ball(s).wallHits) - hitsBefore;
             if (after > before[0]) res[0]++;
             else if (hits > 0) res[1]++;
             else res[2]++;
         }
-        say("v37 cobranças com barreira de 3 (6 faltas): gols=" + res[0] + " na barreira=" + res[1] + " por cima, fora ou goleiro=" + res[2]);
+        say("v37 cobranças com barreira de 3 (10 faltas): gols=" + res[0] + " na barreira=" + res[1] + " por cima, fora ou goleiro=" + res[2]);
+        // ---- 3.7.1: chute com mais força sobe mais
+        StringBuilder chutes = new StringBuilder();
+        for (float pw : new float[]{0.25f, 0.5f, 0.75f, 1f}) {
+            chutes.append((String) server.computeOnServer(s -> {
+                var b = ball(s);
+                var pl = s.getPlayerList().getPlayers().get(0);
+                b.forcePlay();
+                b.loseOwner();
+                pl.getAbilities().flying = false;
+                pl.onUpdateAbilities();
+                Vec3 at = b.teamPoint(0, b.length() * 0.6, 0);
+                pl.teleportTo(at.x, at.y, at.z);
+                pl.setYRot(b.goal(1).x > at.x ? -90f : 90f);
+                pl.setXRot(0f);
+                b.setPos(at.x, at.y, at.z);
+                b.setDeltaMovement(Vec3.ZERO);
+                b.playerAction(pl, com.boombox.entity.Sports.FUT_SHOOT, pw);
+                Vec3 v = b.getDeltaMovement();
+                return String.format(Locale.ROOT, "força %.2f: velocidade %.2f, subida %.2f; ", pw, v.horizontalDistance(), v.y);
+            }));
+            ctx.waitTicks(15);
+        }
+        say("v371 chutes: " + chutes);
+        // ---- 3.7.1: bola do goleiro: o adversário sai da área
+        say("v371 goleiro: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            b.forcePlay();
+            var gk = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TEAM_B && r.stall == 1).get(0);
+            b.catchBall(gk);
+            Vec3 in = b.fieldPoint(b.length() - 3, 1);
+            pl.teleportTo(in.x, in.y, in.z);
+            return "área protegida=" + b.protectedGoal() + " (1 = gol do time B)";
+        }));
+        ctx.waitTicks(4);
+        say("v371 goleiro depois: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            return "pessoa do time A dentro da área=" + b.inBox(1, pl.position());
+        }));
+        ctx.waitTicks(30);
+        say("v371 aldeões do time A na área do goleiro: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            return s.overworld().getEntities(ModEntities.RAVER, r -> b.teamOf(r) == 0 && b.inBox(1, r.position())).size() + " (goleiro ainda com a bola=" + (b.keeperHold() != null) + ")";
+        }));
+        // ---- 3.7.1: lateral: o adversário fica a 4 blocos
+        say("v371 lateral: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            b.forcePlay();
+            Vec3 spot = b.fieldPoint(b.length() * 0.5, b.halfWidth() - 0.4);
+            b.setRestart(s.overworld(), com.boombox.entity.Ball.THROW_IN, 1, spot, false);
+            pl.teleportTo(spot.x + 1, spot.y, spot.z);
+            return "lateral do time B";
+        }));
+        ctx.waitTicks(4);
+        say("v371 lateral depois: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            return String.format(Locale.ROOT, "pessoa do time A a %.1f blocos da bola", Math.hypot(pl.getX() - b.restartSpot().x, pl.getZ() - b.restartSpot().z));
+        }));
+        ctx.waitTicks(40);
+        say("v371 lateral aldeões: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            double min = 99;
+            for (var r : s.overworld().getEntities(ModEntities.RAVER, r -> b.teamOf(r) == 0)) min = Math.min(min, r.position().distanceTo(b.restartSpot()));
+            return String.format(Locale.ROOT, "aldeão do time A mais perto da cobrança: %.1f blocos (parada=%d)", min, b.restartKind());
+        }));
         // ---- vôlei: contra o amigo
         server.runCommand("forceload add -60 40 0 100");
         look(ctx, server, new Vec3(-29.5, -55, 72.5), 160f, 30f);

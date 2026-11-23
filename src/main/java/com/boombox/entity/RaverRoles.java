@@ -240,8 +240,10 @@ public final class RaverRoles {
             return true;
         }
         if (ball.keeperHold() != null) {
-            // goleiro com a bola: os dois times voltam para a formação
+            // goleiro com a bola: os dois times voltam para a formação (e o adversário sai da área, 3.7.1)
             Vec3 slot = formationSlot(r, ball, level, team);
+            int pg = ball.protectedGoal();
+            if (pg >= 0 && pg != (team == Ball.TEAM_A ? 0 : 1)) slot = ball.outOfBox(pg, slot);
             go(r, slot.x, slot.y, slot.z, 0.6);
             return true;
         }
@@ -343,23 +345,23 @@ public final class RaverRoles {
         double dist = dir.length();
         dir = dir.normalize();
         Vec3 best = null;
-        for (int tries = 0; tries < 60 && best == null; tries++) {
-            double h = 0.55 + rnd.nextDouble() * 0.6, vy = 0.3 + rnd.nextDouble() * 0.4;
-            double x = 0, y = 0, vh = h, v = vy, atWall = -1, atGoal = -1;
+        for (int tries = 0; tries < 150 && best == null; tries++) {
+            double h = 0.3 + rnd.nextDouble() * 0.45, vy = 0.5 + rnd.nextDouble() * 0.4;
+            double x = 0, y = 0, vh = h, v = vy, atWall = 99, atGoal = -1;
             for (int t = 0; t < 80 && x < dist; t++) {
                 v -= 0.045;
                 x += vh;
                 y += v;
                 vh *= 0.99;
                 v *= 0.98;
-                if (atWall < 0 && x >= 3.5) atWall = y;
+                if (x >= 2.6 && x <= 4.4) atWall = Math.min(atWall, y); // a barreira trava numa faixa, não num ponto
                 if (x >= dist) atGoal = y;
                 if (y < -0.5) break;
             }
-            if (atWall > 2.4 && atGoal > 0.2 && atGoal < 2.6) best = dir.scale(h).add(0, vy, 0);
+            if (atWall < 99 && atWall > 2.1 && atGoal > 0.2 && atGoal < 2.7) best = dir.scale(h).add(0, vy, 0);
         }
         // não achou (ou "errou" de propósito, 25%): chute forte rasteiro, que pode bater na barreira
-        if (best == null || rnd.nextDouble() < 0.25) best = dir.scale(1.0).add(0, 0.1 + rnd.nextDouble() * 0.1, 0);
+        if (best == null || rnd.nextDouble() < 0.15) best = dir.scale(1.0).add(0, 0.1 + rnd.nextDouble() * 0.1, 0);
         return best;
     }
 
@@ -753,7 +755,8 @@ public final class RaverRoles {
             }
             if (reach < 1.8 && b.y - r.getY() < 2.6 && r.settle == 0) {
                 double speed = vel.horizontalDistance();
-                double chance = Math.max(0.15, Math.min(0.9, 0.95 - speed * 0.35 - Math.abs(lat) * 0.12));
+                double low = b.y - own.y < 1.0 ? 0.22 : 0; // 3.7.1: rasteira o goleiro pega mais (só a bomba no alto entra fácil)
+                double chance = Math.max(0.15, Math.min(0.92, 0.95 - speed * 0.35 - Math.abs(lat) * 0.12 + low));
                 r.settle = 25;
                 if (r.getRandom().nextDouble() < chance) {
                     if (r.onGround()) r.jumpFromGround();
@@ -817,7 +820,7 @@ public final class RaverRoles {
         // 3.7: barreira da falta
         if (!ours && kind == Ball.FREE_KICK && ball.wallIndex(r) >= 0) {
             Vec3 w = ball.wallSpot(ball.wallIndex(r));
-            if (r.position().distanceTo(w) > 0.3) go(r, w.x, w.y, w.z, 0.8);
+            if (r.position().distanceTo(w) > 0.3) go(r, w.x, w.y, w.z, 1.0);
             r.getLookControl().setLookAt(spot.x, spot.y + 0.5, spot.z);
             return;
         }
@@ -879,7 +882,9 @@ public final class RaverRoles {
             pos = g.add(new Vec3(attack.x - g.x, 0, attack.z - g.z).normalize().scale(1.2));
         } else {
             pos = formationSlot(r, ball, level, team).lerp(spot, ours ? 0.3 : 0.15);
-            if (!ours && pos.distanceTo(spot) < 3.5) pos = spot.add(pos.subtract(spot).normalize().scale(3.5));
+            double gap = kind == Ball.THROW_IN || kind == Ball.CORNER ? Ball.RESTART_GAP + 0.5 : 3.5;
+            if (!ours && pos.distanceTo(spot) < gap) pos = spot.add(pos.subtract(spot).normalize().scale(gap));
+            if (!ours && kind == Ball.GOAL_KICK) pos = ball.outOfBox(team == Ball.TEAM_A ? 1 : 0, pos);
             if (kind == Ball.PENALTY) {
                 // no pênalti todo mundo fica fora da área
                 Vec3 g = ball.goal(team == ball.restartTeam() ? (team == Ball.TEAM_A ? 1 : 0) : (team == Ball.TEAM_A ? 0 : 1));

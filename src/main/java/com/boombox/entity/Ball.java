@@ -83,6 +83,8 @@ public class Ball extends Entity {
     private double goalHalf = 1.5, goalHeight = 2;
     /** Goleiro de verdade (pessoa) voando na bola: até quando. */
     private final Map<UUID, Integer> diving = new HashMap<>();
+    /** 3.7.1: de onde o goleiro saiu no pulo (o corpo cobre o caminho todo, não só onde ele está agora). */
+    private final Map<UUID, Vec3> diveFrom = new HashMap<>();
     private Vec3 restartSpot;
     private int goalPause;
     private int phase, clock;
@@ -111,6 +113,8 @@ public class Ball extends Entity {
     /** 3.7: barreira da falta (aldeões do time que defende) e quanto tempo ela ainda pode travar a bola. */
     private final List<UUID> wall = new ArrayList<>();
     private int wallTimer;
+    /** 3.7.1: quem da barreira pulou nessa cobrança (os outros ficam no chão, mais baixos). */
+    private final java.util.Set<UUID> wallJump = new java.util.HashSet<>();
     /** Quantas vezes a barreira travou a bola (para o teste). */
     public int wallHits;
 
@@ -305,7 +309,13 @@ public class Ball extends Entity {
         if (!canKick(team)) return;
         if (restartKind == FREE_KICK && !wall.isEmpty() && level() instanceof ServerLevel sl) {
             wallTimer = 30;
-            for (UUID id : wall) if (sl.getEntity(id) instanceof Raver r && r.onGround()) r.jumpFromGround();
+            wallJump.clear();
+            for (UUID id : wall) {
+                if (sl.getEntity(id) instanceof Raver r && r.onGround() && random.nextDouble() < 0.35) {
+                    r.jumpFromGround();
+                    wallJump.add(id);
+                }
+            }
         }
         if (restartKind >= 0) restartKind = -1;
         if (kickoffLock >= 0 && team == 1 - kickoffLock) kickoffLock = -1;
@@ -372,7 +382,8 @@ public class Ball extends Entity {
             for (UUID id : wall) {
                 if (!(sl.getEntity(id) instanceof Raver r)) continue;
                 double hd = Math.hypot(getX() - r.getX(), getZ() - r.getZ());
-                if (hd < 0.6 && getY() < groundY() + 2.2) { // a barreira (com o pulo) cobre uns 2,2 blocos
+                double top = wallJump.contains(id) ? 2.2 : 1.8; // no chão a barreira cobre 1,8 bloco; pulando, 2,2
+                if (hd < 0.55 && getY() < groundY() + top) {
                     Vec3 v = getDeltaMovement();
                     setDeltaMovement(-v.x * 0.35 + (random.nextDouble() - 0.5) * 0.2, Math.max(0.12, Math.abs(v.y) * 0.5), -v.z * 0.35 + (random.nextDouble() - 0.5) * 0.2);
                     lastTeam = teamOf(r);
@@ -389,6 +400,7 @@ public class Ball extends Entity {
             if (wallTimer == 0) wall.clear();
         }
         if (kickoffLock >= 0 && tickCount % 2 == 0) holdHalf(sl);
+        if (tickCount % 2 == 1) keepRivalsAway(sl);
         if (!hasGoals()) {
             if (tickCount % 20 == 1) findField(sl);
             return;
@@ -512,9 +524,11 @@ public class Ball extends Entity {
                     // cavadinha: por cima, devagar
                     kick(p, flat.scale(0.4 + charge * 0.3).add(0, 0.45 + charge * 0.15, 0));
                 } else {
-                    // chute rasteiro/meia altura: a força vem de quanto tempo você segurou o botão
+                    // 3.7.1: quanto mais tempo segurando, mais forte E mais alto (bomba cheia sobe; para chutar
+                    // rasteiro é preciso dosar a força)
                     double speed = 0.55 + charge * 0.95;
-                    kick(p, flat.scale(speed).add(0, 0.03 + Math.max(0, look.y + 0.05) * 0.7, 0));
+                    double lift = 0.02 + charge * charge * 0.55 + Math.max(0, look.y + 0.05) * 0.5;
+                    kick(p, flat.scale(speed).add(0, lift, 0));
                 }
                 ownCooldown.put(p.getUUID(), tickCount + 12);
             }
@@ -566,7 +580,9 @@ public class Ball extends Entity {
             p.sendOverlayMessage(Component.literal("§7Só o goleiro pula na bola (escolha \"Goleiro\" no organizador)."));
             return;
         }
-        if (!p.onGround()) return;
+        // 3.7.1: o "está no chão" do jogador chega do cliente com atraso; perto do chão já dá para pular
+        if (!p.onGround() && p.getY() - groundY() > 0.6) return;
+        if (diving.containsKey(p.getUUID())) return;
         Vec3 flat = new Vec3(look.x, 0, look.z);
         if (flat.lengthSqr() < 1e-4) flat = new Vec3(1, 0, 0);
         flat = flat.normalize();
@@ -575,16 +591,23 @@ public class Ball extends Entity {
         p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
         sl.playSound(null, p.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 0.7f);
         diving.put(p.getUUID(), tickCount + 16);
+        diveFrom.put(p.getUUID(), p.position());
     }
 
     /** Pessoa goleira voando: se alcança a bola, agarra (ela fica grudada, e aí dá para repor). */
     private void keeperSaves(ServerLevel sl) {
         if (diving.isEmpty()) return;
         diving.entrySet().removeIf(e -> e.getValue() < tickCount);
+        diveFrom.keySet().retainAll(diving.keySet());
         for (UUID id : diving.keySet()) {
             if (!(sl.getEntity(id) instanceof ServerPlayer p) || teamOf(p) < 0) continue;
             double hd = Math.hypot(getX() - p.getX(), getZ() - p.getZ()), dy = getY() - p.getY();
-            if (hd < 2.2 && dy > -0.8 && dy < 2.6) {
+            // distância da bola até o caminho do pulo (de onde saiu até onde está)
+            Vec3 a = diveFrom.getOrDefault(id, p.position());
+            Vec3 seg = new Vec3(p.getX() - a.x, 0, p.getZ() - a.z), toBall = new Vec3(getX() - a.x, 0, getZ() - a.z);
+            double t = seg.lengthSqr() < 1e-6 ? 0 : Math.max(0, Math.min(1, toBall.dot(seg) / seg.lengthSqr()));
+            double path = toBall.subtract(seg.scale(t)).length();
+            if ((hd < 2.2 || path < 1.6) && dy > -0.8 && dy < 2.6) {
                 owner = p.getUUID();
                 lastTeam = teamOf(p);
                 lastKicker = p.getUUID();
@@ -766,7 +789,7 @@ public class Ball extends Entity {
                         r -> teamOf(r) == 1 - team && r.stall != 1);
                 defs.sort((a, b) -> Double.compare(a.distanceToSqr(mid), b.distanceToSqr(mid)));
                 for (int i = 0; i < n && i < defs.size(); i++) wall.add(defs.get(i).getUUID());
-                restartTimer = 70; // tempo para a barreira se formar
+                restartTimer = 100; // tempo para a barreira se formar
             }
         }
         keeperHold = null;
@@ -994,6 +1017,56 @@ public class Ball extends Entity {
             announce("§c§l" + p.getName().getString() + " entrou no " + teamName(TEAM_B) + ", contra " + friend + "! §r§fJogador contra jogador, de "
                     + Sports.POSITIONS[pos] + ".");
             p.sendSystemMessage(Component.literal("§aVocê está no §c" + teamName(TEAM_B) + "§a, contra " + friend + ", de §e" + Sports.POSITIONS[pos] + "§a!"));
+        }
+    }
+
+    /** 3.7.1: área que o goleiro está protegendo (bola na mão dele ou tiro de meta): 0 ou 1, ou -1 = nenhuma. */
+    public int protectedGoal() {
+        if (keeperHold != null && level() instanceof ServerLevel sl && sl.getEntity(keeperHold) != null) {
+            return teamOf(sl.getEntity(keeperHold)) == TEAM_A ? 0 : 1;
+        }
+        if (restartKind == GOAL_KICK) return restartTeam == TEAM_A ? 0 : 1;
+        return -1;
+    }
+
+    /** Ponto logo fora da área desse gol (na mesma altura do campo). */
+    public Vec3 outOfBox(int goal, Vec3 p) {
+        if (!inBox(goal, p)) return p;
+        double vv = v(p);
+        // sai pela frente da área, ou pelo lado se já estiver bem aberto
+        if (Math.abs(vv) > 4.5) return fieldPoint(goal == 0 ? Math.max(0.5, u(p)) : Math.min(length - 0.5, u(p)), Math.signum(vv) * 6.6);
+        return fieldPoint(goal == 0 ? 7.2 : length - 7.2, vv);
+    }
+
+    /** Distância que o adversário tem que ficar da bola no lateral e no escanteio. */
+    public static final double RESTART_GAP = 4.0;
+
+    /**
+     * 3.7.1: bola do goleiro (na mão ou tiro de meta): o time adversário não entra na área. Lateral e escanteio: o
+     * adversário fica a 4 blocos da bola. Vale para as pessoas (os aldeões já se posicionam assim pela IA).
+     */
+    private void keepRivalsAway(ServerLevel sl) {
+        int g = protectedGoal();
+        if (g >= 0) {
+            int rival = g == 0 ? TEAM_B : TEAM_A;
+            for (ServerPlayer h : humansOf(sl, rival)) {
+                if (!inBox(g, h.position())) continue;
+                Vec3 out = outOfBox(g, h.position());
+                h.teleportTo(out.x, Math.max(h.getY(), center.y), out.z);
+                h.setDeltaMovement(Vec3.ZERO);
+                h.sendOverlayMessage(Component.literal("§eBola do goleiro: o time adversário não pode entrar na área."));
+            }
+        }
+        if (restartKind == THROW_IN || restartKind == CORNER) {
+            for (ServerPlayer h : humansOf(sl, 1 - restartTeam)) {
+                Vec3 d = new Vec3(h.getX() - restartSpot.x, 0, h.getZ() - restartSpot.z);
+                if (d.length() >= RESTART_GAP) continue;
+                Vec3 dir = d.lengthSqr() < 1e-4 ? new Vec3(center.x - restartSpot.x, 0, center.z - restartSpot.z).normalize() : d.normalize();
+                Vec3 out = restartSpot.add(dir.scale(RESTART_GAP + 0.3));
+                h.teleportTo(out.x, Math.max(h.getY(), center.y), out.z);
+                h.setDeltaMovement(Vec3.ZERO);
+                h.sendOverlayMessage(Component.literal("§eEspaço da cobrança: fique a 4 blocos da bola até ela ser cobrada."));
+            }
         }
     }
 
