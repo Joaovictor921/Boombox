@@ -63,6 +63,8 @@ public class Ball extends Entity {
     private static final double GRAVITY = 0.045, ROLL = 0.955, AIR = 0.99, MAX_SPEED = 1.5;
     /** 0 = os aldeões jogando sozinhos, 1 = amistoso marcado por alguém, 2 = campeonato. */
     public static final int AUTO = 0, FRIENDLY = 1, LEAGUE = 2;
+    /** 3.8: desafio de pênaltis do Seu Zé (5 cobranças da pessoa, depois 5 contra ela, valendo esmeraldas). */
+    public static final int CHALLENGE = 3;
 
     private static final EntityDataAccessor<Integer> SCORE_A = SynchedEntityData.defineId(Ball.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> SCORE_B = SynchedEntityData.defineId(Ball.class, EntityDataSerializers.INT);
@@ -117,6 +119,20 @@ public class Ball extends Entity {
     private final java.util.Set<UUID> wallJump = new java.util.HashSet<>();
     /** Quantas vezes a barreira travou a bola (para o teste). */
     public int wallHits;
+
+    // ---- 3.8
+    /** Narrador da partida. */
+    public final Narrator narrator = new Narrator(this);
+    /** Último chute ao gol (para o narrador falar da defesa ou do chute para fora). */
+    private int shotTick = -100, shotTeam = -1;
+    /** Desafio de pênaltis: quem, quanto apostou, cobrança (0-4 a pessoa bate, 5-9 ela defende) e estado. */
+    private UUID chPlayer, chKicker;
+    private int chBet, chRound, chState, chTimer, chKickTick, chPause;
+    /** Liga dos Amigos: os dois capitães (null = esse jogo não vale para a liga). */
+    private UUID leagueA, leagueB;
+    /** Apostas da copa: pessoa → [time, esmeraldas]. */
+    private final Map<UUID, int[]> bets = new java.util.LinkedHashMap<>();
+    public static final int FANS = 5;
 
     public int kickoffLock() {
         return kickoffLock;
@@ -281,6 +297,29 @@ public class Ball extends Entity {
         return out;
     }
 
+    /** Placar em texto ("Time A 1 x 0 Time B"). */
+    public String scoreLine() {
+        return score();
+    }
+
+    /** Nome de quem tocou na bola, do jeito do narrador ("Fulano" ou "o camisa 9 do Time"). */
+    public String nameOf(Entity e) {
+        if (e instanceof Player p) return p.getName().getString();
+        if (e instanceof Raver r) {
+            int t = teamOf(r);
+            return "o camisa " + r.stall + (t >= 0 ? " do " + teamName(t) : "");
+        }
+        return "alguém";
+    }
+
+    /** 3.8: o goleiro pegou ou espalmou: o narrador fala da defesa. */
+    public void noteSave(Entity keeper) {
+        if (tickCount - shotTick < 60) {
+            narrator.save(nameOf(keeper));
+            shotTick = -100;
+        }
+    }
+
     public double u(Vec3 p) { return p.subtract(goal0).dot(axis); }
     public double v(Vec3 p) { return p.subtract(center).dot(side); }
     public double uFor(int team, Vec3 p) { return team == TEAM_A ? u(p) : length - u(p); }
@@ -307,6 +346,7 @@ public class Ball extends Entity {
     public void kick(Entity who, Vec3 vel) {
         int team = teamOf(who);
         if (!canKick(team)) return;
+        int rk = restartKind;
         if (restartKind == FREE_KICK && !wall.isEmpty() && level() instanceof ServerLevel sl) {
             wallTimer = 30;
             wallJump.clear();
@@ -328,6 +368,17 @@ public class Ball extends Entity {
         lastTeam = team;
         lastKickTick = tickCount;
         playSound(SoundEvents.WOOL_HIT, Math.min(1.2f, 0.5f + (float) sp), 0.7f + random.nextFloat() * 0.2f);
+        // 3.8: chute ao gol (o narrador fala, e depois conta se foi defesa ou para fora)
+        if (hasGoals() && team >= 0 && (rk < 0 || rk == FREE_KICK || rk == PENALTY)) {
+            Vec3 g = goal(team == TEAM_A ? 1 : 0);
+            Vec3 d = new Vec3(g.x - getX(), 0, g.z - getZ());
+            Vec3 f = new Vec3(vel.x, 0, vel.z);
+            if (d.length() < 26 && f.length() > 0.7 && f.normalize().dot(d.normalize()) > 0.85) {
+                shotTick = tickCount;
+                shotTeam = team;
+                narrator.shot(nameOf(who));
+            }
+        }
     }
 
     public void catchBall(Raver keeper) {
@@ -392,6 +443,7 @@ public class Ball extends Entity {
                     playSound(SoundEvents.WOOL_HIT, 1f, 0.6f);
                     for (ServerPlayer p : sl.players()) if (p.distanceTo(this) < 40) p.sendOverlayMessage(Component.literal("§eNa barreira!"));
                     wallHits++;
+                    narrator.wallHit();
                     wallTimer = 0;
                     wall.clear();
                     break;
@@ -409,6 +461,11 @@ public class Ball extends Entity {
         if (tickCount % 1200 == 600) clearTrees(sl);
         if (tickCount % 200 == 40) ensureOrganizer(sl);
         if (tickCount % 10 == 5) guard(sl);
+        if (mode == CHALLENGE) {
+            tickChallenge(sl);
+            return;
+        }
+        if (tickCount % 20 == 11) cheer(sl);
         tickClock(sl);
         if (phase == 1 || phase == 3) return;
         if (goalPause > 0) {
@@ -438,6 +495,7 @@ public class Ball extends Entity {
             }
         }
         keeperSaves(sl);
+        if (tickCount % 20 == 3) narratePlay(sl);
         double u = u(p), w = v(p);
         if (Math.abs(w) > halfWidth + 0.3) {
             int team = lastTeam == TEAM_A ? TEAM_B : TEAM_A;
@@ -449,6 +507,10 @@ public class Ball extends Entity {
             if (lastTeam == defender) {
                 setRestart(sl, CORNER, 1 - defender, fieldPoint(su, Math.signum(w == 0 ? 1 : w) * (halfWidth - 0.4)), true);
             } else {
+                if (tickCount - shotTick < 60) {
+                    narrator.wide();
+                    shotTick = -100;
+                }
                 setRestart(sl, GOAL_KICK, defender, fieldPoint(end == 0 ? 2.5 : length - 2.5, Math.signum(w == 0 ? 1 : w) * 2.5), true);
             }
         }
@@ -615,7 +677,8 @@ public class Ball extends Entity {
                 setDeltaMovement(Vec3.ZERO);
                 diving.remove(id);
                 playSound(SoundEvents.WOOL_PLACE, 1f, 0.8f);
-                announce("§b§lQUE DEFESA! §r§f" + p.getName().getString() + " voou e pegou a bola!");
+                if (mode != CHALLENGE) announce("§b§lQUE DEFESA! §r§f" + p.getName().getString() + " voou e pegou a bola!");
+                noteSave(p);
                 return;
             }
         }
@@ -686,11 +749,13 @@ public class Ball extends Entity {
             whistle(sl, 3);
             loseOwner();
             announce("§e§lPriii, priii, priii! §r§fFim do primeiro tempo. §7(" + score() + ")");
+            narrator.halftime();
             goHome();
         } else if (phase == 1 && clock >= BREAK) {
             phase = 2;
             clock = 0;
             announce("§fComeça o §esegundo tempo§f!");
+            narrator.secondHalf();
             setRestart(sl, KICKOFF, TEAM_B, center, true);
         } else if (phase == 2 && clock >= HALF && !restarting() && mode == LEAGUE && cup != null && cup.knockout() && scoreA() == scoreB()) {
             // 3.6: empate no mata-mata: prorrogação com gol de ouro
@@ -806,9 +871,10 @@ public class Ball extends Entity {
             case PENALTY -> "§c§lPÊNALTI! §fFalta dentro da área: pênalti para o " + who + "!";
             default -> "§fSaída de bola do " + who + ".";
         };
-        announce(msg);
+        if (mode != CHALLENGE) announce(msg);
+        narrator.restart(kind, who, !wall.isEmpty());
         for (ServerPlayer h : humansOf(sl, team)) {
-            if (h.position().distanceTo(spot) < 12 && kind != KICKOFF) {
+            if (h.position().distanceTo(spot) < 12 && kind != KICKOFF && mode != CHALLENGE) {
                 h.sendOverlayMessage(Component.literal("§eSua cobrança? Chegue na bola e chute (esquerdo) ou passe (direito)."));
             }
         }
@@ -856,13 +922,22 @@ public class Ball extends Entity {
         sl.playSound(null, blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 1f, 1.2f);
         sl.sendParticles(ParticleTypes.FIREWORK, getX(), getY() + 1, getZ(), 50, 0.6, 0.6, 0.6, 0.12);
         String who = "";
+        String scorerName = null;
         if (lastKicker != null && sl.getEntity(lastKicker) instanceof ServerPlayer p) {
             who = " §e(" + p.getName().getString() + ")";
+            scorerName = p.getName().getString();
             Achievements.award(p, "gol_na_varzea");
             Cups.give(p, Cups.VARZEA);
+            // 3.8: ranking de artilheiros (gols de pessoas em jogo marcado)
+            if (mode != AUTO && teamOf(p) == scorer) com.boombox.WorldStats.get(sl.getServer()).add(scorerName, com.boombox.WorldStats.GOALS, 1);
+        } else if (lastKicker != null && sl.getEntity(lastKicker) instanceof Raver rk && teamOf(rk) == scorer) {
+            scorerName = nameOf(rk);
         }
         announce("§a§lGOOOOOL do " + teamName(scorer) + "!" + who + " §r§f" + score());
+        narrator.goal(scorerName, teamName(scorer));
+        shotTick = -100;
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) == scorer)) r.celebrate(true);
+        fansReact(sl, scorer);
         if (phase == 4) {
             // gol de ouro: acabou o jogo
             announce("§6§lGOL DE OURO! §r§fO " + teamName(scorer) + " passa de fase!");
@@ -881,6 +956,10 @@ public class Ball extends Entity {
 
     public void setup(ServerPlayer p, int setupMode, String name, int color, int position) {
         if (!(level() instanceof ServerLevel sl) || !hasGoals()) return;
+        if (mode == CHALLENGE) {
+            p.sendSystemMessage(Component.literal("§7Tem um desafio de pênaltis do Seu Zé acontecendo agora. Espere acabar!"));
+            return;
+        }
         if (setupMode == Sports.JUNTAR || setupMode == Sports.CONTRA) {
             join(sl, p, position, setupMode == Sports.CONTRA ? TEAM_B : TEAM_A);
             return;
@@ -944,7 +1023,10 @@ public class Ball extends Entity {
         for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) giveShirt(p, e.getValue());
         String kind = mode == LEAGUE && cup != null ? "§6" + cup.stageName() + ": " : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
         announce(kind + "§f" + a + " §7x §f" + b);
+        leagueA = leagueB = null;
         setRestart(sl, KICKOFF, TEAM_A, center, true);
+        spawnFans(sl);
+        narrator.kickoff();
     }
 
     /** Põe no banco o aldeão da posição de cada pessoa do time e acerta as camisas. */
@@ -1017,6 +1099,7 @@ public class Ball extends Entity {
             announce("§c§l" + p.getName().getString() + " entrou no " + teamName(TEAM_B) + ", contra " + friend + "! §r§fJogador contra jogador, de "
                     + Sports.POSITIONS[pos] + ".");
             p.sendSystemMessage(Component.literal("§aVocê está no §c" + teamName(TEAM_B) + "§a, contra " + friend + ", de §e" + Sports.POSITIONS[pos] + "§a!"));
+            if (mode == FRIENDLY && leagueA == null && mates.isEmpty()) leagueGame(sl, p);
         }
     }
 
@@ -1087,11 +1170,23 @@ public class Ball extends Entity {
         int a = scoreA(), b = scoreB();
         int winner = a > b ? TEAM_A : b > a ? TEAM_B : -1;
         announce("§e§lFIM DE JOGO! §r§f" + score() + " §7— " + (winner < 0 ? "Empate!" : "Vitória do " + teamName(winner) + "!"));
+        narrator.end();
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) >= 0)) r.celebrate(teamOf(r) == winner);
+        if (winner >= 0) fansReact(sl, winner);
+        if (leagueA != null) {
+            // 3.8: jogo da Liga dos Amigos: vai para a tabela
+            var ws = com.boombox.WorldStats.get(sl.getServer());
+            ws.recordLeague(leagueA, leagueB, a, b);
+            var ta = ws.team(leagueA);
+            int pos = ws.table().indexOf(ta) + 1;
+            announce("§b★ Liga dos Amigos: §fresultado na tabela. " + (ta == null ? "" : ta.name + " está em " + pos + "º lugar.") + " §7(organizador → Liga dos amigos)");
+            leagueA = leagueB = null;
+        }
         if (mode != LEAGUE || cup == null) return;
         for (var e : humans.entrySet()) if (e.getValue() == TEAM_A) playedFor.computeIfAbsent(e.getKey(), k -> new HashSet<>()).add(0);
         int tie = a == b && cup.knockout() ? (shootout >= 0 ? shootout : random.nextInt(2)) : 0;
         shootout = -1;
+        resolveBets(sl, a > b ? TEAM_A : b > a ? TEAM_B : cup.knockout() ? tie : -1);
         for (String m : cup.playerResult(a, b, tie, random)) announce(m);
         for (ServerPlayer h : humansOf(sl, TEAM_A)) Sports.sendCup(h, cup, Sports.FOOTBALL);
         if (cup.champion() == 0) {
@@ -1101,6 +1196,7 @@ public class Ball extends Entity {
                     ItemStack taca = new ItemStack(Blocks34.TACA_VARZEA);
                     if (!p.getInventory().add(taca)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), taca);
                     Achievements.award(p, "campeao_da_varzea");
+                    com.boombox.WorldStats.get(sl.getServer()).add(p.getName().getString(), com.boombox.WorldStats.CUPS, 1);
                     p.sendSystemMessage(Component.literal("§6Você foi campeão da copa com o " + cup.names[0] + " e levou a Taça da Várzea!"));
                 }
             }
@@ -1112,7 +1208,19 @@ public class Ball extends Entity {
      * estava no banco volta para o campo e os aldeões seguem numa pelada entre eles.
      */
     public void leave(ServerPlayer p) {
-        if (!(level() instanceof ServerLevel sl) || humans.remove(p.getUUID()) == null) return;
+        if (!(level() instanceof ServerLevel sl)) return;
+        if (mode == CHALLENGE) {
+            if (p.getUUID().equals(chPlayer)) {
+                narrator.line(p.getName().getString() + " desistiu do desafio! A aposta fica com o Seu Zé.");
+                endChallenge(sl);
+            }
+            return;
+        }
+        if (humans.remove(p.getUUID()) == null) return;
+        if (p.getUUID().equals(leagueA) || p.getUUID().equals(leagueB)) {
+            leagueA = leagueB = null;
+            announce("§7Esse jogo não vale mais para a Liga dos Amigos.");
+        }
         humanPos.remove(p.getUUID());
         if (p.getUUID().equals(owner)) loseOwner();
         Sports.sendState(p, Sports.NONE);
@@ -1127,6 +1235,7 @@ public class Ball extends Entity {
                 : "§7Você saiu do jogo. Fale com o organizador quando quiser jogar de novo."));
         if (humans.isEmpty()) {
             // ninguém mais jogando: volta a pelada dos aldeões, com times novos
+            resolveBets(sl, -1);
             mode = AUTO;
             playedFor.clear();
             startMatch(sl);
@@ -1163,6 +1272,403 @@ public class Ball extends Entity {
             return;
         }
         if (only != null) Sports.sendCup(only, cup, Sports.FOOTBALL);
+    }
+
+    // ------------------------------------------------------------ 3.8: narração do lance e torcida
+    /** De vez em quando o narrador conta quem está com a bola e onde. */
+    private void narratePlay(ServerLevel sl) {
+        if (mode == AUTO || !inPlay()) return;
+        Entity holder = owner == null ? null : sl.getEntity(owner);
+        if (holder == null) {
+            double best = 2.5;
+            for (Entity e : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(2.5), r -> teamOf(r) >= 0)) {
+                double d = e.distanceTo(this);
+                if (d < best) { best = d; holder = e; }
+            }
+        }
+        if (holder == null) return;
+        int t = teamOf(holder);
+        if (t < 0) return;
+        narrator.tickPlay(nameOf(holder), t, uFor(t, position()) / length, vFor(t, position()));
+    }
+
+    private static final String[] CHANTS = {
+            "Ô, ô, ô, o {t} chegou, a várzea é nossa, ô!", "Vamo, vamo, {t}! Hoje tem gol, hoje tem festa!",
+            "Uh, uh, uh, é o {t}! Ninguém segura!", "Bate o tambor, levanta a bandeira: {t} na cabeça!",
+            "Ê, ê, ê, o {t} vai vencer!", "Pra cima deles, {t}! A torcida tá contigo!",
+            "Um, dois, três, é gol do {t} outra vez!", "Ninguém para o {t}, ô, ninguém para!"};
+
+    /** Quantas vezes a torcida cantou (para o teste). */
+    public int chants;
+
+    /** A torcida canta de vez em quando (quem está atacando, ou um dos dois lados). */
+    private void cheer(ServerLevel sl) {
+        if (mode == AUTO || !inPlay() || random.nextInt(18) != 0) return;
+        var fans = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA);
+        if (fans.isEmpty()) return;
+        int team = owner != null ? ownerTeam() : lastTeam >= 0 && random.nextBoolean() ? lastTeam : random.nextInt(2);
+        if (team < 0) team = random.nextInt(2);
+        String chant = CHANTS[random.nextInt(CHANTS.length)].replace("{t}", teamName(team));
+        chants++;
+        for (var p : sl.players()) if (p.distanceTo(this) < 64) p.sendSystemMessage(Component.literal("§7📣 Torcida do " + teamName(team) + ": §f" + chant));
+        for (Raver f : fans) if (f.stall - 100 == team && f.onGround() && random.nextInt(2) == 0) f.jumpFromGround();
+    }
+
+    /** Gol ou vitória: a torcida do time comemora com sinalizador; a do outro reclama. */
+    private void fansReact(ServerLevel sl, int team) {
+        for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) {
+            boolean ours = f.stall - 100 == team;
+            f.celebrate(ours);
+            if (ours) f.flare = 100;
+        }
+    }
+
+    /** Torcida dos dois times na beira do campo (do lado oposto ao organizador), com camisa e bandeira do time. */
+    private void spawnFans(ServerLevel sl) {
+        for (Raver r : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) r.discard();
+        if (mode == AUTO || mode == CHALLENGE) return;
+        for (int team = 0; team < 2; team++) {
+            for (int i = 0; i < FANS; i++) {
+                double uu = length * (team == TEAM_A ? 0.12 : 0.58) + i * (length * 0.3 / (FANS - 1));
+                double vv = halfWidth + 2.8 + (i % 2) * 1.0;
+                Vec3 at = fieldPoint(uu, vv);
+                int y = sl.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(at.x), (int) Math.floor(at.z));
+                if (Math.abs(y - center.y) > 4) y = (int) Math.floor(center.y);
+                Raver f = ModEntities.RAVER.create(sl, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+                if (f == null) continue;
+                Vec3 look = fieldPoint(uu, 0);
+                float yaw = (float) (Math.toDegrees(Math.atan2(look.z - at.z, look.x - at.x)) - 90);
+                f.snapTo(at.x, y, at.z, yaw, 0);
+                f.setRole(RaverRoles.TORCIDA);
+                f.stall = 100 + team;
+                f.ball = getUUID();
+                f.setShirt(0xFF000000 | teamColor(team));
+                f.setItemSlot(EquipmentSlot.MAINHAND, banner(teamColor(team)));
+                sl.addFreshEntity(f);
+            }
+        }
+    }
+
+    /** Bandeira da cor mais parecida com a do time. */
+    public static ItemStack banner(int color) {
+        net.minecraft.world.item.DyeColor best = net.minecraft.world.item.DyeColor.WHITE;
+        long bd = Long.MAX_VALUE;
+        for (var d : net.minecraft.world.item.DyeColor.values()) {
+            int c = d.getTextureDiffuseColor();
+            long dr = ((c >> 16) & 255) - ((color >> 16) & 255), dg = ((c >> 8) & 255) - ((color >> 8) & 255), db = (c & 255) - (color & 255);
+            long dist = dr * dr + dg * dg + db * db;
+            if (dist < bd) { bd = dist; best = d; }
+        }
+        return new ItemStack(Items.BANNER.pick(best));
+    }
+
+    // ------------------------------------------------------------ 3.8: Liga dos Amigos
+    /** O amigo entrou contra quem marcou o amistoso: se os dois têm time na liga, o jogo vale pontos (com os times deles). */
+    private void leagueGame(ServerLevel sl, ServerPlayer rival) {
+        var as = humansOf(sl, TEAM_A);
+        if (as.isEmpty()) return;
+        ServerPlayer cap = as.get(0);
+        var ws = com.boombox.WorldStats.get(sl.getServer());
+        var ta = ws.team(cap.getUUID());
+        var tb = ws.team(rival.getUUID());
+        if (ta == null || tb == null) {
+            String hint = "§7Dica: na §bLiga dos Amigos§7 (organizador → Liga dos amigos) cada um monta seu time, e o jogo contra o amigo vale pontos na tabela.";
+            cap.sendSystemMessage(Component.literal(hint));
+            rival.sendSystemMessage(Component.literal(hint));
+            return;
+        }
+        int cb = Sports.similar(ta.color, tb.color) ? Sports.contrast(ta.color) : tb.color;
+        entityData.set(NAME_A, ta.name);
+        entityData.set(NAME_B, tb.name);
+        entityData.set(COLOR_A, ta.color);
+        entityData.set(COLOR_B, cb);
+        entityData.set(SCORE_A, 0);
+        entityData.set(SCORE_B, 0);
+        phase = 0;
+        clock = 0;
+        kickoffLock = -1;
+        rebench(sl);
+        for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer hp) giveShirt(hp, e.getValue());
+        announce("§b§l★ Liga dos Amigos! §r§f" + ta.name + " §7x §f" + tb.name + " §7— vale pontos na tabela (vitória 3, empate 1).");
+        setRestart(sl, KICKOFF, TEAM_A, center, true);
+        spawnFans(sl);
+        narrator.kickoff();
+        leagueA = cap.getUUID();
+        leagueB = rival.getUUID();
+    }
+
+    /** Só para o teste: esse jogo vale para a Liga dos Amigos? */
+    public boolean leagueGameRunning() {
+        return leagueA != null;
+    }
+
+    // ------------------------------------------------------------ 3.8: apostas nos jogos da copa
+    /** Dá para apostar: jogo da copa, ainda no primeiro tempo. */
+    public boolean betsOpen() {
+        return mode == LEAGUE && cup != null && phase == 0 && !humans.isEmpty();
+    }
+
+    /** Dados da tela de apostas: times, se está aberta, total em cada time e a minha aposta. */
+    public String betData(ServerPlayer p) {
+        int pa = 0, pb = 0;
+        for (int[] b : bets.values()) {
+            if (b[0] == TEAM_A) pa += b[1];
+            else pb += b[1];
+        }
+        int[] mine = bets.get(p.getUUID());
+        return teamName(TEAM_A) + "\t" + teamName(TEAM_B) + "\t" + (betsOpen() ? 1 : 0) + "\t" + pa + "\t" + pb + "\t"
+                + (mine == null ? -1 : mine[0]) + "\t" + (mine == null ? 0 : mine[1]) + "\t" + teamOf(p) + "\t" + (mode == LEAGUE && cup != null ? 1 : 0)
+                + "\t" + teamColor(TEAM_A) + "\t" + teamColor(TEAM_B);
+    }
+
+    public void placeBet(ServerPlayer p, int team, int amount) {
+        if (!(level() instanceof ServerLevel sl) || (team != TEAM_A && team != TEAM_B) || amount <= 0 || amount > 64) return;
+        if (!betsOpen()) {
+            p.sendSystemMessage(Component.literal(mode == LEAGUE ? "§7As apostas fecham no fim do primeiro tempo. Espere o próximo jogo da copa!"
+                    : "§7Só dá para apostar nos jogos da copa (campeonato)."));
+            return;
+        }
+        int my = teamOf(p);
+        if (my >= 0 && my != team) {
+            p.sendSystemMessage(Component.literal("§7Quem está jogando só pode apostar no próprio time!"));
+            return;
+        }
+        int[] old = bets.get(p.getUUID());
+        if (old != null && old[0] != team) {
+            p.sendSystemMessage(Component.literal("§7Você já apostou no " + teamName(old[0]) + ". Não dá para trocar de lado!"));
+            return;
+        }
+        boolean free = p.getAbilities().instabuild;
+        if (!free && com.boombox.WorldStats.countEmeralds(p) < amount) {
+            p.sendSystemMessage(Component.literal("§7Você não tem " + amount + " esmeralda(s)."));
+            return;
+        }
+        if (!free) com.boombox.WorldStats.takeEmeralds(p, amount);
+        com.boombox.WorldStats.get(sl.getServer()).hold(p.getUUID(), amount);
+        bets.merge(p.getUUID(), new int[]{team, amount}, (x, y) -> new int[]{x[0], x[1] + y[1]});
+        announce("§e$ " + p.getName().getString() + " apostou " + amount + " esmeralda(s) no " + teamName(team) + "!");
+    }
+
+    /** Fim do jogo: quem acertou divide tudo (do tamanho da aposta). Empate ou ninguém acertou: devolve. */
+    private void resolveBets(ServerLevel sl, int winner) {
+        if (bets.isEmpty()) return;
+        var ws = com.boombox.WorldStats.get(sl.getServer());
+        int pool = 0, win = 0;
+        for (int[] b : bets.values()) {
+            pool += b[1];
+            if (b[0] == winner) win += b[1];
+        }
+        boolean refund = winner < 0 || win == 0;
+        for (var e : bets.entrySet()) {
+            int[] b = e.getValue();
+            ws.release(e.getKey(), b[1]);
+            int pay = refund ? b[1] : b[0] == winner ? (int) Math.floor((double) pool * b[1] / win) : 0;
+            ws.pay(sl.getServer(), e.getKey(), pay);
+            if (sl.getServer().getPlayerList().getPlayer(e.getKey()) instanceof ServerPlayer p) {
+                p.sendSystemMessage(Component.literal(refund ? "§e$ Aposta devolvida: " + b[1] + " esmeralda(s)."
+                        : pay > 0 ? "§a$ Você acertou a aposta e ganhou " + pay + " esmeralda(s)!" : "§c$ Não foi dessa vez: você perdeu " + b[1] + " esmeralda(s) na aposta."));
+            }
+        }
+        if (!refund) announce("§e$ Apostas: " + pool + " esmeralda(s) divididas entre quem apostou no " + teamName(winner) + ".");
+        bets.clear();
+    }
+
+    // ------------------------------------------------------------ 3.8: desafio de pênaltis do Seu Zé
+    public boolean challengeRunning() {
+        return mode == CHALLENGE;
+    }
+
+    /** Começa o desafio (a aposta já foi paga ao Seu Zé). false = o campo está ocupado. */
+    public boolean startChallenge(ServerPlayer p, int bet) {
+        if (!(level() instanceof ServerLevel sl) || !hasGoals() || mode != AUTO) return false;
+        humans.clear();
+        humanPos.clear();
+        mode = CHALLENGE;
+        chPlayer = p.getUUID();
+        chBet = bet;
+        chRound = 0;
+        chState = 0;
+        chTimer = 0;
+        humans.put(p.getUUID(), TEAM_A);
+        humanPos.put(p.getUUID(), 6);
+        entityData.set(NAME_A, p.getName().getString());
+        entityData.set(NAME_B, "Time do Seu Zé");
+        entityData.set(COLOR_A, 0xF0D020);
+        entityData.set(COLOR_B, 0x6D4C2F);
+        entityData.set(SCORE_A, 0);
+        entityData.set(SCORE_B, 0);
+        phase = 0;
+        clock = 0;
+        kickoffLock = -1;
+        goalPause = 0;
+        restartKind = -1;
+        keeperHold = null;
+        loseOwner();
+        bets.clear();
+        rebench(sl);
+        giveShirt(p, TEAM_A);
+        spawnFans(sl);
+        Sports.sendState(p, Sports.FOOTBALL, false, 6);
+        narrator.challengeStart(p.getName().getString(), bet);
+        return true;
+    }
+
+    /** Marca do pênalti do gol que a pessoa ataca (cobranças 1 a 5). */
+    public Vec3 challengeSpot() {
+        return fieldPoint(length - 5, 0);
+    }
+
+    private void tickChallenge(ServerLevel sl) {
+        ServerPlayer p = chPlayer == null ? null : sl.getServer().getPlayerList().getPlayer(chPlayer);
+        if (p == null || !p.isAlive() || p.level() != sl || p.distanceTo(this) > 120) {
+            narrator.line("O desafio de pênaltis acabou: o desafiante sumiu. A aposta fica com o Seu Zé.");
+            endChallenge(sl);
+            return;
+        }
+        chTimer++;
+        if (tickCount % 10 == 0) {
+            entityData.set(INFO, chState == 0 ? "Desafio de pênaltis: venha para o campo"
+                    : chRound < 5 ? "Pênaltis: você bate " + (chRound + 1) + "/5" : "Pênaltis: você defende " + (Math.min(chRound, 9) - 4) + "/5");
+        }
+        switch (chState) {
+            case 0 -> {
+                Vec3 spot = challengeSpot();
+                double d = p.position().distanceTo(spot);
+                if (d < 14) {
+                    setupKick(sl, p);
+                } else if (chTimer > 20 * 150) {
+                    com.boombox.WorldStats.giveEmeralds(p, chBet);
+                    p.sendSystemMessage(Component.literal("§7Você não veio para o campo: o Seu Zé devolveu a aposta."));
+                    endChallenge(sl);
+                } else if (chTimer % 40 == 1) {
+                    p.sendOverlayMessage(Component.literal("§eDesafio de pênaltis: vá até o campo de futebol (" + (int) d + " blocos)."));
+                }
+            }
+            case 1 -> {
+                if (restartKind < 0) {
+                    chState = 2;
+                    chKickTick = tickCount;
+                    chKicker = lastKicker;
+                    return;
+                }
+                setPos(restartSpot.x, center.y, restartSpot.z);
+                setDeltaMovement(0, getDeltaMovement().y, 0);
+                restartTimer--;
+                if (chRound < 5 && restartTimer < -20 * 30) challengeResult(sl, p, false);
+                else if (chRound >= 5 && restartTimer < -20 * 15) challengeResult(sl, p, false);
+            }
+            case 2 -> {
+                int target = chRound < 5 ? 1 : 0;
+                Vec3 pos = position();
+                double gu = u(pos);
+                boolean net = Blocks34.isGoal(sl.getBlockState(blockPosition())) || Blocks34.isGoal(sl.getBlockState(blockPosition().above()));
+                boolean mouth = Math.abs(v(pos)) < goalHalf - 0.1 && pos.y - center.y < goalHeight - 0.1 && (target == 0 ? gu < 0.3 : gu > length - 0.3);
+                if ((net && (gu < length / 2 ? 0 : 1) == target) || mouth) {
+                    challengeResult(sl, p, true);
+                    return;
+                }
+                keeperSaves(sl);
+                boolean touched = owner != null || keeperHold != null || (lastKicker != null && !lastKicker.equals(chKicker));
+                boolean out = gu < -0.5 || gu > length + 0.5 || Math.abs(v(pos)) > halfWidth + 0.3;
+                boolean dead = tickCount - chKickTick > 15 && getDeltaMovement().horizontalDistance() < 0.06;
+                if (touched || out || dead || tickCount - chKickTick > 70) challengeResult(sl, p, false);
+            }
+            default -> {
+                if (--chPause > 0) return;
+                chRound++;
+                if (chRound >= 10) finishChallenge(sl, p);
+                else setupKick(sl, p);
+            }
+        }
+    }
+
+    /** Bola na marca: a pessoa bate (cobranças 1-5, no gol do outro lado) ou defende (6-10, no gol de cá). */
+    private void setupKick(ServerLevel sl, ServerPlayer p) {
+        chState = 1;
+        boolean kicks = chRound < 5;
+        humanPos.put(chPlayer, kicks ? 6 : 0);
+        rebench(sl);
+        Sports.sendState(p, Sports.FOOTBALL, false, kicks ? 6 : 0);
+        Vec3 g1 = goal(1), g0 = goal(0);
+        if (kicks) {
+            setRestart(sl, PENALTY, TEAM_A, challengeSpot(), true);
+            Vec3 at = fieldPoint(length - 7, 0);
+            float yaw = (float) (Math.toDegrees(Math.atan2(g1.z - at.z, g1.x - at.x)) - 90);
+            p.teleportTo(sl, at.x, center.y, at.z, java.util.Set.of(), yaw, 0f, true);
+            p.sendOverlayMessage(Component.literal("§eCobrança " + (chRound + 1) + "/5: chegue na bola e chute (segure o botão para mais força)."));
+        } else {
+            setRestart(sl, PENALTY, TEAM_B, fieldPoint(5, 0), true);
+            restartTimer = 120;
+            Vec3 at = fieldPoint(0.7, 0);
+            float yaw = (float) (Math.toDegrees(Math.atan2(g1.z - g0.z, g1.x - g0.x)) - 90);
+            p.teleportTo(sl, at.x, center.y, at.z, java.util.Set.of(), yaw, 0f, true);
+            p.sendOverlayMessage(Component.literal("§bVocê no gol! Defesa " + (chRound - 4) + "/5: use a tecla do pulo do goleiro na direção da bola."));
+        }
+        p.setDeltaMovement(Vec3.ZERO);
+    }
+
+    private void challengeResult(ServerLevel sl, ServerPlayer p, boolean goal) {
+        boolean kicks = chRound < 5;
+        if (goal) {
+            if (kicks) entityData.set(SCORE_A, scoreA() + 1);
+            else entityData.set(SCORE_B, scoreB() + 1);
+            sl.sendParticles(ParticleTypes.FIREWORK, getX(), getY() + 1, getZ(), 30, 0.5, 0.5, 0.5, 0.1);
+            sl.playSound(null, blockPosition(), kicks ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_CELEBRATE, SoundSource.NEUTRAL, 1f, 1.2f);
+        }
+        narrator.challengeKick(p.getName().getString(), kicks, goal);
+        p.sendOverlayMessage(Component.literal("§f" + p.getName().getString() + " §e" + scoreA() + " x " + scoreB() + " §fTime do Seu Zé"));
+        chState = 3;
+        chPause = 50;
+        restartKind = -1;
+        diving.clear();
+    }
+
+    private void finishChallenge(ServerLevel sl, ServerPlayer p) {
+        int a = scoreA(), b = scoreB();
+        String who = p.getName().getString();
+        if (a > b) {
+            com.boombox.WorldStats.giveEmeralds(p, chBet * 2);
+            narrator.line(who + " venceu o desafio por " + a + " a " + b + " e levou " + (chBet * 2) + " esmeraldas do Seu Zé! Que craque!");
+            sl.sendParticles(ParticleTypes.FIREWORK, p.getX(), p.getY() + 2, p.getZ(), 60, 1, 1, 1, 0.15);
+        } else if (a == b) {
+            com.boombox.WorldStats.giveEmeralds(p, chBet);
+            narrator.line("Empate em " + a + " a " + b + "! Ninguém ganha: a aposta de " + who + " volta pro bolso.");
+        } else {
+            narrator.line("O time do Seu Zé venceu por " + b + " a " + a + ". A aposta ficou no bar! Volta outro dia, " + who + "!");
+        }
+        endChallenge(sl);
+    }
+
+    private void endChallenge(ServerLevel sl) {
+        for (UUID id : new ArrayList<>(humans.keySet())) {
+            if (sl.getEntity(id) instanceof ServerPlayer hp) {
+                Sports.sendState(hp, Sports.NONE);
+                ItemStack chest = hp.getItemBySlot(EquipmentSlot.CHEST);
+                if (chest.is(Items.LEATHER_CHESTPLATE) && chest.has(DataComponents.CUSTOM_NAME) && chest.getHoverName().getString().startsWith("Camisa do")) {
+                    hp.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+                }
+            }
+        }
+        humans.clear();
+        humanPos.clear();
+        chPlayer = null;
+        chState = 0;
+        diving.clear();
+        mode = AUTO;
+        startMatch(sl);
+    }
+
+    /** Só para o teste: estado do desafio. */
+    public String challengeInfo() {
+        return "rodada=" + chRound + " estado=" + chState + " placar=" + scoreA() + "x" + scoreB();
+    }
+
+    public int challengeRound() {
+        return chRound;
+    }
+
+    public int challengeState() {
+        return chState;
     }
 
     private void findField(ServerLevel sl) {
@@ -1225,7 +1731,8 @@ public class Ball extends Entity {
     private void guard(ServerLevel sl) {
         AABB box = new AABB(center, center).inflate(length / 2 + 3, 6, length / 2 + 3);
         for (Entity e : sl.getEntities(this, box, e -> e instanceof net.minecraft.world.entity.LivingEntity && !(e instanceof Player))) {
-            if (e instanceof Raver r && (r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B || r.role() == RaverRoles.ORG_FUT)) continue;
+            if (e instanceof Raver r && (r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B || r.role() == RaverRoles.ORG_FUT
+                    || r.role() == RaverRoles.NARRADOR || r.role() == RaverRoles.TORCIDA)) continue;
             if (!inArea(e.position(), 0)) continue;
             double vv = v(e.position());
             Vec3 out = fieldPoint(Math.max(0, Math.min(length, u(e.position()))), Math.signum(vv == 0 ? 1 : vv) * (halfWidth + 5));
@@ -1235,6 +1742,16 @@ public class Ball extends Entity {
 
     /** Campo sem organizador (os da 3.3/3.4): chama um, na beira do campo perto do meio. */
     private void ensureOrganizer(ServerLevel sl) {
+        if (sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(50), r -> r.role() == RaverRoles.NARRADOR).isEmpty()) {
+            // 3.8: o narrador fica do outro lado do meio de campo, com o microfone
+            Raver n = ModEntities.RAVER.create(sl, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+            if (n != null) {
+                Vec3 at = fieldPoint(length / 2 - 3, -(halfWidth + 1.2));
+                n.snapTo(at.x, center.y, at.z, 0, 0);
+                n.setRole(RaverRoles.NARRADOR);
+                sl.addFreshEntity(n);
+            }
+        }
         if (!sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(50), r -> r.role() == RaverRoles.ORG_FUT).isEmpty()) return;
         Raver o = ModEntities.RAVER.create(sl, net.minecraft.world.entity.EntitySpawnReason.EVENT);
         if (o == null) return;

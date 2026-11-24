@@ -166,6 +166,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         HttpServer http = startBeatServer();
         String url = "http://127.0.0.1:" + http.getAddress().getPort() + "/batida.wav";
+        if ("mapa".equals(System.getenv("BOOMBOX_QUICK"))) {
+            mapa(ctx);
+            return;
+        }
         if ("vigia".equals(System.getenv("BOOMBOX_QUICK"))) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 TestServerContext server = sp.getServer();
@@ -196,6 +200,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
+            if ("v38".equals(System.getenv("BOOMBOX_QUICK"))) {
+                v38(ctx, server);
+                return;
+            }
             if ("v37".equals(System.getenv("BOOMBOX_QUICK"))) {
                 v37(ctx, server);
                 return;
@@ -1576,6 +1584,289 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             server.runOnServer(s -> s.getPlayerList().getPlayers().forEach(pl -> { pl.getAbilities().flying = true; pl.onUpdateAbilities(); }));
             ctx.waitTicks(30);
             ctx.takeScreenshot("copa_sinuca_quadro");
+        }
+    }
+
+    /** 3.8: narrador, torcida, Liga dos Amigos, apostas da copa, ranking, desafio de pênaltis e as telas. */
+    private static void v38(ClientGameTestContext ctx, TestServerContext server) {
+        server.runCommand("time set noon");
+        server.runCommand("gamerule spawn_monsters false");
+        server.runCommand("forceload add 40 0 170 110");
+        look(ctx, server, new Vec3(110.5, -40, 30.5), 0f, 45f);
+        ctx.waitTicks(60);
+        server.runCommand("place template boombox:varzea 80 -61 40");
+        ctx.waitTicks(260); // o organizador e o narrador aparecem
+        say("v38 narrador: " + server.computeOnServer(s -> {
+            var narr = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.NARRADOR);
+            if (narr.isEmpty()) return "SEM NARRADOR";
+            var n = narr.get(0);
+            return "narradores=" + narr.size() + " nome=" + (n.getCustomName() == null ? "?" : n.getCustomName().getString())
+                    + " microfone=" + n.getMainHandItem().is(com.boombox.ModBlocks.MICROPHONE);
+        }));
+        // ---- amistoso: torcida e narração
+        server.runOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            pl.getInventory().clearContent();
+            pl.getInventory().add(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD, 20));
+            ball(s).setup(pl, com.boombox.entity.Sports.AMISTOSO, "", 0, 6);
+            pl.getAbilities().flying = false;
+            pl.onUpdateAbilities();
+        });
+        ctx.waitTicks(40);
+        say("v38 torcida: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var fans = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TORCIDA);
+            long banners = fans.stream().filter(f -> f.getMainHandItem().getItem().toString().contains("banner")).count();
+            long shirtA = fans.stream().filter(f -> (f.getShirt() & 0xFFFFFF) == b.teamColor(0)).count();
+            double minOut = 99;
+            for (var f : fans) minOut = Math.min(minOut, Math.abs(b.v(f.position())) - b.halfWidth());
+            return "torcedores=" + fans.size() + " com bandeira=" + banners + " camisa do time A=" + shirtA
+                    + String.format(Locale.ROOT, " (fora do campo, a %.1f blocos da linha)", minOut) + " falas do narrador=" + b.narrator.lines;
+        }));
+        // foto: torcida na beira do campo
+        server.runOnServer(s -> {
+            var b = ball(s);
+            Vec3 at = b.fieldPoint(b.length() * 0.5, b.halfWidth() + 9);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.teleportTo(at.x, at.y + 4, at.z);
+        });
+        server.runOnServer(s -> {
+            var b = ball(s);
+            Vec3 at = b.fieldPoint(b.length() * 0.5, b.halfWidth() + 9);
+            Vec3 c = b.fieldPoint(b.length() * 0.5, 0);
+            float yaw = (float) (Math.toDegrees(Math.atan2(c.z - at.z, c.x - at.x)) - 90);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.teleportTo(s.overworld(), at.x, at.y + 4, at.z, java.util.Set.of(), yaw, 25f, true);
+            pl.getAbilities().flying = true;
+            pl.onUpdateAbilities();
+        });
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("v38_torcida");
+        // gol da pessoa: narrador, sinalizador da torcida e ranking de artilheiros
+        server.runOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            b.forcePlay();
+            b.loseOwner();
+            Vec3 from = b.teamPoint(0, b.length() - 5, 0);
+            Vec3 g = b.goal(1);
+            b.setPos(from.x, from.y + 0.3, from.z);
+            b.kick(pl, new Vec3(g.x - from.x, 0, g.z - from.z).normalize().scale(1.3).add(0, 0.05, 0));
+        });
+        ctx.waitTicks(12);
+        say("v38 gol: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            long flares = s.overworld().getEntities(ModEntities.RAVER, r -> r.role() == com.boombox.entity.RaverRoles.TORCIDA && r.flare > 0).size();
+            return "placar " + b.scoreA() + "x" + b.scoreB() + " torcedores com sinalizador=" + flares + " gols no ranking="
+                    + com.boombox.WorldStats.get(s).stat(pl.getName().getString(), com.boombox.WorldStats.GOALS) + " falas=" + b.narrator.lines;
+        }));
+        ctx.takeScreenshot("v38_sinalizador");
+        // um pouco de jogo: narração dos lances e a torcida cantando
+        server.runOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            var b = ball(s);
+            Vec3 at = b.fieldPoint(b.length() * 0.5, -(b.halfWidth() + 6));
+            pl.teleportTo(at.x, at.y + 3, at.z);
+        });
+        ctx.waitTicks(1200);
+        say("v38 jogo: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            return "falas do narrador=" + b.narrator.lines + " cantos da torcida=" + b.chants + " " + b.minute() + " " + b.scoreA() + "x" + b.scoreB();
+        }));
+        // ---- Liga dos Amigos: os dois têm time, o jogo contra vale pontos
+        say("v38 liga: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            var rival = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Rival"));
+            var ws = com.boombox.WorldStats.get(s);
+            ws.setTeam(pl, "Bonde do Teste", 0xF0D020);
+            ws.setTeam(rival, "Rival FC", 0x8E24AA);
+            b.setup(rival, com.boombox.entity.Sports.CONTRA, "", 0, 4);
+            return "vale para a liga=" + b.leagueGameRunning() + " times: " + b.teamName(0) + " x " + b.teamName(1) + " placar " + b.scoreA() + "x" + b.scoreB();
+        }));
+        server.runOnServer(s -> ball(s).testEnd(2, 1));
+        ctx.waitTicks(5);
+        say("v38 tabela da liga: " + server.computeOnServer(s -> {
+            StringBuilder sb = new StringBuilder();
+            for (var t : com.boombox.WorldStats.get(s).table()) sb.append(t.name).append(" P=").append(t.points()).append(" J=").append(t.j)
+                    .append(" GP=").append(t.gp).append(" GC=").append(t.gc).append("; ");
+            return sb.toString();
+        }));
+        server.runOnServer(s -> com.boombox.server.Features38.openLeague(s.getPlayerList().getPlayers().get(0)));
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("v38_tela_liga");
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+        ctx.waitTicks(420); // acabou o amistoso: volta a pelada
+        // ---- copa com apostas: a pessoa aposta no próprio time, o amigo no outro
+        say("v38 apostas: " + server.computeOnServer(s -> {
+            var b = ball(s);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Bonde do Teste", 0xF0D020, 6);
+            var amigo = net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Apostador"));
+            amigo.getInventory().add(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD, 10));
+            int antes = com.boombox.WorldStats.countEmeralds(pl);
+            b.placeBet(pl, 0, 3);
+            b.placeBet(amigo, 1, 5);
+            b.placeBet(pl, 1, 2); // não pode trocar de lado
+            return "aberta=" + b.betsOpen() + " esmeraldas da pessoa " + antes + "->" + com.boombox.WorldStats.countEmeralds(pl)
+                    + " do amigo 10->" + com.boombox.WorldStats.countEmeralds(amigo) + " dados=" + b.betData(pl).replace('\t', '|');
+        }));
+        server.runOnServer(s -> com.boombox.server.Features38.send(s.getPlayerList().getPlayers().get(0), com.boombox.server.Features38.UI_BET,
+                "0\t" + ball(s).betData(s.getPlayerList().getPlayers().get(0))));
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("v38_tela_apostas");
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+        server.runOnServer(s -> ball(s).testEnd(2, 0));
+        ctx.waitTicks(5);
+        say("v38 apostas depois: " + server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            return "esmeraldas da pessoa=" + com.boombox.WorldStats.countEmeralds(pl) + " (apostou 3, o pote era 8)";
+        }));
+        ctx.waitTicks(420);
+        // desiste da copa
+        server.runOnServer(s -> ball(s).leave(s.getPlayerList().getPlayers().get(0)));
+        ctx.waitTicks(20);
+        // ---- ranking: quadro na parede
+        server.runCommand("fill 60 -60 60 66 -56 60 minecraft:stone_bricks");
+        server.runOnServer(s -> {
+            var ws = com.boombox.WorldStats.get(s);
+            ws.add("Zezinho", com.boombox.WorldStats.SINUCA, 3);
+            ws.add("Mariazinha", com.boombox.WorldStats.CUPS, 2);
+            ws.add("Mariazinha", com.boombox.WorldStats.GOALS, 7);
+            ws.add("Tonhão", com.boombox.WorldStats.GOALS, 4);
+            com.boombox.bar.RankingBoardBlock.hangNear(s.overworld(), new BlockPos(63, -61, 58));
+        });
+        ctx.waitTicks(120);
+        say("v38 quadro: " + server.computeOnServer(s -> {
+            for (BlockPos p : BlockPos.betweenClosed(new BlockPos(55, -62, 50), new BlockPos(72, -54, 66))) {
+                if (s.overworld().getBlockEntity(p) instanceof com.boombox.bar.RankingBoardBlock.Entity be) return "em " + p.toShortString() + " dados=" + be.data.replace('\n', '/').replace('\t', ',');
+            }
+            return "SEM QUADRO";
+        }));
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+        look(ctx, server, new Vec3(63.5, -60.0, 56.6), 0f, 0f);
+        ctx.waitTicks(15);
+        ctx.runOnClient(mc -> { mc.gui.setScreen(null); if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle(); });
+        ctx.waitTicks(3);
+        ctx.takeScreenshot("v38_quadro_ranking");
+        ctx.runOnClient(mc -> { if (mc.gui.hud.isHidden()) mc.gui.hud.toggle(); });
+        server.runOnServer(s -> com.boombox.server.Features38.openRanking(s.getPlayerList().getPlayers().get(0)));
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("v38_tela_ranking");
+        ctx.runOnClient(mc -> mc.gui.setScreen(null));
+        // ---- desafio de pênaltis com o Seu Zé
+        server.runOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.getAbilities().flying = false;
+            pl.onUpdateAbilities();
+            var ze = ModEntities.SEU_ZE.create(s.overworld(), net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            ze.snapTo(70.5, -61, 30.5, 0, 0);
+            s.overworld().addFreshEntity(ze);
+            pl.teleportTo(71.5, -61, 31.5);
+        });
+        ctx.waitTicks(5);
+        say("v38 desafio: " + server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            var ze = (com.boombox.entity.SeuZe) s.overworld().getEntities(ModEntities.SEU_ZE, e -> true).get(0);
+            int antes = com.boombox.WorldStats.countEmeralds(pl);
+            ze.order(pl, 3, 4);
+            return "esmeraldas " + antes + "->" + com.boombox.WorldStats.countEmeralds(pl) + " desafio=" + ball(s).challengeRunning() + " " + ball(s).challengeInfo();
+        }));
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("v38_seta");
+        server.runOnServer(s -> {
+            var b = ball(s);
+            Vec3 at = b.fieldPoint(b.length() - 9, 0);
+            s.getPlayerList().getPlayers().get(0).teleportTo(at.x, at.y + 0.2, at.z);
+        });
+        int[] meus = {0};
+        for (int k = 0; k < 10; k++) {
+            int kk = k;
+            // espera a bola ficar na marca
+            for (int w = 0; w < 30; w++) {
+                ctx.waitTicks(10);
+                boolean ready = server.computeOnServer(s -> ball(s).challengeState() == 1 && ball(s).challengeRound() == kk);
+                if (ready) break;
+            }
+            if (k < 5) {
+                // a pessoa bate: chega na bola e chuta num canto (às vezes fraco no meio, para o goleiro pegar)
+                ctx.waitTicks(20);
+                server.runOnServer(s -> {
+                    var b = ball(s);
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    Vec3 spot = b.challengeSpot();
+                    Vec3 g = b.goal(1);
+                    Vec3 dir = new Vec3(g.x - spot.x, 0, g.z - spot.z).normalize();
+                    Vec3 side = new Vec3(-dir.z, 0, dir.x);
+                    Vec3 aim = kk % 2 == 0 ? g.add(side.scale(1.2)) : g;
+                    Vec3 stand = spot.subtract(dir.scale(0.8));
+                    float yaw = (float) (Math.toDegrees(Math.atan2(aim.z - spot.z, aim.x - spot.x)) - 90);
+                    pl.teleportTo(s.overworld(), stand.x, b.getY(), stand.z, java.util.Set.of(), yaw, 0f, true);
+                    b.playerAction(pl, com.boombox.entity.Sports.FUT_SHOOT, kk % 2 == 0 ? 0.35f : 0.1f);
+                });
+            } else {
+                // a pessoa no gol: pula na direção da bola quando ela vem
+                for (int w = 0; w < 140; w += 2) {
+                    ctx.waitTicks(2);
+                    boolean dove = server.computeOnServer(s -> {
+                        var b = ball(s);
+                        if (b.challengeState() != 2) return false;
+                        var pl = s.getPlayerList().getPlayers().get(0);
+                        if (kk % 2 == 1) return true; // nessas não pula
+                        Vec3 v = b.getDeltaMovement();
+                        Vec3 to = new Vec3(b.getX() + v.x * 6 - pl.getX(), 0, b.getZ() + v.z * 6 - pl.getZ());
+                        float yaw = (float) (Math.toDegrees(Math.atan2(to.z, to.x)) - 90);
+                        pl.setYRot(yaw);
+                        pl.setXRot(0);
+                        b.playerAction(pl, com.boombox.entity.Sports.GK_DIVE);
+                        return true;
+                    });
+                    if (dove) break;
+                }
+            }
+            ctx.waitTicks(60);
+            say("v38 cobrança " + (k + 1) + ": " + server.computeOnServer(s -> ball(s).challengeInfo()));
+            if (k == 2) ctx.takeScreenshot("v38_penalti_batendo");
+            if (k == 6) ctx.takeScreenshot("v38_penalti_no_gol");
+        }
+        ctx.waitTicks(80);
+        say("v38 desafio fim: " + server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            return "desafio=" + ball(s).challengeRunning() + " modo=" + ball(s).mode() + " esmeraldas=" + com.boombox.WorldStats.countEmeralds(pl) + " " + ball(s).info();
+        }));
+    }
+
+    /** 3.8: mapa da vila num mundo normal: lugares da vila mais perto e a tela, com a seta. */
+    private void mapa(ClientGameTestContext ctx) {
+        try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
+            TestServerContext server = sp.getServer();
+            server.runCommand("gamerule spawn_monsters false");
+            server.runCommand("time set noon");
+            server.runCommand("tp @p -1290 150 330");
+            server.runCommand("effect give @p slow_falling 60");
+            ctx.waitTicks(200);
+            String r = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var places = com.boombox.server.Features38.villagePlaces(s.overworld(), pl.blockPosition());
+                if (places == null) return "SEM VILA";
+                StringBuilder sb = new StringBuilder();
+                for (String[] p : places) sb.append(p[0]).append(" (").append(p[1]).append(",").append(p[2]).append(") ");
+                pl.getInventory().add(new net.minecraft.world.item.ItemStack(com.boombox.bar.Blocks34.MAPA_VILA));
+                com.boombox.server.Features38.openMap(pl);
+                return sb.toString();
+            });
+            System.out.println("[BoomboxTest] mapa: " + r);
+            ctx.waitTicks(20);
+            ctx.takeScreenshot("v38_tela_mapa");
+            ctx.runOnClient(mc -> {
+                if (mc.gui.screen() != null) mc.gui.setScreen(null);
+                com.boombox.client.Client38.navigate("Campo de futebol", -1301, 330);
+            });
+            ctx.waitTicks(10);
+            ctx.takeScreenshot("v38_seta_mapa");
+            System.out.println("[BoomboxTest] mapa seta: " + ctx.computeOnClient(mc -> com.boombox.client.Client38.navLine(mc)));
         }
     }
 

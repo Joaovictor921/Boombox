@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:compass",
+    "minecraft:emerald"
+  ],
+  "result": {
+    "id": "boombox:mapa_vila",
+    "count": 1
+  }
+}

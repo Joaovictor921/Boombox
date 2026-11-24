@@ -107,5 +107,7 @@
   "block.boombox.goal_large": "Large Goal",
   "key.boombox.chutar": "Shoot (hold for power)",
   "block.boombox.quadro_chaveamento": "Bracket Board",
-  "key.boombox.tabela": "Standings / bracket (cup and pool)"
+  "key.boombox.tabela": "Standings / bracket (cup and pool)",
+  "block.boombox.quadro_ranking": "Ranking Board",
+  "item.boombox.mapa_vila": "Village Map"
 }

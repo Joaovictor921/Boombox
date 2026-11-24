@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/quadro_ranking"
+    },
+    "facing=east": {
+      "model": "boombox:block/quadro_ranking",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/quadro_ranking",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/quadro_ranking",
+      "y": 270
+    }
+  }
+}

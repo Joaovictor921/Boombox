@@ -454,6 +454,7 @@ public class SinucaBlockEntity extends BlockEntity {
             String champ = bracket[14];
             if (human(champ)) {
                 tell("§6§l🏆 " + champ.toUpperCase() + " É CAMPEÃO DO TORNEIO DE SINUCA! 🏆");
+                com.boombox.WorldStats.get(sl.getServer()).add(champ, com.boombox.WorldStats.SINUCA, 1);
                 ServerPlayer p = sl.getServer().getPlayerList().getPlayerByName(champ);
                 if (p != null) {
                     ItemStack trophy = new ItemStack(Blocks34.TROFEU_SINUCA);

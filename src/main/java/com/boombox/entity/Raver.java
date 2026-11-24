@@ -56,6 +56,8 @@ public class Raver extends PathfinderMob {
     net.minecraft.core.BlockPos barHome, houseSpot, fieldHome;
     java.util.UUID ball;
     public int stall;
+    /** 3.8: torcida: quanto tempo o sinalizador ainda fica aceso. */
+    public int flare;
     public net.minecraft.world.phys.Vec3 queueSpot, queueLook;
     /** Depois de entrar na balada: alguns ticks andando antes de escolher o "canto" dele. */
     public int settle;

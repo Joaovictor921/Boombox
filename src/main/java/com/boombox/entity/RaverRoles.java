@@ -19,7 +19,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class RaverRoles {
     public static final int NONE = 0, DRUNK = 1, FEIRANTE = 2, TEAM_A = 3, TEAM_B = 4, BARTENDER = 5,
-            VOLEI_A = 6, VOLEI_B = 7, LUAU = 8, VIP = 9, ORG_FUT = 10, ORG_VOLEI = 11;
+            VOLEI_A = 6, VOLEI_B = 7, LUAU = 8, VIP = 9, ORG_FUT = 10, ORG_VOLEI = 11,
+            /** 3.8: narrador do campo e torcida (stall = 100 + time). */
+            NARRADOR = 12, TORCIDA = 13;
 
     private RaverRoles() {}
 
@@ -36,6 +38,8 @@ public final class RaverRoles {
         return switch (r.role()) {
             case VOLEI_A, VOLEI_B -> volley(r, level);
             case ORG_FUT, ORG_VOLEI -> organizer(r, level);
+            case NARRADOR -> narrador(r, level);
+            case TORCIDA -> torcida(r, level);
             case DRUNK -> drunk(r, level);
             case FEIRANTE -> feirante(r, level);
             case TEAM_A, TEAM_B -> football(r, level);
@@ -235,6 +239,8 @@ public final class RaverRoles {
             restart(r, ball, level, team, attack, keeper);
             return true;
         }
+        // 3.8: no desafio de pênaltis só os goleiros jogam; o resto assiste parado
+        if (ball.mode() == Ball.CHALLENGE && !keeper) return true;
         if (keeper) {
             goalkeeper(r, ball, level, team, attack, own);
             return true;
@@ -768,6 +774,7 @@ public final class RaverRoles {
                     }
                     level.players().stream().filter(p -> p.distanceTo(r) < 40).forEach(p ->
                             p.sendOverlayMessage(Component.literal("§b§lQUE DEFESA! §r§fO goleiro pegou!")));
+                    ball.noteSave(r);
                 }
             }
             return;
@@ -903,6 +910,50 @@ public final class RaverRoles {
             if (d > 2 && d < bd) { bd = d; best = m; }
         }
         return best == null ? ball.goal(team == Ball.TEAM_A ? 1 : 0) : best.position();
+    }
+
+    // ------------------------------------------------------------ 3.8: narrador e torcida
+    /** Narrador: fica na beira do campo, com o microfone, olhando a bola. Quem fala no chat é a bola (Narrator). */
+    private static boolean narrador(Raver r, ServerLevel level) {
+        if (!r.hasCustomName()) {
+            r.setCustomName(Component.literal(Narrator.NAME));
+            r.setCustomNameVisible(true);
+        }
+        if (!r.getMainHandItem().is(com.boombox.ModBlocks.MICROPHONE)) r.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(com.boombox.ModBlocks.MICROPHONE));
+        if (!r.hasHome()) r.setHomeTo(r.blockPosition(), 1);
+        if (r.tickCount % 5 == 0) {
+            var balls = level.getEntitiesOfClass(Ball.class, new AABB(r.blockPosition()).inflate(50));
+            if (!balls.isEmpty()) r.getLookControl().setLookAt(balls.get(0));
+        }
+        return true;
+    }
+
+    /** Torcida: na beira do campo, com a bandeira do time; pula quando o time ataca e acende o sinalizador no gol. */
+    private static boolean torcida(Raver r, ServerLevel level) {
+        Ball ball = r.ball == null ? null : (level.getEntity(r.ball) instanceof Ball b && b.isAlive() ? b : null);
+        if (ball == null || ball.mode() == Ball.AUTO || ball.mode() == Ball.CHALLENGE || !ball.hasGoals()) {
+            if (r.tickCount > 40) r.discard(); // acabou o jogo: a torcida vai embora
+            return true;
+        }
+        int team = r.stall - 100;
+        if (!r.hasHome()) r.setHomeTo(r.blockPosition(), 1);
+        r.getNavigation().stop();
+        r.getLookControl().setLookAt(ball);
+        if (r.flare > 0) {
+            r.flare--;
+            // sinalizador: fumaça da cor do time saindo da mão, com faísca
+            Vec3 hand = r.position().add(r.getLookAngle().scale(0.3)).add(0, 2.1, 0);
+            int color = ball.teamColor(team);
+            if (r.flare % 2 == 0) {
+                level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(color, 2.2f), hand.x, hand.y, hand.z, 4, 0.15, 0.35, 0.15, 0.02);
+                level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, hand.x, hand.y + 0.4, hand.z, 1, 0.05, 0.1, 0.05, 0.01);
+            }
+            if (r.flare % 5 == 0) level.sendParticles(ParticleTypes.FLAME, hand.x, hand.y - 0.2, hand.z, 2, 0.05, 0.05, 0.05, 0.01);
+            if (r.flare % 20 == 0 && r.onGround()) r.jumpFromGround();
+        } else if (ball.inPlay() && ball.uFor(team, ball.position()) > ball.length() * 0.72 && r.onGround() && r.getRandom().nextInt(40) == 0) {
+            r.jumpFromGround(); // pressão: o time está atacando
+        }
+        return true;
     }
 
     // ------------------------------------------------------------ organizador do campo / da quadra

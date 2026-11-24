@@ -566,6 +566,7 @@ public class Volleyball extends Entity {
                 ItemStack trophy = new ItemStack(Blocks34.TROFEU_VOLEI);
                 if (!p.getInventory().add(trophy)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), trophy);
                 Achievements.award(p, "campeao_do_volei");
+                com.boombox.WorldStats.get(sl.getServer()).add(p.getName().getString(), com.boombox.WorldStats.CUPS, 1);
                 p.sendSystemMessage(Component.literal("§6Você foi campeão da copa e levou o Troféu do Vôlei de Praia!"));
             }
         }

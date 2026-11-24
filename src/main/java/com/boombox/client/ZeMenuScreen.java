@@ -41,6 +41,12 @@ public class ZeMenuScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Fechar"), b -> onClose()).bounds(left + W - 70, by, 70, 20).build());
         addRenderableWidget(Button.builder(Component.literal("§6🎱 Torneio de sinuca (" + SeuZe.TOURNAMENT_PRICE + " esm.)"), b -> { order(0, 3); onClose(); })
                 .bounds(left, by + 24, W, 20).build());
+        // 3.8: desafio de pênaltis valendo esmeraldas (no campo da vila)
+        for (int i = 0; i < SeuZe.PENALTY_BETS.length; i++) {
+            int bet = SeuZe.PENALTY_BETS[i];
+            addRenderableWidget(Button.builder(Component.literal("§a" + bet + " esm."), b -> { order(bet, 4); onClose(); })
+                    .bounds(left + 122 + i * 46, by + 48, 44, 20).build());
+        }
     }
 
     private void order(int item, int mode) {
@@ -50,7 +56,7 @@ public class ZeMenuScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         int left = width / 2 - W / 2, top = height / 2 - 110;
-        int h = 30 + SeuZe.MENU.length * 22 + 6 + 48 + 8;
+        int h = 30 + SeuZe.MENU.length * 22 + 6 + 72 + 8;
         g.fill(left - 8, top - 8, left + W + 8, top + h, 0xE0241A10);
         g.outline(left - 8, top - 8, W + 16, h + 8, 0xFF8A6A3A);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
@@ -61,6 +67,8 @@ public class ZeMenuScreen extends Screen {
         String[] desc = {"§fGelada do Zé", "§fTorresmo §7(velocidade)", "§fCoxinha §7(pressa)", "§fQuentão §7(esquenta)",
                 "§fFritas §7(porção)", "§fCalabresa §7(porção)", "§fFrango à passarinho"};
         for (int i = 0; i < desc.length; i++) g.text(font, desc[i], left, top + 36 + i * 22, 0xFFFFFFFF, false);
+        int by = top + 30 + SeuZe.MENU.length * 22 + 6;
+        g.text(font, "§a⚽ Desafio de pênaltis:", left, by + 54, 0xFFFFFFFF, false);
     }
 
     @Override

@@ -39,6 +39,7 @@ public class BoomboxMod implements ModInitializer {
         Achievements.registerStats();
         Payloads.register();
         ServerBoomboxManager.registerReceivers();
+        com.boombox.server.Features38.register(); // 3.8: mapa da vila, liga, apostas e ranking
         ServerFiles.registerReceivers();
 
         // aba própria do mod no modo criativo
@@ -95,8 +96,12 @@ public class BoomboxMod implements ModInitializer {
                     return 1;
                 })));
 
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-                ServerBoomboxManager.sendAllTo(handler.getPlayer()));
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerBoomboxManager.sendAllTo(handler.getPlayer());
+            WorldStats.get(server).onJoin(handler.getPlayer()); // 3.8: esmeraldas de apostas guardadas
+        });
+        // 3.8: o mundo abriu: apostas de jogos que não acabaram voltam para quem apostou
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> WorldStats.get(server).refundOpenBets());
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             ServerFiles.onDisconnect(handler.getPlayer());
             ServerBoomboxManager.onDisconnect(handler.getPlayer());

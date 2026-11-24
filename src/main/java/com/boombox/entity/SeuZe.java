@@ -106,6 +106,10 @@ public class SeuZe extends PathfinderMob {
         super.tick();
         if (!level().isClientSide() && !hasHome()) setHomeTo(blockPosition(), 1); // não sai de trás do balcão
         if (level() instanceof ServerLevel sl && tickCount % 20 == 0) greetRegulars(sl);
+        // 3.8: o Seu Zé pendura o quadro do ranking na parede do bar (se ainda não tem um)
+        if (level() instanceof ServerLevel sl && tickCount % 400 == 60 && com.boombox.bar.RankingBoardBlock.hangNear(sl, blockPosition())) {
+            for (var p : sl.players()) if (p.distanceTo(this) < 16) say(p, "Pendurei o quadro do ranking ali na parede: artilheiros, copas e sinuca. Quero ver seu nome lá!");
+        }
     }
 
     @Override
@@ -195,6 +199,10 @@ public class SeuZe extends PathfinderMob {
         int owed = debt.getOrDefault(p.getUUID(), 0);
         if (mode == 3) {
             tournament(p, free);
+            return;
+        }
+        if (mode == 4) {
+            penalties(p, item, free);
             return;
         }
         if (mode == 2) {
@@ -292,6 +300,41 @@ public class SeuZe extends PathfinderMob {
         say(p, joining ? "Inscrito! Você entrou na chave no lugar de um aldeão. Boa sorte, " + p.getName().getString() + "!"
                 : "Inscrito! Chave de 8: quartas, semifinal e final. Quem quiser pode entrar também. Boa sorte, " + p.getName().getString() + "!");
         playSound(SoundEvents.VILLAGER_CELEBRATE, 1f, 0.8f);
+    }
+
+    /** Apostas do desafio de pênaltis. */
+    public static final int[] PENALTY_BETS = {1, 3, 5};
+
+    /**
+     * 3.8: desafio de pênaltis valendo esmeraldas: a pessoa bate 5 no goleiro do time do Seu Zé e depois pega 5. Ganhou,
+     * leva o dobro; empatou, a aposta volta. Joga no campo de futebol da vila.
+     */
+    private void penalties(ServerPlayer p, int bet, boolean free) {
+        if (bet != 1 && bet != 3 && bet != 5) return;
+        var balls = level().getEntitiesOfClass(com.boombox.entity.Ball.class, getBoundingBox().inflate(200, 40, 200), com.boombox.entity.Ball::hasGoals);
+        balls.sort((a, b) -> Double.compare(a.distanceToSqr(this), b.distanceToSqr(this)));
+        if (balls.isEmpty()) {
+            say(p, "Desafio de pênaltis só no campo de futebol da vila, e aqui perto não tem campo. Que pena!");
+            return;
+        }
+        var ball = balls.get(0);
+        if (ball.mode() != com.boombox.entity.Ball.AUTO) {
+            say(p, "O campo tá ocupado com um jogo agora. Espera acabar que a gente faz o desafio!");
+            return;
+        }
+        if (!free && countEmeralds(p) < bet) {
+            say(p, "O desafio valendo " + bet + " esmeralda(s)? Você não tem isso tudo aí, freguês!");
+            return;
+        }
+        if (!free) takeEmeralds(p, bet);
+        if (!ball.startChallenge(p, bet)) {
+            if (!free) giveEmeralds(p, bet);
+            say(p, "Deu ruim no campo. Tenta de novo daqui a pouco!");
+            return;
+        }
+        say(p, "Fechado: " + bet + " esmeralda(s)! Você bate 5 no meu goleiro e depois pega 5. Ganhou, leva o dobro. Vai lá pro campo, a seta te leva!");
+        playSound(SoundEvents.VILLAGER_CELEBRATE, 1f, 0.8f);
+        com.boombox.server.Features38.navigate(p, "Desafio de pênaltis", ball.challengeSpot());
     }
 
     @Override

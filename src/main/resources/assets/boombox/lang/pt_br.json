@@ -107,5 +107,7 @@
   "block.boombox.goal_large": "Gol Grande",
   "key.boombox.chutar": "Chutar (segure para mais força)",
   "block.boombox.quadro_chaveamento": "Quadro do Chaveamento",
-  "key.boombox.tabela": "Tabela / chaveamento (copa e sinuca)"
+  "key.boombox.tabela": "Tabela / chaveamento (copa e sinuca)",
+  "block.boombox.quadro_ranking": "Quadro do Ranking",
+  "item.boombox.mapa_vila": "Mapa da Vila"
 }

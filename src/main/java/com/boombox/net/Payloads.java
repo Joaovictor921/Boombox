@@ -280,7 +280,25 @@ public final class Payloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 3.8: abre uma tela (mapa da vila, liga, apostas, ranking) ou liga a seta de navegação. kind: ver Features38. */
+    public record Ui(int kind, String data) implements CustomPacketPayload {
+        public static final Type<Ui> TYPE = new Type<>(BoomboxMod.id("ui"));
+        public static final StreamCodec<ByteBuf, Ui> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, Ui::kind, ByteBufCodecs.stringUtf8(32767), Ui::data, Ui::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** 3.8: botão de uma dessas telas (salvar time da liga, apostar, abrir ranking...). */
+    public record UiAction(int kind, String data) implements CustomPacketPayload {
+        public static final Type<UiAction> TYPE = new Type<>(BoomboxMod.id("ui_action"));
+        public static final StreamCodec<ByteBuf, UiAction> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, UiAction::kind, ByteBufCodecs.stringUtf8(256), UiAction::data, UiAction::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     public static void register() {
+        PayloadTypeRegistry.clientboundPlay().register(Ui.TYPE, Ui.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(UiAction.TYPE, UiAction.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(CupState.TYPE, CupState.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(SportAction.TYPE, SportAction.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(MatchSetup.TYPE, MatchSetup.CODEC);

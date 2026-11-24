@@ -98,6 +98,14 @@ public class MatchSetupScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("§6🏆 Tabela da copa"), b -> {
             ClientPlayNetworking.send(new Payloads.MatchSetup(organizer, Sports.TABELA, "", 0, position));
         }).bounds(cx + 4, row, 116, 20).build());
+        if (sport == Sports.FOOTBALL) {
+            // 3.8: Liga dos Amigos (cada um monta seu time) e apostas nos jogos da copa
+            row += 24;
+            addRenderableWidget(Button.builder(Component.literal("§b★ Liga dos amigos"), b -> Client38.send(com.boombox.server.Features38.A_LEAGUE_OPEN, ""))
+                    .bounds(cx - 120, row, 116, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("§e$ Apostar"), b -> Client38.send(com.boombox.server.Features38.A_BET_OPEN, Integer.toString(organizer)))
+                    .bounds(cx + 4, row, 116, 20).build());
+        }
     }
 
     private void start() {
@@ -113,7 +121,7 @@ public class MatchSetupScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         int cx = width / 2, top = height / 2 - 125;
-        int bottom = keysY(top) + 26 + 74;
+        int bottom = keysY(top) + 26 + (sport == Sports.FOOTBALL ? 98 : 74);
         g.fill(cx - 130, top - 8, cx + 130, bottom, 0xE0101820);
         g.outline(cx - 130, top - 8, 260, bottom - top + 8, sport == Sports.FOOTBALL ? 0xFF3CB043 : 0xFFF0C040);
         super.extractRenderState(g, mouseX, mouseY, partialTick);

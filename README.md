@@ -22,6 +22,39 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.8.0
+**Futebol**:
+- **Narrador da Várzea**: um aldeão com microfone na beira do campo narra no chat os jogos marcados (amistoso, copa,
+  liga e desafio de pênaltis). Ele fala do começo do jogo, dos lances, dos chutes, das defesas, dos gols, das bolas
+  paradas e do fim de cada tempo, com frases sorteadas.
+- **Torcida**: nos jogos marcados, 5 torcedores de cada time ficam na beira do campo, com a camisa e a bandeira do time.
+  - Eles cantam de vez em quando e pulam quando o time ataca.
+  - No gol e na vitória, acendem sinalizadores com fumaça da cor do time.
+  - Quando o jogo acaba, vão embora.
+- **Desafio de pênaltis valendo esmeraldas** (no cardápio do Seu Zé): você aposta 1, 3 ou 5 esmeraldas.
+  - Primeiro você bate 5 pênaltis no goleiro do time do Seu Zé; depois fica no gol e tenta pegar 5.
+  - Ganhou, leva o dobro; empatou, a aposta volta; perdeu, fica no bar.
+  - A disputa é no campo de futebol da vila, e uma seta na tela leva você até lá.
+
+**Vila**:
+- **Mapa da Vila** (papel + bússola + esmeralda): clique com ele na mão para ver os lugares da vila mais perto (campo,
+  bar do Seu Zé, quadra de vôlei, balada do DJ Leo, pagode, feira...), com distância e direção. O botão "Ir" mostra uma
+  seta na tela até o lugar.
+
+**Para jogar com amigos**:
+- **Liga dos Amigos** (organizador do campo → "Liga dos amigos"): cada pessoa monta seu time (nome e cor).
+  - Quando você joga contra um amigo que também tem time ("Jogar contra o amigo"), o jogo usa os dois times e vale
+    pontos: vitória 3, empate 1.
+  - A tabela fica salva no mundo.
+- **Apostas da copa** (organizador → "Apostar"): nos jogos da copa de futebol, quem está por perto aposta esmeraldas
+  num dos times.
+  - As apostas fecham no fim do primeiro tempo.
+  - Quem acertar divide tudo o que foi apostado, do tamanho da aposta de cada um. Empate ou ninguém acertou: a aposta volta.
+  - Quem está jogando só aposta no próprio time.
+- **Ranking do bar**: o Seu Zé pendura um quadro na parede do bar com os artilheiros (gols em jogos marcados), quem
+  mais ganhou copas (futebol e vôlei) e os campeões de sinuca. Clique no quadro para ver o top 10. Também dá para fazer o
+  quadro (gravetos, papel e pepita de ouro).
+
 ## Novidades da 3.7.3
 - **Vigia de travamento**: se o mundo ou a tela do jogo ficarem parados mais de 6 segundos, o Boombox grava no
   `logs/latest.log` onde cada parte do jogo estava parada (linhas que começam com `[Boombox vigia]`). Não muda nada no

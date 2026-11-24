@@ -117,6 +117,12 @@ public final class Blocks34 {
             BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.WOOD).noOcclusion().noCollision());
     public static final BlockEntityType<BracketBoardBlock.Entity> BRACKET_BOARD_BE = be("quadro_chaveamento", BracketBoardBlock.Entity::new, BRACKET_BOARD);
 
+    // ---------------- 3.8: quadro do ranking do bar e mapa da vila
+    public static final Block RANKING_BOARD = block("quadro_ranking", RankingBoardBlock::new,
+            BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.WOOD).noOcclusion().noCollision());
+    public static final BlockEntityType<RankingBoardBlock.Entity> RANKING_BOARD_BE = be("quadro_ranking", RankingBoardBlock.Entity::new, RANKING_BOARD);
+    public static final Item MAPA_VILA = item("mapa_vila", VillageMapItem::new, new Item.Properties().stacksTo(1));
+
     // ---------------- luau
     public static final Item VIOLAO = item("violao", p -> new InstrumentItem(p, SoundEvents.NOTE_BLOCK_GUITAR), new Item.Properties().stacksTo(1));
     public static final Block TIKI_TORCH = block("tiki_torch", TikiTorchBlock::new, BlockBehaviour.Properties.of().strength(0.4f)
