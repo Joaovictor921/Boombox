@@ -1,6 +1,7 @@
 package com.boombox.entity;
 
 import com.boombox.bar.BarBlocks;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,6 +38,11 @@ public class Bouncer extends PathfinderMob {
     private boolean queueBoss;
     private final java.util.List<UUID> line = new java.util.ArrayList<>();
     private int nextAdmit;
+    /** 3.8.1: 1 = já está no lugar novo (o do camarote fica na frente da corda VIP, virado para a pista). */
+    private int layout;
+
+    /** Cordas do camarote no molde da balada (x, z), com o segurança antigo em (7,5; 7,5) olhando para o norte. */
+    private static final int[][] CAMAROTE_ROPES = {{6, 11}, {6, 12}, {6, 13}, {3, 10}, {4, 10}, {5, 10}, {5, 6}, {6, 6}, {7, 6}, {5, 7}, {7, 7}};
 
     public Bouncer(EntityType<? extends Bouncer> type, Level level) {
         super(type, level);
@@ -127,6 +133,10 @@ public class Bouncer extends PathfinderMob {
         super.tick();
         if (!(level() instanceof ServerLevel sl) || tickCount % 4 != 0) return;
         if (Float.isNaN(outYaw)) outYaw = getYRot();
+        if (layout < 1) {
+            layout = 1;
+            if (vipOnly) moveToRope(sl);
+        }
         if (queueBoss) tickQueue(sl);
         if (afterMidnight(sl) && !vipOnly) return;
         // para onde é "fora": a direção em que ele estava virado quando apareceu (para a rua)
@@ -144,6 +154,19 @@ public class Bouncer extends PathfinderMob {
                 continue;
             }
             Vec3 d = p.position().subtract(position());
+            if (vipOnly) {
+                // a corda VIP já barra quem não está na lista: ele só avisa quem chega perto
+                if (d.horizontalDistance() > 2.0 || Math.abs(d.y) > 2) continue;
+                Long last = warned.get(p.getUUID());
+                if (last == null || tickCount - last > 200) {
+                    warned.put(p.getUUID(), (long) tickCount);
+                    String someone = com.boombox.bar.Vip.hasSomeoneElses(p) ? "Essa pulseira não é sua, seu nome não tá na lista! " : "";
+                    p.sendSystemMessage(Component.literal("§8<Segurança do Camarote>§r Daqui da corda pra lá é só quem tá na lista VIP. "
+                            + someone + "Quer entrar na lista? A pulseira (com seu nome) custa §62 barras de ouro§r."));
+                    playSound(SoundEvents.VILLAGER_NO, 1f, 0.7f);
+                }
+                continue;
+            }
             if (d.horizontalDistance() > 3.0 || Math.abs(d.y) > 2) continue;
             if (d.dot(out) < -0.6) continue; // já está lá dentro: pode sair à vontade
             // empurra para fora
@@ -154,11 +177,40 @@ public class Bouncer extends PathfinderMob {
             if (last == null || tickCount - last > 60) {
                 warned.put(p.getUUID(), (long) tickCount);
                 String someone = com.boombox.bar.Vip.hasSomeoneElses(p) ? "Essa pulseira não é sua, seu nome não tá na lista! " : "";
-                p.sendSystemMessage(Component.literal((vipOnly ? "§8<Segurança>§r Camarote é só para quem tá na lista VIP. " : "§8<Segurança>§r Sem pulseira VIP não entra antes da meia-noite. ")
+                p.sendSystemMessage(Component.literal("§8<Segurança>§r Sem pulseira VIP não entra antes da meia-noite. "
                         + someone + "Quer entrar na lista? A pulseira (com seu nome) custa §62 barras de ouro§r."));
                 playSound(SoundEvents.VILLAGER_NO, 1f, 0.7f);
             }
         }
+    }
+
+    private static Vec3 dir(float yawDeg) {
+        float y = yawDeg * ((float) Math.PI / 180f);
+        return new Vec3(-Math.sin(y), 0, Math.cos(y));
+    }
+
+    /**
+     * 3.8.1, baladas que já existiam: o segurança do camarote (o que fica ao lado do pé da escada) vai para a frente
+     * das cordas embaixo do camarote, virado para a pista, e as cordas que faltam são postas (no pé da escada também).
+     */
+    private void moveToRope(ServerLevel sl) {
+        Vec3 out = dir(outYaw), east = dir(outYaw + 90f);
+        BlockPos stair = BlockPos.containing(position().add(east.scale(-1.0)));
+        if (!(sl.getBlockState(stair).getBlock() instanceof net.minecraft.world.level.block.StairBlock)) return; // é o da área VIP
+        var rope = (com.boombox.bar.VelvetRopeBlock) com.boombox.bar.Blocks34.VELVET_ROPE;
+        java.util.List<BlockPos> spots = new java.util.ArrayList<>();
+        for (int[] r : CAMAROTE_ROPES) {
+            Vec3 w = position().add(east.scale(r[0] + 0.5 - 7.5)).add(out.scale(-(r[1] + 0.5 - 7.5)));
+            BlockPos bp = BlockPos.containing(w.x, getY() + 0.1, w.z);
+            if (sl.getBlockState(bp).isAir()) sl.setBlock(bp, rope.defaultBlockState(), 3);
+            if (sl.getBlockState(bp).is(rope)) spots.add(bp);
+        }
+        for (BlockPos bp : spots) sl.setBlock(bp, rope.connectedAt(sl, bp), 3);
+        Vec3 to = position().add(out.scale(-4.5));
+        outYaw = outYaw + 90f;
+        snapTo(to.x, getY(), to.z, outYaw, 0f);
+        setYHeadRot(outYaw);
+        setYBodyRot(outYaw);
     }
 
     @Override
@@ -192,6 +244,7 @@ public class Bouncer extends PathfinderMob {
         if (!Float.isNaN(outYaw)) out.putFloat("OutYaw", outYaw);
         out.putBoolean("VipOnly", vipOnly);
         out.putBoolean("QueueBoss", queueBoss);
+        out.putInt("Layout", layout);
     }
 
     @Override
@@ -200,6 +253,7 @@ public class Bouncer extends PathfinderMob {
         outYaw = in.getFloatOr("OutYaw", Float.NaN);
         vipOnly = in.getBooleanOr("VipOnly", false);
         queueBoss = in.getBooleanOr("QueueBoss", false);
+        layout = in.getIntOr("Layout", 0);
         if (vipOnly) setCustomName(Component.literal("Segurança do Camarote"));
     }
 

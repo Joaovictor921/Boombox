@@ -200,6 +200,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
+            if ("vip".equals(System.getenv("BOOMBOX_QUICK"))) {
+                vip381(ctx, server);
+                return;
+            }
             if ("v38".equals(System.getenv("BOOMBOX_QUICK"))) {
                 v38(ctx, server);
                 return;
@@ -2121,6 +2125,57 @@ public class BoomboxVisualTest implements FabricClientGameTest {
 
     private static final net.minecraft.core.BlockPos[] BOARD = {null};
     private static final net.minecraft.core.Direction[] BOARD_DIR = {null};
+
+    /** 3.8.1: segurança do camarote na frente da corda VIP; baladas antigas mudam sozinhas. */
+    private static void vip381(ClientGameTestContext ctx, TestServerContext server) {
+        server.runCommand("place template boombox:djleo_house " + HX + " " + HY + " " + HZ);
+        server.runCommand("gamemode creative @a");
+        ctx.waitTicks(60);
+        String novo = server.computeOnServer(s -> {
+            var l = s.overworld();
+            StringBuilder sb = new StringBuilder();
+            for (var b : l.getEntities(ModEntities.BOUNCER, e -> true))
+                sb.append(String.format(Locale.ROOT, "(%.1f, %.1f yaw %.0f %s) ", b.getX() - HX, b.getZ() - HZ, b.getYRot(), String.valueOf(b.getCustomName() == null ? "-" : b.getCustomName().getString())));
+            int ropes = 0;
+            for (int x = 0; x < 33; x++) for (int z = 0; z < 24; z++)
+                if (l.getBlockState(new net.minecraft.core.BlockPos(HX + x, HY + 1, HZ + z)).is(com.boombox.bar.Blocks34.VELVET_ROPE)) ropes++;
+            return sb + "cordas=" + ropes;
+        });
+        System.out.println("[BoomboxTest] vip novo: " + novo);
+        server.runCommand("time set 14000");
+        look(ctx, server, new Vec3(HX + 13.5, HY + 2.6, HZ + 12.0), 90f, 12f);
+        ctx.waitTicks(60);
+        ctx.takeScreenshot("vip_corda");
+        look(ctx, server, new Vec3(HX + 10.5, HY + 2.6, HZ + 3.5), 125f, 18f);
+        ctx.waitTicks(30);
+        ctx.takeScreenshot("vip_escada");
+        // balada antiga: segurança no pé da escada, sem as cordas
+        server.runCommand("kill @e[type=boombox:bouncer,name=\"Segurança do Camarote\",x=" + (HX + 7) + ",y=" + (HY + 1) + ",z=" + (HZ + 11) + ",distance=..2]");
+        server.runCommand("fill " + HX + " " + (HY + 1) + " " + HZ + " " + (HX + 8) + " " + (HY + 1) + " " + (HZ + 14) + " air replace boombox:velvet_rope");
+        server.runCommand(String.format(Locale.ROOT, "summon boombox:bouncer %.1f %d %.1f {VipOnly:1b,Rotation:[180f,0f]}", HX + 7.5, HY + 1, HZ + 7.5));
+        ctx.waitTicks(20);
+        String velho = server.computeOnServer(s -> {
+            var l = s.overworld();
+            StringBuilder sb = new StringBuilder();
+            for (var b : l.getEntities(ModEntities.BOUNCER, e -> e.getX() < HX + 12 && e.getX() > HX + 3))
+                sb.append(String.format(Locale.ROOT, "(%.1f, %.1f yaw %.0f) ", b.getX() - HX, b.getZ() - HZ, b.getYRot()));
+            int ropes = 0;
+            for (int x = 0; x < 12; x++) for (int z = 0; z < 16; z++)
+                if (l.getBlockState(new net.minecraft.core.BlockPos(HX + x, HY + 1, HZ + z)).is(com.boombox.bar.Blocks34.VELVET_ROPE)) ropes++;
+            return sb + "cordas do camarote=" + ropes;
+        });
+        System.out.println("[BoomboxTest] vip antigo mudou: " + velho);
+        // sem pulseira: a corda do pé da escada barra
+        server.runCommand("clear @a boombox:vip_bracelet");
+        server.runCommand("gamemode survival @a");
+        server.runCommand(String.format(Locale.ROOT, "tp @a %.1f %d %.1f 0 0", HX + 6.5, HY + 1, HZ + 4.5));
+        ctx.waitTicks(10);
+        server.runOnServer(s -> s.getPlayerList().getPlayers().get(0).setDeltaMovement(0, 0, 0.6));
+        ctx.waitTicks(30);
+        double zSem = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getZ() - HZ);
+        System.out.println("[BoomboxTest] vip corda: sem pulseira parou em z=" + String.format(Locale.ROOT, "%.2f", zSem) + " (corda em z=6)");
+        server.runCommand("gamemode creative @a");
+    }
 
     private static void look(ClientGameTestContext ctx, TestServerContext server, Vec3 at, float yaw, float pitch) {
         server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f %.1f %.1f", at.x, at.y, at.z, yaw, pitch));

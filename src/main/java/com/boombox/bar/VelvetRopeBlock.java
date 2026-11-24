@@ -52,6 +52,11 @@ public class VelvetRopeBlock extends Block {
         return s;
     }
 
+    /** A corda neste lugar, ligada às cordas vizinhas. */
+    public BlockState connectedAt(BlockGetter level, BlockPos pos) {
+        return connect(defaultBlockState(), level, pos);
+    }
+
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
         return connect(defaultBlockState(), ctx.getLevel(), ctx.getClickedPos());

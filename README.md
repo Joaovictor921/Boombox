@@ -22,6 +22,14 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.8.1
+
+- **Camarote com corda VIP**: a balada do DJ Leo agora tem Corda VIP embaixo do camarote (entre as colunas) e no pé
+  da escada. Quem não está na lista esbarra na corda.
+- **Segurança do Camarote na frente da corda**, virado para a pista. Ele não empurra mais quem está dançando: só avisa
+  quem chega perto sem pulseira. Clique nele para ver a lista VIP de hoje.
+- Nas baladas que já existiam, o segurança do camarote muda de lugar sozinho e as cordas que faltam são postas.
+
 ## Novidades da 3.8.0
 **Futebol**:
 - **Narrador da Várzea**: um aldeão com microfone na beira do campo narra no chat os jogos marcados (amistoso, copa,
