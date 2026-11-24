@@ -111,6 +111,7 @@ public class BoomboxMod implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());
 
+        Watchdog.init();
         LOGGER.info("Boombox carregada!");
     }
 }

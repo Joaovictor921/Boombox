@@ -32,6 +32,95 @@ import java.util.Locale;
 public class BoomboxVisualTest implements FabricClientGameTest {
     private static final int HX = 30, HY = -61, HZ = 0; // canto da casa
 
+    static volatile long lastServerTick = System.currentTimeMillis(), lastClientTick = System.currentTimeMillis();
+
+    /** Reproduz o travamento: mundo normal, campo de uma vila de verdade, copa, vários gols seguidos. */
+    private void trava(ClientGameTestContext ctx) {
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(sv -> lastServerTick = System.currentTimeMillis());
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> lastClientTick = System.currentTimeMillis());
+        Thread dog = new Thread(() -> {
+            boolean dumped = false;
+            while (true) {
+                try { Thread.sleep(1000); } catch (InterruptedException e) { return; }
+                long now = System.currentTimeMillis();
+                long ss = now - lastServerTick, cs = now - lastClientTick;
+                if ((ss > 6000 || cs > 6000) && !dumped) {
+                    dumped = true;
+                    System.out.println("[BoomboxTest] TRAVOU servidor parado " + ss + " ms, cliente parado " + cs + " ms");
+                    for (var e : Thread.getAllStackTraces().entrySet()) {
+                        String n = e.getKey().getName();
+                        if (!n.contains("Server thread") && !n.contains("Render thread")) continue;
+                        StringBuilder sb = new StringBuilder("[BoomboxTest] pilha " + n + ":\n");
+                        for (var f : e.getValue()) sb.append("    at ").append(f).append('\n');
+                        System.out.println(sb);
+                    }
+                }
+                if (ss < 2000 && cs < 2000) dumped = false;
+            }
+        }, "boombox-watchdog");
+        dog.setDaemon(true);
+        dog.start();
+        try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
+            TestServerContext server = sp.getServer();
+            server.runCommand("gamerule spawn_monsters false");
+            ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
+            String at = server.computeOnServer(s -> {
+                var sl = s.overworld();
+                var hit = sl.getChunkSource().getGenerator().findNearestMapStructure(sl,
+                        sl.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.tags.StructureTags.VILLAGE),
+                        new BlockPos(-1248, 64, 320), 20, false);
+                var chunk = sl.getChunk(hit.getFirst().getX() >> 4, hit.getFirst().getZ() >> 4, net.minecraft.world.level.chunk.status.ChunkStatus.STRUCTURE_STARTS);
+                for (var st : chunk.getAllStarts().values()) for (var pc : st.getPieces()) {
+                    if (pc instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pe && pe.getElement().toString().contains("boombox:varzea")) {
+                        var c = pc.getBoundingBox().getCenter();
+                        return c.getX() + " " + c.getZ();
+                    }
+                }
+                return null;
+            });
+            System.out.println("[BoomboxTest] trava campo em " + at);
+            String[] xz = at.split(" ");
+            server.runCommand("tp @p " + xz[0] + " 200 " + xz[1]);
+            server.runCommand("effect give @p slow_falling 30");
+            ctx.waitTicks(200);
+            ctx.waitTicks(100);
+            String setup = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var bs = s.overworld().getEntities(ModEntities.BALL, e -> e.distanceTo(pl) < 300);
+                if (bs.isEmpty()) return "sem bola";
+                var b = bs.get(0);
+                pl.teleportTo(b.getX(), b.getY() + 1, b.getZ());
+                b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "pix", 0xF0D020, 3);
+                return "ok " + b.info();
+            });
+            System.out.println("[BoomboxTest] trava setup: " + setup);
+            for (int g = 0; g < 8; g++) {
+                long t0 = System.currentTimeMillis();
+                ctx.waitTicks(200);
+                long dt = System.currentTimeMillis() - t0;
+                String st = server.computeOnServer(s -> {
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    var bs = s.overworld().getEntities(ModEntities.BALL, e -> e.distanceTo(pl) < 300);
+                    if (bs.isEmpty()) return "sem bola";
+                    var b = bs.get(0);
+                    String r = b.minute() + " " + b.scoreA() + "x" + b.scoreB() + String.format(Locale.ROOT, " tick médio %.1f ms", s.getAverageTickTimeNanos() / 1e6);
+                    // gol do pix: a pessoa chuta de perto
+                    b.forcePlay();
+                    b.loseOwner();
+                    Vec3 gl = b.goal(1);
+                    Vec3 from = b.teamPoint(0, b.length() - 6, 0);
+                    pl.teleportTo(from.x, from.y, from.z);
+                    b.setPos(from.x, from.y + 0.3, from.z);
+                    b.setDeltaMovement(new Vec3(gl.x - from.x, 0, gl.z - from.z).normalize().scale(1.4).add(0, 0.12, 0));
+                    return r;
+                });
+                System.out.println("[BoomboxTest] trava " + g + " (" + dt + " ms para 200 ticks): " + st);
+            }
+            ctx.waitTicks(200);
+            ctx.runOnClient(mc -> mc.options.renderDistance().set(12));
+        }
+    }
+
     /** 3.7.2: num mundo normal, quantas vilas ganharam o campo de futebol. */
     private void vila(ClientGameTestContext ctx) {
         try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
@@ -77,12 +166,33 @@ public class BoomboxVisualTest implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         HttpServer http = startBeatServer();
         String url = "http://127.0.0.1:" + http.getAddress().getPort() + "/batida.wav";
+        if ("vigia".equals(System.getenv("BOOMBOX_QUICK"))) {
+            try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
+                TestServerContext server = sp.getServer();
+                ctx.waitTicks(40);
+                System.out.println("[BoomboxTest] vigia: travando o mundo por 9 s");
+                server.runOnServer(s -> {
+                    try { Thread.sleep(9000); } catch (InterruptedException e) { }
+                });
+                ctx.waitTicks(60);
+                System.out.println("[BoomboxTest] vigia: pausando o jogo por 9 s (não pode avisar)");
+                ctx.runOnClient(mc -> mc.pauseGame(false));
+                ctx.waitTicks(200);
+                ctx.runOnClient(mc -> mc.gui.setScreen(null));
+                ctx.waitTicks(40);
+            }
+            return;
+        }
+        if ("trava".equals(System.getenv("BOOMBOX_QUICK"))) {
+            trava(ctx);
+            return;
+        }
         if ("vila".equals(System.getenv("BOOMBOX_QUICK"))) {
             vila(ctx);
             return;
         }
         try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
-            sp.getConnection().waitForChunksRender();
+            ctx.waitTicks(100);
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
@@ -1237,7 +1347,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
                     Vec3 p = leos.get(0);
                     server.runCommand("time set noon");
                     look(ctx, server, p.add(-22, 18, -22), -45f, 30f);
-                    sp.getConnection().waitForChunksRender();
+                    ctx.waitTicks(100);
                     ctx.waitTicks(40);
                     ctx.takeScreenshot("village_djleo");
                     server.runCommand("time set midnight");

@@ -22,6 +22,12 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.7.3
+- **Vigia de travamento**: se o mundo ou a tela do jogo ficarem parados mais de 6 segundos, o Boombox grava no
+  `logs/latest.log` onde cada parte do jogo estava parada (linhas que começam com `[Boombox vigia]`). Não muda nada no
+  jogo: só observa. Se o jogo congelar, mande o `latest.log` para dar para achar a causa.
+  - Com o jogo pausado (Esc) não conta. Carregando ou salvando um mundo grande, o aviso pode aparecer e pode ser ignorado.
+
 ## Novidades da 3.7.2
 - **Campo de futebol muito mais fácil de achar**: antes só 35% das vilas sorteavam o campo, e ele ainda precisava
   caber do lado de uma rua. Agora toda vila tenta ter o campo. Se ele não couber do lado de uma rua, vai num lugar aberto

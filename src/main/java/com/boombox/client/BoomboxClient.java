@@ -22,6 +22,7 @@ import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 public class BoomboxClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> com.boombox.Watchdog.clientTick(mc.isPaused()));
         BoomboxMod.openScreenHook = pos -> Minecraft.getInstance().gui.setScreen(new BoomboxScreen(Target.block(pos)));
         BoomboxItem.openHeldScreenHook = hand -> Minecraft.getInstance().gui.setScreen(new BoomboxScreen(Target.held(hand)));
 
