@@ -2155,8 +2155,9 @@ public class BoomboxVisualTest implements FabricClientGameTest {
     private static void v39(ClientGameTestContext ctx, TestServerContext server) {
         System.out.println("[BoomboxTest] v39 tempo: meio tempo=" + com.boombox.entity.Ball.HALF + " ticks, intervalo=" + com.boombox.entity.Ball.BREAK);
         server.runCommand("gamemode creative @a");
-        int[][] at = {{0, 200}, {80, 200}, {0, 280}, {80, 280}};
-        server.runCommand("tp @a 75 -30 270");
+        int[][] at = {{0, 200}, {100, 200}, {0, 290}, {100, 290}};
+        server.runCommand("time set 6000");
+        server.runCommand("tp @a 95 -20 290");
         ctx.waitTicks(120);
         for (int i = 0; i < 4; i++) {
             server.runCommand("place template boombox:estadio_" + (i + 1) + " " + at[i][0] + " -61 " + at[i][1]);
@@ -2165,7 +2166,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         String st = server.computeOnServer(s -> {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 4; i++) {
-                var b = ballNear(s, new Vec3(at[i][0] + 33, -60, at[i][1] + 23), 40, x -> true);
+                var b = ballNear(s, new Vec3(at[i][0] + 46.5, -60, at[i][1] + 32.5), 50, x -> true);
                 sb.append("estádio ").append(i + 1).append(": ").append(b == null ? "sem bola" : "bola estádio=" + b.stadium + " gols=" + b.hasGoals()
                         + String.format(Locale.ROOT, " comprimento=%.0f largura=%.0f", b.length(), b.halfWidth() * 2)).append("; ");
             }
@@ -2173,21 +2174,68 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         });
         System.out.println("[BoomboxTest] v39 estádios: " + st);
         for (int i = 0; i < 4; i++) {
-            look(ctx, server, new Vec3(at[i][0] + 33, -61 + 34, at[i][1] - 14), 0f, 42f);
+            look(ctx, server, new Vec3(at[i][0] + 46.5, -61 + 46, at[i][1] - 16), 0f, 42f);
             ctx.waitTicks(40);
             ctx.takeScreenshot("estadio_" + (i + 1));
         }
         // túnel e vestiário do estádio 1
-        look(ctx, server, new Vec3(at[0][0] + 33, -61 + 3, at[0][1] + 52), 180f, 15f);
+        look(ctx, server, new Vec3(at[0][0] + 46.5, -61 + 3, at[0][1] + 70), 180f, 12f);
         ctx.waitTicks(30);
         ctx.takeScreenshot("estadio_vestiario");
+
+        // ---- 3.9.1: estádio da 3.9.0 (buraco do túnel no muro): a bola fecha com portão
+        server.runCommand("tp @a 232 -40 230");
+        ctx.waitTicks(80);
+        server.runCommand("place template boombox:estadio_antigo_teste 200 -61 200");
+        ctx.waitTicks(100);
+        String tun = server.computeOnServer(s -> {
+            var b = ballNear(s, new Vec3(232.5, -60, 223.5), 40, x -> x.hasGoals());
+            if (b == null) return "sem bola no estádio antigo";
+            int gates = 0;
+            for (var bp : BlockPos.betweenClosed(new BlockPos(225, -60, 237), new BlockPos(240, -60, 241))) {
+                if (s.overworld().getBlockState(bp).is(net.minecraft.world.level.block.Blocks.SPRUCE_FENCE_GATE)) gates++;
+            }
+            return "fechados=" + b.tunnelsClosed + " portões no muro=" + gates + String.format(Locale.ROOT, " campo %.0f x %.0f", b.length(), b.halfWidth() * 2);
+        });
+        System.out.println("[BoomboxTest] v39 túnel do estádio antigo: " + tun);
+        server.runCommand("tp @a 95 -20 290");
+        ctx.waitTicks(60);
+
+        // ---- 3.9.1: pelada dos aldeões no estádio 3: torcida na arquibancada e ninguém preso fora do campo
+        Vec3 c3 = new Vec3(at[2][0] + 46.5, -60, at[2][1] + 32.5);
+        int presos = 0, fora = 0;
+        for (int k = 0; k < 12; k++) {
+            ctx.waitTicks(100);
+            String r = server.computeOnServer(s -> {
+                var b = ballNear(s, c3, 50, x -> x.stadium && x.hasGoals());
+                if (b == null) return "0 0 0 sem-bola " + s.overworld().getEntities(ModEntities.BALL, x -> x.position().distanceTo(c3) < 200).stream().map(x -> String.format(Locale.ROOT, "(%.0f,%.0f,%.0f gols=%s est=%s)", x.getX(), x.getY(), x.getZ(), x.hasGoals(), x.stadium)).toList();
+                int fans = s.overworld().getEntities(ModEntities.RAVER, x -> x.role() == com.boombox.entity.RaverRoles.TORCIDA && x.position().distanceTo(c3) < 70).size();
+                int out = 0;
+                for (var r0 : s.overworld().getEntities(ModEntities.RAVER, x -> b.teamOf(x) >= 0 && x.position().distanceTo(c3) < 70)) {
+                    if (Math.abs(b.v(r0.position())) > b.halfWidth() + 2.6 || b.u(r0.position()) < -3 || b.u(r0.position()) > b.length() + 3) {
+                        out++;
+                        System.out.println("[BoomboxTest] v39 fora: time=" + b.teamOf(r0) + " numero=" + r0.stall + String.format(Locale.ROOT, " u=%.1f v=%.1f y=%.1f", b.u(r0.position()), b.v(r0.position()), r0.getY() - b.center().y));
+                    }
+                }
+                boolean ballOut = Math.abs(b.v(b.position())) > b.halfWidth() + 2.6;
+                return fans + " " + out + " " + (ballOut ? 1 : 0) + " " + b.info() + String.format(Locale.ROOT, " bola u=%.0f v=%.0f", b.u(b.position()), b.v(b.position()));
+            });
+            String[] f = r.split(" ");
+            presos += Integer.parseInt(f[1]);
+            fora += Integer.parseInt(f[2]);
+            if (k % 4 == 0) System.out.println("[BoomboxTest] v39 pelada no estádio: torcida=" + f[0] + " jogadores fora do campo=" + f[1] + " bola fora do muro=" + f[2] + " " + r.substring(r.indexOf(' ', r.indexOf(' ', r.indexOf(' ') + 1) + 1) + 1));
+        }
+        System.out.println("[BoomboxTest] v39 pelada no estádio fim: jogadores fora do campo (somando 12 olhadas)=" + presos + " bola fora do muro=" + fora);
+        look(ctx, server, new Vec3(at[2][0] + 46.5, -61 + 10, at[2][1] - 4), 0f, 20f);
+        ctx.waitTicks(30);
+        ctx.takeScreenshot("estadio_torcida");
 
         // ---- treino de cobrança no estádio 1
         server.computeOnServer(s -> {
             var pl = s.getPlayerList().getPlayers().get(0);
             pl.getAbilities().flying = false;
             pl.onUpdateAbilities();
-            var b = ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium);
+            var b = ballNear(s, new Vec3(at[0][0] + 46.5, -60, at[0][1] + 32.5), 50, x -> x.stadium);
             b.startTraining(s.overworld(), pl);
             return 1;
         });
@@ -2196,30 +2244,30 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             final int kk = k;
             String r = server.computeOnServer(s -> {
                 var pl = s.getPlayerList().getPlayers().get(0);
-                var b = ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium);
+                var b = ballNear(s, new Vec3(at[0][0] + 46.5, -60, at[0][1] + 32.5), 50, x -> x.stadium);
                 if (b.trainingState() != 1) return "esperando " + b.trainingInfo();
                 int tgt = kk % 3 == 2 ? (b.trainingTarget() + 1) % 4 : b.trainingTarget(); // de vez em quando mira no canto errado
                 shootAt(b, pl, b.targetPoint(tgt));
                 return "chutou no alvo " + tgt + " (aceso " + b.trainingTarget() + ")";
             });
             ctx.waitTicks(60);
-            String after = server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium).trainingInfo());
+            String after = server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 46.5, -60, at[0][1] + 32.5), 50, x -> x.stadium).trainingInfo());
             System.out.println("[BoomboxTest] v39 treino " + (k + 1) + ": " + r + " -> " + after);
             if (k == 1) {
-                look(ctx, server, new Vec3(at[0][0] + 50, -61 + 4, at[0][1] + 23), -90f, 8f);
+                look(ctx, server, new Vec3(at[0][0] + 50, -61 + 4, at[0][1] + 32.5), -90f, 8f);
                 ctx.waitTicks(4);
                 ctx.takeScreenshot("treino_alvos");
             }
         }
         ctx.waitTicks(80);
-        System.out.println("[BoomboxTest] v39 treino fim: pontos=" + server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium).lastTraining)
-                + " modo=" + server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium).mode()));
+        System.out.println("[BoomboxTest] v39 treino fim: pontos=" + server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 46.5, -60, at[0][1] + 32.5), 50, x -> x.stadium).lastTraining)
+                + " modo=" + server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 46.5, -60, at[0][1] + 32.5), 50, x -> x.stadium).mode()));
 
         // ---- amistoso no estádio 2: VAR (confirma), gol de placa, VAR (anula) e craque
-        Vec3 c2 = new Vec3(at[1][0] + 33, -60, at[1][1] + 23);
+        Vec3 c2 = new Vec3(at[1][0] + 46.5, -60, at[1][1] + 32.5);
         server.computeOnServer(s -> {
             var pl = s.getPlayerList().getPlayers().get(0);
-            var b = ballNear(s, c2, 40, x -> x.stadium);
+            var b = ballNear(s, c2, 50, x -> x.stadium);
             pl.teleportTo(b.center().x, b.center().y, b.center().z);
             b.setup(pl, com.boombox.entity.Sports.AMISTOSO, "", 0, 6);
             b.varChance = 1f;
@@ -2231,7 +2279,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             final boolean good = g == 0;
             server.computeOnServer(s -> {
                 var pl = s.getPlayerList().getPlayers().get(0);
-                var b = ballNear(s, c2, 40, x -> x.stadium);
+                var b = ballNear(s, c2, 50, x -> x.stadium);
                 b.varGoodChance = good ? 1f : 0f;
                 // o goleiro do outro time sai do gol (o teste é do VAR e do gol de placa, não da defesa)
                 for (var r : s.overworld().getEntities(ModEntities.RAVER, x -> b.teamOf(x) == 1)) r.teleportTo(b.center().x - 15, b.center().y, b.center().z + 30);
@@ -2247,30 +2295,30 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             for (int q = 0; q < 4; q++) {
                 ctx.waitTicks(10);
                 System.out.println("[BoomboxTest] v39 bola: " + server.computeOnServer(s -> {
-                    var b = ballNear(s, c2, 40, x -> x.stadium);
+                    var b = ballNear(s, c2, 50, x -> x.stadium);
                     return String.format(Locale.ROOT, "u=%.1f v=%.1f h=%.1f vel=%.2f", b.u(b.position()), b.v(b.position()), b.getY() - b.center().y, b.getDeltaMovement().length());
                 }));
             }
             String var = server.computeOnServer(s -> {
-                var b = ballNear(s, c2, 40, x -> x.stadium);
+                var b = ballNear(s, c2, 50, x -> x.stadium);
                 return "placar " + b.scoreA() + "x" + b.scoreB() + " info=" + b.info();
             });
             System.out.println("[BoomboxTest] v39 VAR " + (good ? "(vale)" : "(anula)") + " durante: " + var);
             if (good) {
-                look(ctx, server, c2.add(0, 12, -24), 0f, 25f);
+                look(ctx, server, c2.add(0, 14, -30), 0f, 25f);
                 ctx.waitTicks(2);
                 ctx.takeScreenshot("var");
             }
             ctx.waitTicks(130);
             String after = server.computeOnServer(s -> {
-                var b = ballNear(s, c2, 40, x -> x.stadium);
+                var b = ballNear(s, c2, 50, x -> x.stadium);
                 return "placar " + b.scoreA() + "x" + b.scoreB() + " placas=" + b.golsDePlaca + " craque=" + b.craqueInfo();
             });
             System.out.println("[BoomboxTest] v39 VAR " + (good ? "(vale)" : "(anula)") + " depois: " + after);
         }
         // placa do gol de placa
         String placa = server.computeOnServer(s -> {
-            var b = ballNear(s, c2, 40, x -> x.stadium);
+            var b = ballNear(s, c2, 50, x -> x.stadium);
             for (int k = 0; k < 10; k++) {
                 Vec3 p = b.fieldPoint(6 + k * 4, -(b.halfWidth() + 1.0));
                 var bp = BlockPos.containing(p.x, b.center().y + 0.1, p.z);
@@ -2284,11 +2332,11 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         });
         System.out.println("[BoomboxTest] v39 gol de placa: " + placa);
         Vec3 pl2 = server.computeOnServer(s -> {
-            var b = ballNear(s, c2, 40, x -> x.stadium);
+            var b = ballNear(s, c2, 50, x -> x.stadium);
             return b.fieldPoint(6, -(b.halfWidth() + 1.0));
         });
         server.computeOnServer(s -> {
-            var b = ballNear(s, c2, 40, x -> x.stadium);
+            var b = ballNear(s, c2, 50, x -> x.stadium);
             Vec3 eye = b.fieldPoint(6, -(b.halfWidth() - 2.0));
             var pl = s.getPlayerList().getPlayers().get(0);
             float yaw = (float) (Math.toDegrees(Math.atan2(pl2.z - eye.z, pl2.x - eye.x)) - 90);
@@ -2299,7 +2347,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         ctx.takeScreenshot("gol_de_placa");
         // fim do jogo: craque
         server.computeOnServer(s -> {
-            ballNear(s, c2, 40, x -> x.stadium).testEnd(1, 0);
+            ballNear(s, c2, 50, x -> x.stadium).testEnd(1, 0);
             return 1;
         });
         ctx.waitTicks(120);
@@ -2311,7 +2359,7 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         });
         System.out.println("[BoomboxTest] v39 craque: " + medal);
         server.computeOnServer(s -> {
-            ballNear(s, c2, 40, x -> x.stadium).testSkipAfter();
+            ballNear(s, c2, 50, x -> x.stadium).testSkipAfter();
             return 1;
         });
         ctx.waitTicks(20);

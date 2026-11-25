@@ -255,8 +255,13 @@ public final class RaverRoles {
         long t = level.getOverworldClockTime() % 24000;
         Ball ball = r.ball == null ? null : (level.getEntity(r.ball) instanceof Ball b && b.isAlive() ? b : null);
         if (ball == null && r.tickCount % 40 == 0) {
-            var near = level.getEntitiesOfClass(Ball.class, new AABB(r.blockPosition()).inflate(40));
-            if (!near.isEmpty()) r.ball = near.get(0).getUUID();
+            // 3.9.1: a bola mais perto (com campo); antes era a primeira que aparecia, e o jogador do estádio podia ir
+            // atrás da bola da várzea do lado (e ficava preso no muro)
+            var near = level.getEntitiesOfClass(Ball.class, new AABB(r.blockPosition()).inflate(48), b -> !b.street);
+            near.sort((a, b) -> Double.compare(a.distanceToSqr(r), b.distanceToSqr(r)));
+            for (Ball b : near) {
+                if (b.hasGoals() || near.size() == 1) { r.ball = b.getUUID(); break; }
+            }
         }
         boolean day = t < 12300 || (ball != null && ball.mode() != Ball.AUTO);
         if (ball == null || !day || !ball.hasGoals()) {
@@ -983,7 +988,7 @@ public final class RaverRoles {
     /** Torcida: na beira do campo, com a bandeira do time; pula quando o time ataca e acende o sinalizador no gol. */
     private static boolean torcida(Raver r, ServerLevel level) {
         Ball ball = r.ball == null ? null : (level.getEntity(r.ball) instanceof Ball b && b.isAlive() ? b : null);
-        if (ball == null || ball.mode() == Ball.AUTO || ball.mode() == Ball.CHALLENGE || !ball.hasGoals()) {
+        if (ball == null || (ball.mode() == Ball.AUTO && !ball.stadium) || ball.mode() == Ball.CHALLENGE || ball.mode() == Ball.TRAINING || !ball.hasGoals()) {
             if (r.tickCount > 40) r.discard(); // acabou o jogo: a torcida vai embora
             return true;
         }

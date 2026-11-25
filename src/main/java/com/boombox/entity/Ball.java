@@ -319,6 +319,8 @@ public class Ball extends Entity {
     public int teamOf(Entity e) {
         if (e instanceof Raver r) {
             if (benched.contains(r.getUUID())) return -1;
+            // 3.9.1: aldeão de outro campo (várzea e estádio da mesma vila ficam perto) não é deste jogo
+            if (r.ball != null && !r.ball.equals(getUUID())) return -1;
             return r.role() == RaverRoles.TEAM_A ? TEAM_A : r.role() == RaverRoles.TEAM_B ? TEAM_B : -1;
         }
         Integer t = humans.get(e.getUUID());
@@ -985,7 +987,7 @@ public class Ball extends Entity {
             announce("§e§l▣ VAR! §r§fLance polêmico no gol do " + teamName(scorer) + "... o juiz vai ao monitor.");
             narrator.line(random.nextBoolean() ? "Calma, calma! O juiz pôs a mão no ouvido... vai ao monitor! Coração na mão!"
                     : "Ihhh, vai ter VAR! A torcida do " + teamName(1 - scorer) + " reclama de impedimento!");
-            for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) {
+            for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA && getUUID().equals(r.ball))) {
                 if (f.stall - 100 != scorer && f.onGround()) f.jumpFromGround();
             }
             return;
@@ -1015,7 +1017,7 @@ public class Ball extends Entity {
         String why = random.nextBoolean() ? "impedimento" : "falta no começo da jogada";
         announce("§c§l▣ Gol anulado! §r§fO juiz marcou " + why + ". A torcida do " + teamName(scorer) + " não se conforma!");
         narrator.line("Anulado! O VAR pegou " + why + ". Que balde de água fria no " + teamName(scorer) + "!");
-        for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) {
+        for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA && getUUID().equals(r.ball))) {
             f.celebrate(f.stall - 100 != scorer);
         }
         int defender = varWhich == 0 ? TEAM_A : TEAM_B;
@@ -1193,7 +1195,7 @@ public class Ball extends Entity {
     /** Põe no banco o aldeão da posição de cada pessoa do time e acerta as camisas. */
     private List<Raver> rebench(ServerLevel sl) {
         benched.clear();
-        var all = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(50, 10, 50), r -> r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B);
+        var all = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(50, 10, 50), r -> (r.role() == RaverRoles.TEAM_A || r.role() == RaverRoles.TEAM_B) && (r.ball == null || r.ball.equals(getUUID())));
         for (var e : humans.entrySet()) {
             int role = e.getValue() == TEAM_A ? RaverRoles.TEAM_A : RaverRoles.TEAM_B;
             int[] slots = Sports.POSITION_SLOTS[humanPos.getOrDefault(e.getKey(), 6)];
@@ -1479,7 +1481,7 @@ public class Ball extends Entity {
     /** A torcida canta de vez em quando (quem está atacando, ou um dos dois lados). */
     private void cheer(ServerLevel sl) {
         if (mode == AUTO || !inPlay() || random.nextInt(18) != 0) return;
-        var fans = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA);
+        var fans = sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA && getUUID().equals(r.ball));
         if (fans.isEmpty()) return;
         int team = owner != null ? ownerTeam() : lastTeam >= 0 && random.nextBoolean() ? lastTeam : random.nextInt(2);
         if (team < 0) team = random.nextInt(2);
@@ -1491,7 +1493,7 @@ public class Ball extends Entity {
 
     /** Gol ou vitória: a torcida do time comemora com sinalizador; a do outro reclama. */
     private void fansReact(ServerLevel sl, int team) {
-        for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) {
+        for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA && getUUID().equals(r.ball))) {
             boolean ours = f.stall - 100 == team;
             f.celebrate(ours);
             if (ours) f.flare = 100;
@@ -1500,16 +1502,18 @@ public class Ball extends Entity {
 
     /** Torcida dos dois times na beira do campo (do lado oposto ao organizador), com camisa e bandeira do time. */
     private void spawnFans(ServerLevel sl) {
-        for (Raver r : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) r.discard();
-        if (mode == AUTO || mode == CHALLENGE || mode == TRAINING) return;
-        int fans = stadium ? 14 : FANS;
+        for (Raver r : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA && getUUID().equals(r.ball))) r.discard();
+        if ((mode == AUTO && !stadium) || mode == CHALLENGE || mode == TRAINING) return;
+        // 3.9.1: estádio cheio: 36 de cada lado em jogo marcado, 14 de cada lado na pelada dos aldeões
+        int fans = stadium ? (mode == AUTO ? 14 : 36) : FANS;
         for (int team = 0; team < 2; team++) {
             for (int i = 0; i < fans; i++) {
                 double uu, vv;
                 if (stadium) {
-                    // 3.9: no estádio cada torcida tem um lado da arquibancada, em três fileiras
-                    uu = length * 0.1 + (i / 2) * (length * 0.8 / (fans / 2 - 1)) + (i % 2) * 1.5;
-                    vv = (halfWidth + 3.5 + (i % 3) * 1.0) * (team == TEAM_A ? 1 : -1);
+                    // 3.9: no estádio cada torcida tem um lado da arquibancada, em quatro fileiras
+                    int rows = 4, perRow = (fans + rows - 1) / rows, row = i % rows, col = i / rows;
+                    uu = length * 0.05 + col * (length * 0.9 / Math.max(1, perRow - 1)) + (row % 2) * 0.9;
+                    vv = (halfWidth + 3.5 + row) * (team == TEAM_A ? 1 : -1);
                 } else {
                     uu = length * (team == TEAM_A ? 0.12 : 0.58) + i * (length * 0.3 / (FANS - 1));
                     vv = halfWidth + 2.8 + (i % 2) * 1.0;
@@ -2183,10 +2187,31 @@ public class Ball extends Entity {
         for (BlockPos p : BlockPos.betweenClosed(blockPosition().offset(-40, -3, -40), blockPosition().offset(40, 4, 40))) {
             if (Blocks34.isGoal(sl.getBlockState(p))) found.add(p.immutable());
         }
-        if (found.size() < 2) return;
+        if (found.isEmpty()) return;
         BlockPos a = found.get(0), far = a;
         for (BlockPos p : found) if (p.distSqr(a) > far.distSqr(a)) far = p;
-        if (far.distSqr(a) < 64) return;
+        if (far.distSqr(a) < 64) {
+            // 3.9.1: campo grande (estádio): só um gol perto da bola. O outro fica na frente dele (para onde o gol abre)
+            var st = sl.getBlockState(a);
+            if (!st.hasProperty(com.boombox.bar.FacingBlock.FACING)) return;
+            net.minecraft.core.Direction f = st.getValue(com.boombox.bar.FacingBlock.FACING), l = f.getClockWise();
+            int lastHit = -1;
+            for (int d = 20; d <= 110; d++) {
+                if (lastHit > 0 && d > lastHit + 2) break;
+                for (int w = -4; w <= 4; w++) {
+                    for (int dy = -1; dy <= 4; dy++) {
+                        BlockPos q = a.relative(f, d).relative(l, w).above(dy);
+                        if (Blocks34.isGoal(sl.getBlockState(q))) {
+                            found.add(q.immutable());
+                            lastHit = d;
+                        }
+                    }
+                }
+            }
+            far = a;
+            for (BlockPos p : found) if (p.distSqr(a) > far.distSqr(a)) far = p;
+            if (far.distSqr(a) < 64) return;
+        }
         double ax = 0, az = 0, bx = 0, bz = 0, y = Math.floor(getY());
         int na = 0, nb = 0;
         for (BlockPos p : found) {
@@ -2205,7 +2230,7 @@ public class Ball extends Entity {
         }
         goalHalf = cols.size() / 2.0;
         goalHeight = maxY - minY + 1;
-        var teamA = sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(50), r -> r.role() == RaverRoles.TEAM_A);
+        var teamA = sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(50), r -> r.role() == RaverRoles.TEAM_A && (r.ball == null || r.ball.equals(getUUID())));
         double da = 0, db = 0;
         for (Raver r : teamA) { da += r.position().distanceTo(ga0); db += r.position().distanceTo(gb); }
         if (da <= db) { goal0 = ga0; goal1 = gb; } else { goal0 = gb; goal1 = ga0; }
@@ -2221,8 +2246,35 @@ public class Ball extends Entity {
             if (net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(sl.getBlockState(q).getBlock()).getPath().equals("white_concrete_powder")) { halfWidth = k; break; }
         }
         clearTrees(sl);
+        if (stadium) closeTunnel(sl);
         startMatch(sl);
     }
+
+    /**
+     * 3.9.1: estádio da 3.9.0: o túnel do vestiário abria um buraco no muro da lateral, no meio do campo (a bola saía
+     * por ali e os aldeões entravam no túnel). Fecha com portão (quem é gente abre).
+     */
+    private void closeTunnel(ServerLevel sl) {
+        int y = (int) Math.floor(center.y);
+        for (int sgn = -1; sgn <= 1; sgn += 2) {
+            Vec3 out = side.scale(sgn);
+            var dir = net.minecraft.core.Direction.getApproximateNearest(out.x, 0, out.z);
+            for (double du = -4; du <= 4; du += 0.5) {
+                Vec3 p = fieldPoint(length / 2 + du, sgn * (halfWidth + 2.5));
+                BlockPos bp = BlockPos.containing(p.x, y, p.z);
+                if (!sl.getBlockState(bp).isAir() || sl.getBlockState(bp.below()).isAir()) continue;
+                // é buraco no muro: dos lados (no muro) tem bloco
+                boolean wall = !sl.getBlockState(bp.relative(dir.getClockWise(), 2)).isAir() || !sl.getBlockState(bp.relative(dir.getCounterClockWise(), 2)).isAir();
+                if (!wall) continue;
+                sl.setBlock(bp, net.minecraft.world.level.block.Blocks.SPRUCE_FENCE_GATE.defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.FenceGateBlock.FACING, dir), 3);
+                tunnelsClosed++;
+            }
+        }
+    }
+
+    /** Quantos buracos de túnel foram fechados (para o teste). */
+    public int tunnelsClosed;
 
     /** Ponto dentro do campo (com folga de "margin" blocos para fora das linhas)? */
     public boolean inArea(Vec3 p, double margin) {

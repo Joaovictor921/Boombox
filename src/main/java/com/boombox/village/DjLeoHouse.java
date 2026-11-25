@@ -152,7 +152,7 @@ public final class DjLeoHouse {
         }
         // 3.9: estádio da vila (cada vila sorteia um dos estilos; o nome sai da própria vila)
         int style = Villages.stadiumStyle(ctx.chunkPos().pack());
-        placeAround(builder, ctx, center, stadium(style), shuffler, 55, 160, 9);
+        placeAround(builder, ctx, center, stadium(style), shuffler, 70, 190, 11);
         // em junho a vila também ganha um arraiá
         if (com.boombox.bar.ShowTime.isJune()) {
             StructurePoolElement a = arraiaElement;

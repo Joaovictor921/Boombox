@@ -22,6 +22,22 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.9.1
+
+- **Estádio maior**: o campo do estádio agora tem 70 x 40 blocos entre as linhas (era 44 x 26), com arquibancada mais
+  alta (8 fileiras dos lados e até 5 atrás dos gols).
+- **Muito mais torcida**: 36 torcedores de cada time na arquibancada em jogo marcado. Até na pelada dos aldeões o
+  estádio tem torcida (14 de cada lado).
+- **Correção: jogadores presos de um lado do campo.** Os aldeões jogadores pegavam a primeira bola que achavam por
+  perto, e na vila o campo de várzea fica perto do estádio. Alguns iam atrás da bola do outro campo e ficavam presos
+  no muro. Agora cada um joga só com a bola do próprio campo (e a torcida de um campo não some por causa do outro).
+- **Correção: bola saindo pela lateral no meio do campo.** O túnel do vestiário abria um buraco no muro da lateral,
+  no meio do campo. Agora a boca do túnel tem um portão: a bola e os aldeões não passam, e você abre para entrar.
+  Os estádios que já existem no seu mundo ganham o portão sozinhos quando você chega perto.
+- O banco de reservas saiu da faixa da lateral (os jogadores enroscavam nele).
+- O estádio maior só aparece em vilas geradas a partir desta versão. Estádios da 3.9.0 continuam do tamanho antigo
+  (as correções de jogador preso e da torcida valem para eles também).
+
 ## Novidades da 3.9.0
 
 - **Estádio em cada vila**: além do campo de várzea, as vilas novas ganham um estádio, com arquibancada em volta,
