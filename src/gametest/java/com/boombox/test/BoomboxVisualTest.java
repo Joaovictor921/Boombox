@@ -2146,7 +2146,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         look(ctx, server, new Vec3(HX + 13.5, HY + 2.6, HZ + 12.0), 90f, 12f);
         ctx.waitTicks(60);
         ctx.takeScreenshot("vip_corda");
-        look(ctx, server, new Vec3(HX + 10.5, HY + 2.6, HZ + 3.5), 125f, 18f);
+        look(ctx, server, new Vec3(HX + 5.0, HY + 6.2, HZ + 12.8), 165f, 28f);
+        ctx.waitTicks(30);
+        ctx.takeScreenshot("vip_banheira");
+        look(ctx, server, new Vec3(HX + 9.5, HY + 2.2, HZ + 13.0), 100f, 8f);
         ctx.waitTicks(30);
         ctx.takeScreenshot("vip_escada");
         // balada antiga: segurança no pé da escada, sem as cordas
@@ -2168,12 +2171,12 @@ public class BoomboxVisualTest implements FabricClientGameTest {
         // sem pulseira: a corda do pé da escada barra
         server.runCommand("clear @a boombox:vip_bracelet");
         server.runCommand("gamemode survival @a");
-        server.runCommand(String.format(Locale.ROOT, "tp @a %.1f %d %.1f 0 0", HX + 6.5, HY + 1, HZ + 4.5));
+        server.runCommand(String.format(Locale.ROOT, "tp @a %.1f %d %.1f 90 0", HX + 8.5, HY + 1, HZ + 12.5));
         ctx.waitTicks(10);
-        server.runOnServer(s -> s.getPlayerList().getPlayers().get(0).setDeltaMovement(0, 0, 0.6));
+        server.runOnServer(s -> s.getPlayerList().getPlayers().get(0).setDeltaMovement(-0.6, 0, 0));
         ctx.waitTicks(30);
-        double zSem = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getZ() - HZ);
-        System.out.println("[BoomboxTest] vip corda: sem pulseira parou em z=" + String.format(Locale.ROOT, "%.2f", zSem) + " (corda em z=6)");
+        double zSem = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getX() - HX);
+        System.out.println("[BoomboxTest] vip corda: sem pulseira parou em x=" + String.format(Locale.ROOT, "%.2f", zSem) + " (corda em x=6)");
         server.runCommand("gamemode creative @a");
     }
 

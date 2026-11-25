@@ -22,6 +22,14 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.8.2
+
+- **Camarote VIP maior**: agora ele ocupa a parede toda da entrada, com 5 sofás, baldes de gelo e uma **banheira de
+  quartzo** no canto (no lugar do barzinho da entrada).
+- **Escada nova**: a escada do camarote fica embaixo dele, atrás das Cordas VIP. O Segurança do Camarote fica na frente
+  das cordas, virado para a pista. Sem pulseira, não passa.
+- O camarote novo vem nas baladas que nascerem daqui para a frente. As baladas que já existem continuam como estão.
+
 ## Novidades da 3.8.1
 
 - **Camarote com corda VIP**: a balada do DJ Leo agora tem Corda VIP embaixo do camarote (entre as colunas) e no pé
