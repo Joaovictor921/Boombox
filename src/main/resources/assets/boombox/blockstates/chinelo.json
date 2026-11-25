@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "boombox:block/chinelo"
+    },
+    "facing=east": {
+      "model": "boombox:block/chinelo",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "boombox:block/chinelo",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "boombox:block/chinelo",
+      "y": 270
+    }
+  }
+}

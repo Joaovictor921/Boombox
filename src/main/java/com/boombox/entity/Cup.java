@@ -17,6 +17,8 @@ public class Cup {
     private static final int[][][] ROUND = {{{0, 1}, {2, 3}}, {{0, 2}, {1, 3}}, {{0, 3}, {1, 2}}};
 
     public final boolean volley;
+    /** 3.9: Copa das Vilas: só mata-mata, 8 times (o campeão da várzea de cada vila), cada fase num estádio sorteado. */
+    public boolean vilas;
     public final String[] names = new String[16];
     public final int[] colors = new int[16], pts = new int[16], gf = new int[16], ga = new int[16], played = new int[16];
     /** 0..2 = rodadas do grupo, 3 = quartas, 4 = semi, 5 = final, 6 = acabou. */
@@ -68,6 +70,14 @@ public class Cup {
     }
 
     public String stageName() {
+        if (vilas) {
+            return switch (stage) {
+                case QUARTER -> "Copa das Vilas • Quartas";
+                case SEMI -> "Copa das Vilas • Semifinal";
+                case FINAL -> "Copa das Vilas • Final";
+                default -> "Copa das Vilas • Encerrada";
+            };
+        }
         if (stage < GROUP_ROUNDS) return "Grupos • rodada " + (stage + 1) + "/3";
         return switch (stage) {
             case QUARTER -> "Quartas de final";
@@ -193,7 +203,7 @@ public class Cup {
         playOthers(k, rnd, msgs);
         if (iWon) {
             if (stage == FINAL) {
-                msgs.add("§6§l🏆 " + names[0].toUpperCase() + " É CAMPEÃO DA COPA! 🏆");
+                msgs.add("§6§l🏆 " + names[0].toUpperCase() + " É CAMPEÃO DA " + (vilas ? "COPA DAS VILAS" : "COPA") + "! 🏆");
             } else {
                 stage++;
                 msgs.add("§a§lClassificado! §r§f" + names[0] + " passou de fase" + extra + "§f. " + stageName() + ": §e" + names[0] + " x " + names[opponent()]);
@@ -224,6 +234,13 @@ public class Cup {
             koScore[k] = s[0] + " x " + s[1] + (s[0] == s[1] ? " (pên.)" : "");
             ko[winSlot(k)] = aWins ? a : b;
         }
+    }
+
+    /** 3.9: Copa das Vilas: monta as quartas direto (8 times, o seu é o 0; "order" = ordem da chave). */
+    public void startKnockout(int[] order) {
+        vilas = true;
+        System.arraycopy(order, 0, ko, 0, 8);
+        stage = QUARTER;
     }
 
     /** Fim dos grupos: os 2 primeiros de cada grupo vão para as quartas (1º de um grupo pega o 2º de outro). */
@@ -258,7 +275,7 @@ public class Cup {
     // ------------------------------------------------------------ para a tela
     public String encode() {
         StringBuilder b = new StringBuilder();
-        b.append(volley ? 1 : 0).append('\t').append(stage).append('\t').append(out ? 1 : 0).append('\n');
+        b.append(volley ? 1 : 0).append('\t').append(stage).append('\t').append(out ? 1 : 0).append('\t').append(vilas ? 1 : 0).append('\n');
         for (int i = 0; i < 16; i++) {
             b.append(names[i]).append('\t').append(colors[i]).append('\t').append(pts[i]).append('\t').append(gf[i]).append('\t')
                     .append(ga[i]).append('\t').append(played[i]).append('\n');
@@ -274,6 +291,7 @@ public class Cup {
         Cup c = new Cup(h[0].equals("1"));
         c.stage = Integer.parseInt(h[1]);
         c.out = h[2].equals("1");
+        c.vilas = h.length > 3 && h[3].equals("1");
         for (int i = 0; i < 16; i++) {
             String[] t = lines[1 + i].split("\t", -1);
             c.names[i] = t[0];

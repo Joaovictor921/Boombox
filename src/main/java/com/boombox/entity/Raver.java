@@ -54,7 +54,7 @@ public class Raver extends PathfinderMob {
     long luauDay = -1;
     /** Só no servidor: lugares e alvos dos papéis. */
     net.minecraft.core.BlockPos barHome, houseSpot, fieldHome;
-    java.util.UUID ball;
+    public java.util.UUID ball;
     public int stall;
     /** 3.8: torcida: quanto tempo o sinalizador ainda fica aceso. */
     public int flare;

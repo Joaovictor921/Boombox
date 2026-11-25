@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:medalha_craque"
+    },
+    "title": "Craque da Partida",
+    "description": "Seja eleito o craque do jogo pelo narrador",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

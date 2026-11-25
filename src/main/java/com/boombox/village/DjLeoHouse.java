@@ -150,6 +150,9 @@ public final class DjLeoHouse {
         if (!placeBeside(builder, ctx, center, extra(2), new BlockPos(0, 0, 15), shuffler)) {
             placeAround(builder, ctx, center, extra(2), shuffler);
         }
+        // 3.9: estádio da vila (cada vila sorteia um dos estilos; o nome sai da própria vila)
+        int style = Villages.stadiumStyle(ctx.chunkPos().pack());
+        placeAround(builder, ctx, center, stadium(style), shuffler, 55, 160, 9);
         // em junho a vila também ganha um arraiá
         if (com.boombox.bar.ShowTime.isJune()) {
             StructurePoolElement a = arraiaElement;
@@ -235,15 +238,28 @@ public final class DjLeoHouse {
      * 3.7.2: coloca a peça num lugar livre em volta da vila (anéis cada vez mais longe do centro), no terreno menos
      * inclinado de cada anel. Usado pelo campo de futebol, que é grande demais para caber sempre do lado de uma rua.
      */
+    private static final StructurePoolElement[] stadiumElements = new StructurePoolElement[Villages.STADIUMS];
+
+    private static StructurePoolElement stadium(int style) {
+        StructurePoolElement e = stadiumElements[style];
+        if (e == null) stadiumElements[style] = e = StructurePoolElement.single(BoomboxMod.MOD_ID + ":estadio_" + (style + 1)).apply(StructureTemplatePool.Projection.RIGID);
+        return e;
+    }
+
     private static boolean placeAround(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center,
                                        StructurePoolElement piece, Random shuffler) {
+        return placeAround(builder, ctx, center, piece, shuffler, 30, 90, MAX_SLOPE_FALLBACK);
+    }
+
+    private static boolean placeAround(StructurePiecesBuilder builder, Structure.GenerationContext ctx, BlockPos center,
+                                       StructurePoolElement piece, Random shuffler, int rMin, int rMax, int maxSlope) {
         var manager = ctx.structureTemplateManager();
         var gen = ctx.chunkGenerator();
         var heights = ctx.heightAccessor();
         var randomState = ctx.randomState();
         Rotation[] rots = {Rotation.NONE, Rotation.CLOCKWISE_90};
         double turn = shuffler.nextDouble() * Math.PI * 2;
-        for (int r = 30; r <= 90; r += 10) {
+        for (int r = rMin; r <= rMax; r += 10) {
             BoundingBox bestBox = null;
             BlockPos bestOrigin = null;
             Rotation bestRot = null;
@@ -266,7 +282,7 @@ public final class DjLeoHouse {
                     bestRot = rot;
                 }
             }
-            if (bestBox != null && bestSlope <= MAX_SLOPE_FALLBACK) {
+            if (bestBox != null && bestSlope <= maxSlope) {
                 builder.addPiece(new PoolElementStructurePiece(manager, piece, bestOrigin, 0, bestRot, bestBox, LiquidSettings.IGNORE_WATERLOGGING));
                 return true;
             }

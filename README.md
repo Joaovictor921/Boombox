@@ -22,6 +22,33 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.9.0
+
+- **Estádio em cada vila**: além do campo de várzea, as vilas novas ganham um estádio, com arquibancada em volta,
+  refletores, placares, túnel e vestiário. São quatro estilos (Caldeirão, Arena, Alçapão e Estádio Municipal), e o
+  nome sai da própria vila. No estádio a torcida é maior e fica na arquibancada.
+- **Final da várzea no estádio**: quando o seu time chega na final da Copa da Várzea, a final vai para o estádio da
+  vila. Uma seta na tela leva até lá, e o jogo começa quando você chegar.
+- **Copa das Vilas**: quem ganha a Copa da Várzea se classifica. Entram os times das 8 vilas mais perto, em
+  mata-mata (quartas, semifinal e final). O estádio de cada fase é sorteado entre os das vilas da copa, e a seta
+  mostra o caminho. Quem ganha leva a Taça da Copa das Vilas. A tabela (tecla J) mostra o chaveamento.
+- **Clássico contra a vila rival**: cada vila tem uma rival (a vila mais perto). No organizador, "Clássico" marca o
+  jogo do time da sua vila contra o time da rival. A torcida provoca a cada gol, o retrospecto fica salvo, e quem
+  ganha faz festa com fogos. Depois, quem passa na vila ouve provocação (ou desculpa) dos moradores.
+- **Treino de cobrança**: no organizador, "Treino de cobrança". São 10 chutes de lugares diferentes, sem goleiro, com
+  alvos nos quatro cantos do gol. O alvo aceso vale 3, outro canto 2 e o meio do gol 1. Seu recorde fica salvo.
+- **VAR**: às vezes um gol de jogo marcado vira lance polêmico. O juiz vai ao monitor e confirma ou anula.
+- **Craque da partida**: no fim do jogo o narrador elege o craque (gol, defesa e chute ao gol contam). Se for você,
+  ganha a Medalha de Craque.
+- **Gol de placa**: gol seu de muito longe (20 blocos ou mais) ou de voleio vira uma placa na beira do campo, com o
+  seu nome, como foi e o dia.
+- **Pelada na rua**: de dia, numa vila, às vezes quatro crianças montam uma pelada numa rua reta, com chinelo de
+  trave. Chute a bola para entrar no time que precisa de reforço. O Chinelo também dá para fazer (2 lãs brancas e 2
+  corantes verdes).
+- **Jogo mais rápido**: cada tempo dura menos (1 minuto e 45 segundos), o intervalo e a prorrogação também.
+- O estádio e a Copa das Vilas só aparecem em vilas geradas a partir desta versão. Em mundos antigos, a Copa das
+  Vilas usa o campo de várzea das vilas que não têm estádio.
+
 ## Novidades da 3.8.2
 
 - **Camarote VIP maior**: agora ele ocupa a parede toda da entrada, com 5 sofás, baldes de gelo e uma **banheira de

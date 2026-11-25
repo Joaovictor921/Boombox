@@ -195,11 +195,19 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             vila(ctx);
             return;
         }
+        if ("vilas39".equals(System.getenv("BOOMBOX_QUICK"))) {
+            vilas39(ctx);
+            return;
+        }
         try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
             ctx.waitTicks(100);
             TestServerContext server = sp.getServer();
             server.runCommand("time set midnight");
             server.runCommand("weather clear");
+            if ("v39".equals(System.getenv("BOOMBOX_QUICK"))) {
+                v39(ctx, server);
+                return;
+            }
             if ("vip".equals(System.getenv("BOOMBOX_QUICK"))) {
                 vip381(ctx, server);
                 return;
@@ -2125,6 +2133,455 @@ public class BoomboxVisualTest implements FabricClientGameTest {
 
     private static final net.minecraft.core.BlockPos[] BOARD = {null};
     private static final net.minecraft.core.Direction[] BOARD_DIR = {null};
+
+    // =====================================================================  3.9
+    private static com.boombox.entity.Ball ballNear(net.minecraft.server.MinecraftServer s, Vec3 at, double r, java.util.function.Predicate<com.boombox.entity.Ball> f) {
+        var l = s.overworld().getEntities(ModEntities.BALL, e -> e.position().distanceTo(at) < r && f.test(e));
+        l.sort((a, b) -> Double.compare(a.position().distanceTo(at), b.position().distanceTo(at)));
+        return l.isEmpty() ? null : l.get(0);
+    }
+
+    /** Chuta a bola (como a pessoa) para um ponto, com uma curva baixa. */
+    private static void shootAt(com.boombox.entity.Ball b, net.minecraft.server.level.ServerPlayer pl, Vec3 target) {
+        Vec3 from = b.position();
+        double dx = target.x - from.x, dz = target.z - from.z, d = Math.hypot(dx, dz);
+        double sp = 1.35;
+        double t = d / (sp * 0.97);
+        double vy = ((target.y - from.y) + 0.5 * 0.045 * t * t) / t;
+        b.kick(pl, new Vec3(dx / d * sp, vy, dz / d * sp));
+    }
+
+    /** 3.9 (mundo plano): estádios, treino de cobrança, VAR, gol de placa, craque e pelada na rua. */
+    private static void v39(ClientGameTestContext ctx, TestServerContext server) {
+        System.out.println("[BoomboxTest] v39 tempo: meio tempo=" + com.boombox.entity.Ball.HALF + " ticks, intervalo=" + com.boombox.entity.Ball.BREAK);
+        server.runCommand("gamemode creative @a");
+        int[][] at = {{0, 200}, {80, 200}, {0, 280}, {80, 280}};
+        server.runCommand("tp @a 75 -30 270");
+        ctx.waitTicks(120);
+        for (int i = 0; i < 4; i++) {
+            server.runCommand("place template boombox:estadio_" + (i + 1) + " " + at[i][0] + " -61 " + at[i][1]);
+        }
+        ctx.waitTicks(140);
+        String st = server.computeOnServer(s -> {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 4; i++) {
+                var b = ballNear(s, new Vec3(at[i][0] + 33, -60, at[i][1] + 23), 40, x -> true);
+                sb.append("estádio ").append(i + 1).append(": ").append(b == null ? "sem bola" : "bola estádio=" + b.stadium + " gols=" + b.hasGoals()
+                        + String.format(Locale.ROOT, " comprimento=%.0f largura=%.0f", b.length(), b.halfWidth() * 2)).append("; ");
+            }
+            return sb.toString();
+        });
+        System.out.println("[BoomboxTest] v39 estádios: " + st);
+        for (int i = 0; i < 4; i++) {
+            look(ctx, server, new Vec3(at[i][0] + 33, -61 + 34, at[i][1] - 14), 0f, 42f);
+            ctx.waitTicks(40);
+            ctx.takeScreenshot("estadio_" + (i + 1));
+        }
+        // túnel e vestiário do estádio 1
+        look(ctx, server, new Vec3(at[0][0] + 33, -61 + 3, at[0][1] + 52), 180f, 15f);
+        ctx.waitTicks(30);
+        ctx.takeScreenshot("estadio_vestiario");
+
+        // ---- treino de cobrança no estádio 1
+        server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            pl.getAbilities().flying = false;
+            pl.onUpdateAbilities();
+            var b = ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium);
+            b.startTraining(s.overworld(), pl);
+            return 1;
+        });
+        for (int k = 0; k < 10; k++) {
+            ctx.waitTicks(45);
+            final int kk = k;
+            String r = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var b = ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium);
+                if (b.trainingState() != 1) return "esperando " + b.trainingInfo();
+                int tgt = kk % 3 == 2 ? (b.trainingTarget() + 1) % 4 : b.trainingTarget(); // de vez em quando mira no canto errado
+                shootAt(b, pl, b.targetPoint(tgt));
+                return "chutou no alvo " + tgt + " (aceso " + b.trainingTarget() + ")";
+            });
+            ctx.waitTicks(60);
+            String after = server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium).trainingInfo());
+            System.out.println("[BoomboxTest] v39 treino " + (k + 1) + ": " + r + " -> " + after);
+            if (k == 1) {
+                look(ctx, server, new Vec3(at[0][0] + 50, -61 + 4, at[0][1] + 23), -90f, 8f);
+                ctx.waitTicks(4);
+                ctx.takeScreenshot("treino_alvos");
+            }
+        }
+        ctx.waitTicks(80);
+        System.out.println("[BoomboxTest] v39 treino fim: pontos=" + server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium).lastTraining)
+                + " modo=" + server.computeOnServer(s -> ballNear(s, new Vec3(at[0][0] + 33, -60, at[0][1] + 23), 40, x -> x.stadium).mode()));
+
+        // ---- amistoso no estádio 2: VAR (confirma), gol de placa, VAR (anula) e craque
+        Vec3 c2 = new Vec3(at[1][0] + 33, -60, at[1][1] + 23);
+        server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            var b = ballNear(s, c2, 40, x -> x.stadium);
+            pl.teleportTo(b.center().x, b.center().y, b.center().z);
+            b.setup(pl, com.boombox.entity.Sports.AMISTOSO, "", 0, 6);
+            b.varChance = 1f;
+            b.varGoodChance = 1f;
+            return 1;
+        });
+        ctx.waitTicks(120);
+        for (int g = 0; g < 2; g++) {
+            final boolean good = g == 0;
+            server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var b = ballNear(s, c2, 40, x -> x.stadium);
+                b.varGoodChance = good ? 1f : 0f;
+                // o goleiro do outro time sai do gol (o teste é do VAR e do gol de placa, não da defesa)
+                for (var r : s.overworld().getEntities(ModEntities.RAVER, x -> b.teamOf(x) == 1)) r.teleportTo(b.center().x - 15, b.center().y, b.center().z + 30);
+                b.forcePlay();
+                b.loseOwner();
+                Vec3 from = b.teamPoint(0, b.length() - 24, 1);
+                pl.teleportTo(from.x, from.y, from.z);
+                b.setPos(from.x, from.y + 0.1, from.z);
+                b.setDeltaMovement(Vec3.ZERO);
+                shootAt(b, pl, b.goal(1).add(0, 0.6, 0));
+                return 1;
+            });
+            for (int q = 0; q < 4; q++) {
+                ctx.waitTicks(10);
+                System.out.println("[BoomboxTest] v39 bola: " + server.computeOnServer(s -> {
+                    var b = ballNear(s, c2, 40, x -> x.stadium);
+                    return String.format(Locale.ROOT, "u=%.1f v=%.1f h=%.1f vel=%.2f", b.u(b.position()), b.v(b.position()), b.getY() - b.center().y, b.getDeltaMovement().length());
+                }));
+            }
+            String var = server.computeOnServer(s -> {
+                var b = ballNear(s, c2, 40, x -> x.stadium);
+                return "placar " + b.scoreA() + "x" + b.scoreB() + " info=" + b.info();
+            });
+            System.out.println("[BoomboxTest] v39 VAR " + (good ? "(vale)" : "(anula)") + " durante: " + var);
+            if (good) {
+                look(ctx, server, c2.add(0, 12, -24), 0f, 25f);
+                ctx.waitTicks(2);
+                ctx.takeScreenshot("var");
+            }
+            ctx.waitTicks(130);
+            String after = server.computeOnServer(s -> {
+                var b = ballNear(s, c2, 40, x -> x.stadium);
+                return "placar " + b.scoreA() + "x" + b.scoreB() + " placas=" + b.golsDePlaca + " craque=" + b.craqueInfo();
+            });
+            System.out.println("[BoomboxTest] v39 VAR " + (good ? "(vale)" : "(anula)") + " depois: " + after);
+        }
+        // placa do gol de placa
+        String placa = server.computeOnServer(s -> {
+            var b = ballNear(s, c2, 40, x -> x.stadium);
+            for (int k = 0; k < 10; k++) {
+                Vec3 p = b.fieldPoint(6 + k * 4, -(b.halfWidth() + 1.0));
+                var bp = BlockPos.containing(p.x, b.center().y + 0.1, p.z);
+                if (s.overworld().getBlockEntity(bp) instanceof net.minecraft.world.level.block.entity.SignBlockEntity sg) {
+                    StringBuilder t = new StringBuilder();
+                    for (var m : sg.getText(net.minecraft.world.level.block.entity.SignTextSlot.FRONT).getMessages(false)) t.append(m.getString()).append(" | ");
+                    return "placa em " + bp.toShortString() + ": " + t;
+                }
+            }
+            return "sem placa";
+        });
+        System.out.println("[BoomboxTest] v39 gol de placa: " + placa);
+        Vec3 pl2 = server.computeOnServer(s -> {
+            var b = ballNear(s, c2, 40, x -> x.stadium);
+            return b.fieldPoint(6, -(b.halfWidth() + 1.0));
+        });
+        server.computeOnServer(s -> {
+            var b = ballNear(s, c2, 40, x -> x.stadium);
+            Vec3 eye = b.fieldPoint(6, -(b.halfWidth() - 2.0));
+            var pl = s.getPlayerList().getPlayers().get(0);
+            float yaw = (float) (Math.toDegrees(Math.atan2(pl2.z - eye.z, pl2.x - eye.x)) - 90);
+            pl.teleportTo(s.overworld(), eye.x, eye.y + 0.2, eye.z, java.util.Set.of(), yaw, 15f, true);
+            return 1;
+        });
+        ctx.waitTicks(20);
+        ctx.takeScreenshot("gol_de_placa");
+        // fim do jogo: craque
+        server.computeOnServer(s -> {
+            ballNear(s, c2, 40, x -> x.stadium).testEnd(1, 0);
+            return 1;
+        });
+        ctx.waitTicks(120);
+        String medal = server.computeOnServer(s -> {
+            var pl = s.getPlayerList().getPlayers().get(0);
+            int n = 0;
+            for (int i = 0; i < pl.getInventory().getContainerSize(); i++) if (pl.getInventory().getItem(i).is(com.boombox.bar.Blocks39.MEDALHA_CRAQUE)) n++;
+            return "medalhas=" + n;
+        });
+        System.out.println("[BoomboxTest] v39 craque: " + medal);
+        server.computeOnServer(s -> {
+            ballNear(s, c2, 40, x -> x.stadium).testSkipAfter();
+            return 1;
+        });
+        ctx.waitTicks(20);
+
+        // ---- pelada na rua (rua de caminho de terra feita na mão)
+        server.runCommand("tp @a 309 -60 12");
+        ctx.waitTicks(80);
+        server.runCommand("fill 300 -61 0 318 -61 2 minecraft:dirt_path");
+        server.runCommand("fill 300 -60 0 318 -55 2 minecraft:air");
+        server.runCommand("time set 6000");
+        ctx.waitTicks(5);
+        String pel = server.computeOnServer(s -> {
+            var g = com.boombox.server.StreetPelada.start(s.overworld(), new BlockPos(309, -60, 12));
+            return g == null ? "não achou rua" : "crianças=" + g.kids.size() + " chinelos=" + g.chinelos.size();
+        });
+        System.out.println("[BoomboxTest] v39 pelada: " + pel);
+        ctx.waitTicks(300);
+        look(ctx, server, new Vec3(309, -57, 9), 180f, 30f);
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("pelada_rua");
+        String jogo = server.computeOnServer(s -> {
+            var gs = com.boombox.server.StreetPelada.games();
+            if (gs.isEmpty()) return "acabou";
+            var g = gs.get(0);
+            var pl = s.getPlayerList().getPlayers().get(0);
+            var b = (com.boombox.entity.Ball) s.overworld().getEntity(g.ball);
+            pl.teleportTo(b.getX() - 1, b.getY(), b.getZ());
+            com.boombox.server.StreetPelada.playerKick(pl, b);
+            return com.boombox.server.StreetPelada.info(g) + " humanos=" + g.humans + " escala=" + ((com.boombox.entity.Raver) s.overworld().getEntity(g.kids.get(0))).getScale();
+        });
+        System.out.println("[BoomboxTest] v39 pelada depois: " + jogo);
+        ctx.waitTicks(300);
+        String fim = server.computeOnServer(s -> {
+            var gs = com.boombox.server.StreetPelada.games();
+            if (gs.isEmpty()) return "acabou sozinha";
+            var g = gs.get(0);
+            String sc = com.boombox.server.StreetPelada.info(g);
+            com.boombox.server.StreetPelada.end(g);
+            int left = 0;
+            for (var c : g.chinelos) if (s.overworld().getBlockState(c).is(com.boombox.bar.Blocks39.CHINELO)) left++;
+            return sc + " chinelos que ficaram=" + left + " jogos=" + com.boombox.server.StreetPelada.games().size();
+        });
+        System.out.println("[BoomboxTest] v39 pelada fim: " + fim);
+    }
+
+    /** 3.9 (mundo normal): estádio nas vilas, clássico, final da várzea no estádio e Copa das Vilas. */
+    private void vilas39(ClientGameTestContext ctx) {
+        try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
+            TestServerContext server = sp.getServer();
+            server.runCommand("gamerule spawn_monsters false");
+            server.runCommand("gamemode creative @a");
+            server.runCommand("time set 6000");
+            server.runCommand("gamerule advance_time false");
+            String r = server.computeOnServer(s -> {
+                var sl = s.overworld();
+                java.util.Set<Long> seen = new java.util.HashSet<>();
+                int villages = 0, stadiums = 0;
+                int[] styles = new int[4];
+                StringBuilder first = new StringBuilder();
+                for (int gx = -3; gx <= 3; gx++) for (int gz = -3; gz <= 3; gz++) {
+                    var hit = sl.getChunkSource().getGenerator().findNearestMapStructure(sl,
+                            sl.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.tags.StructureTags.VILLAGE),
+                            new BlockPos(gx * 1500, 64, gz * 1500), 20, false);
+                    if (hit == null) continue;
+                    BlockPos p = hit.getFirst();
+                    if (!seen.add(net.minecraft.world.level.ChunkPos.containing(p).pack())) continue;
+                    var chunk = sl.getChunk(p.getX() >> 4, p.getZ() >> 4, net.minecraft.world.level.chunk.status.ChunkStatus.STRUCTURE_STARTS);
+                    for (var stt : chunk.getAllStarts().values()) {
+                        if (!stt.isValid()) continue;
+                        villages++;
+                        var in = com.boombox.village.Villages.info(stt);
+                        if (in.stadium() != null) {
+                            stadiums++;
+                            styles[com.boombox.village.Villages.stadiumStyle(in.id())]++;
+                            if (first.length() < 400) first.append(in.name()).append(" (").append(in.team()).append(", ").append(in.stadiumName()).append(") ");
+                        }
+                    }
+                }
+                return "vilas=" + villages + " com estádio=" + stadiums + " estilos=" + java.util.Arrays.toString(styles) + " ex.: " + first;
+            });
+            System.out.println("[BoomboxTest] vilas39 estádios: " + r);
+            // vila mais perto do começo com campo e estádio
+            String home = server.computeOnServer(s -> {
+                var sl = s.overworld();
+                var hit = sl.getChunkSource().getGenerator().findNearestMapStructure(sl,
+                        sl.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.tags.StructureTags.VILLAGE),
+                        new BlockPos(-1248, 64, 320), 30, false);
+                for (int tries = 0; tries < 12 && hit != null; tries++) {
+                    var chunk = sl.getChunk(hit.getFirst().getX() >> 4, hit.getFirst().getZ() >> 4, net.minecraft.world.level.chunk.status.ChunkStatus.STRUCTURE_STARTS);
+                    for (var stt : chunk.getAllStarts().values()) {
+                        if (!stt.isValid()) continue;
+                        var in = com.boombox.village.Villages.info(stt);
+                        if (in.stadium() != null && in.varzea() != null) {
+                            return in.varzea().getX() + " " + in.varzea().getZ() + " " + in.stadium().getX() + " " + in.stadium().getZ() + " " + in.name() + " / " + in.team() + " / " + in.stadiumName();
+                        }
+                    }
+                    hit = sl.getChunkSource().getGenerator().findNearestMapStructure(sl,
+                            sl.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.tags.StructureTags.VILLAGE),
+                            new BlockPos(-1248 + (tries + 1) * 900, 64, 320 + (tries % 3) * 700), 30, false);
+                }
+                return null;
+            });
+            System.out.println("[BoomboxTest] vilas39 vila: " + home);
+            if (home == null) return;
+            String[] h = home.split(" ");
+            Vec3 varzea = new Vec3(Integer.parseInt(h[0]) + 0.5, 80, Integer.parseInt(h[1]) + 0.5);
+            Vec3 stadiumPos = new Vec3(Integer.parseInt(h[2]) + 0.5, 80, Integer.parseInt(h[3]) + 0.5);
+            server.runCommand(String.format(Locale.ROOT, "tp @a %.1f 150 %.1f", stadiumPos.x, stadiumPos.z));
+            ctx.waitTicks(300);
+            look(ctx, server, server.computeOnServer(s -> {
+                var b = ballNear(s, stadiumPos, 60, x -> x.stadium);
+                return b == null ? stadiumPos.add(0, 40, -40) : b.center().add(0, 30, -40);
+            }), 0f, 35f);
+            ctx.waitTicks(80);
+            ctx.takeScreenshot("vila_estadio");
+            server.runCommand(String.format(Locale.ROOT, "tp @a %.1f 150 %.1f", varzea.x, varzea.z));
+            ctx.waitTicks(300);
+            // ---- clássico
+            String cl = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                if (b == null) return "sem bola na várzea";
+                pl.teleportTo(b.center().x, b.center().y, b.center().z);
+                b.setup(pl, com.boombox.entity.Sports.CLASSICO, "", 0, 6);
+                return "primeira vez: clássico=" + b.classicoRunning();
+            });
+            System.out.println("[BoomboxTest] vilas39 clássico: " + cl);
+            ctx.waitTicks(100);
+            cl = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                b.setup(pl, com.boombox.entity.Sports.CLASSICO, "", 0, 6);
+                return "segunda vez: clássico=" + b.classicoRunning() + " " + b.teamName(0) + " x " + b.teamName(1);
+            });
+            System.out.println("[BoomboxTest] vilas39 clássico: " + cl);
+            ctx.waitTicks(60);
+            String res = server.computeOnServer(s -> {
+                var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                b.testEnd(2, 1);
+                return "ok";
+            });
+            ctx.waitTicks(20);
+            res = server.computeOnServer(s -> {
+                var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                var in = com.boombox.village.Villages.at(s.overworld(), b.blockPosition());
+                var rv = com.boombox.server.CopaVilas.knownRival(in.id());
+                int[] rec = rv == null ? null : com.boombox.server.CopaVilas.get(s).rivalryOf(in.id(), rv.id());
+                b.testSkipAfter();
+                return in.name() + " x " + (rv == null ? "?" : rv.name()) + " retrospecto=" + (rec == null ? "nada" : java.util.Arrays.toString(rec));
+            });
+            System.out.println("[BoomboxTest] vilas39 clássico fim: " + res);
+            ctx.waitTicks(30);
+            // ---- copa da várzea até a final (a final vai para o estádio)
+            server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                b.setup(pl, com.boombox.entity.Sports.CAMPEONATO, "Bonde da Vila", 0xF0D020, 6);
+                return 1;
+            });
+            for (int g = 0; g < 8; g++) {
+                ctx.waitTicks(30);
+                String st = server.computeOnServer(s -> {
+                    var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                    String info = b.info();
+                    b.testEnd(3, 0);
+                    return info;
+                });
+                ctx.waitTicks(15);
+                String after = server.computeOnServer(s -> {
+                    var b = ballNear(s, varzea, 60, x -> !x.stadium && x.hasGoals());
+                    b.testSkipAfter();
+                    return "marcados=" + com.boombox.server.CopaVilas.get(s).bookings().size();
+                });
+                System.out.println("[BoomboxTest] vilas39 copa da várzea " + g + ": " + st + " -> " + after);
+                ctx.waitTicks(15);
+                if (!after.endsWith("=0")) break;
+            }
+            // vai para o estádio
+            server.runCommand(String.format(Locale.ROOT, "tp @a %.1f 150 %.1f", stadiumPos.x, stadiumPos.z));
+            ctx.waitTicks(200);
+            String fin = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                var b = ballNear(s, stadiumPos, 60, x -> x.stadium);
+                if (b == null) return "sem bola no estádio";
+                pl.teleportTo(b.center().x, b.center().y + 0.5, b.center().z);
+                return "ok";
+            });
+            ctx.waitTicks(100);
+            fin = server.computeOnServer(s -> {
+                var b = ballNear(s, stadiumPos, 60, x -> x.stadium);
+                return "final no estádio: marcado=" + b.bookedRunning() + " " + b.teamName(0) + " x " + b.teamName(1) + " " + b.info() + " estádio=" + b.stadiumName;
+            });
+            System.out.println("[BoomboxTest] vilas39 " + fin);
+            ctx.waitTicks(80);
+            look(ctx, server, server.computeOnServer(s -> ballNear(s, stadiumPos, 60, x -> x.stadium).center().add(0, 14, -26)), 0f, 25f);
+            ctx.waitTicks(40);
+            ctx.takeScreenshot("final_estadio");
+            server.computeOnServer(s -> {
+                ballNear(s, stadiumPos, 60, x -> x.stadium).testEnd(2, 1);
+                return 1;
+            });
+            ctx.waitTicks(200);
+            String q = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                int tacas = 0;
+                for (int i = 0; i < pl.getInventory().getContainerSize(); i++) if (pl.getInventory().getItem(i).is(com.boombox.bar.Blocks34.TACA_VARZEA.asItem())) tacas++;
+                var bs = com.boombox.server.CopaVilas.get(s).bookings();
+                ballNear(s, stadiumPos, 60, x -> x.stadium).testSkipAfter();
+                return "taças=" + tacas + " marcados=" + bs.size() + (bs.isEmpty() ? "" : " próximo: " + bs.get(0).cup.stageName() + " no " + bs.get(0).venueName + " (" + bs.get(0).villageName + ")");
+            });
+            System.out.println("[BoomboxTest] vilas39 campeão da várzea: " + q);
+            // ---- Copa das Vilas: cada fase no estádio sorteado
+            for (int stage = 0; stage < 3; stage++) {
+                String go = server.computeOnServer(s -> {
+                    var bs = com.boombox.server.CopaVilas.get(s).bookings();
+                    if (bs.isEmpty()) return null;
+                    var b = bs.get(0);
+                    return b.venue.getX() + " " + b.venue.getZ() + " " + b.cup.stageName() + " | " + b.cup.names[0] + " x " + b.cup.names[b.cup.opponent()]
+                            + " | " + b.venueName + " (" + b.villageName + ") clássico=" + b.classico;
+                });
+                System.out.println("[BoomboxTest] vilas39 vilas fase " + stage + ": " + go);
+                if (go == null) break;
+                String[] v = go.split(" ");
+                Vec3 venue = new Vec3(Integer.parseInt(v[0]) + 0.5, 80, Integer.parseInt(v[1]) + 0.5);
+                server.runCommand(String.format(Locale.ROOT, "tp @a %.1f 150 %.1f", venue.x, venue.z));
+                ctx.waitTicks(300);
+                String got = server.computeOnServer(s -> {
+                    var pl = s.getPlayerList().getPlayers().get(0);
+                    var b = ballNear(s, venue, 60, x -> x.hasGoals());
+                    if (b == null) return "sem bola no lugar";
+                    pl.teleportTo(b.center().x, b.center().y + 0.5, b.center().z);
+                    return "ok";
+                });
+                ctx.waitTicks(100);
+                got = server.computeOnServer(s -> {
+                    var b = ballNear(s, venue, 60, x -> x.hasGoals());
+                    if (b == null) return "sem bola";
+                    return "marcado=" + b.bookedRunning() + " " + b.teamName(0) + " x " + b.teamName(1) + " " + b.info();
+                });
+                System.out.println("[BoomboxTest] vilas39 vilas jogo " + stage + ": " + got);
+                if (stage == 0) {
+                    look(ctx, server, server.computeOnServer(s -> ballNear(s, venue, 60, x -> x.hasGoals()).center().add(0, 14, -26)), 0f, 25f);
+                    ctx.waitTicks(40);
+                    ctx.takeScreenshot("copa_vilas");
+                }
+                server.computeOnServer(s -> {
+                    var b = ballNear(s, venue, 60, x -> x.hasGoals());
+                    if (b != null) b.testEnd(2, 0);
+                    return 1;
+                });
+                ctx.waitTicks(40);
+                server.computeOnServer(s -> {
+                    var b = ballNear(s, venue, 60, x -> x.hasGoals());
+                    if (b != null) b.testSkipAfter();
+                    return 1;
+                });
+                ctx.waitTicks(20);
+            }
+            String end = server.computeOnServer(s -> {
+                var pl = s.getPlayerList().getPlayers().get(0);
+                int vilas = 0;
+                for (int i = 0; i < pl.getInventory().getContainerSize(); i++) {
+                    var it = pl.getInventory().getItem(i);
+                    if (it.is(com.boombox.bar.Blocks34.TACA_VARZEA.asItem()) && it.getHoverName().getString().contains("Vilas")) vilas++;
+                }
+                return "taça das vilas=" + vilas + " marcados=" + com.boombox.server.CopaVilas.get(s).bookings().size();
+            });
+            System.out.println("[BoomboxTest] vilas39 fim: " + end);
+        }
+    }
 
     /** 3.8.1: segurança do camarote na frente da corda VIP; baladas antigas mudam sozinhas. */
     private static void vip381(ClientGameTestContext ctx, TestServerContext server) {

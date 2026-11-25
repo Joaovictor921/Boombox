@@ -18,17 +18,18 @@ public class CupScreen extends Screen {
     private boolean bracket;
 
     public CupScreen(Cup cup, int sport) {
-        super(Component.literal(sport == Sports.VOLLEY ? "Copa de Vôlei de Praia" : "Copa da Várzea"));
+        super(Component.literal(cup.vilas ? "Copa das Vilas" : sport == Sports.VOLLEY ? "Copa de Vôlei de Praia" : "Copa da Várzea"));
         this.cup = cup;
         this.sport = sport;
-        this.bracket = cup.stage >= Cup.QUARTER;
+        this.bracket = cup.stage >= Cup.QUARTER || cup.vilas;
     }
 
     @Override
     protected void init() {
         clearWidgets();
         int cx = width / 2, top = Math.max(4, height / 2 - 114);
-        addRenderableWidget(Button.builder(Component.literal((bracket ? "" : "§e▶ ") + "Grupos"), b -> { bracket = false; init(); })
+        // 3.9: a Copa das Vilas não tem grupos (só o chaveamento)
+        if (!cup.vilas) addRenderableWidget(Button.builder(Component.literal((bracket ? "" : "§e▶ ") + "Grupos"), b -> { bracket = false; init(); })
                 .bounds(cx - 155, top + 14, 100, 18).build());
         addRenderableWidget(Button.builder(Component.literal((bracket ? "§e▶ " : "") + "Chaveamento"), b -> { bracket = true; init(); })
                 .bounds(cx - 50, top + 14, 100, 18).build());

@@ -24,6 +24,8 @@ public final class Sports {
     /** 3.7: tecla da tabela (abre a tela da copa ou da chave de sinuca mais perto). */
     public static final int OPEN_TABLE = 10;
     public static final int AMISTOSO = 0, CAMPEONATO = 1, JUNTAR = 2, TABELA = 3, CONTRA = 4; // CONTRA (3.7) = entrar no time adversário // TABELA (3.6) = só ver a tabela da copa // 3.5.5: JUNTAR = entrar no time de quem já está jogando
+    /** 3.9: clássico contra a vila rival e treino de cobrança (alvos no gol). */
+    public static final int CLASSICO = 5, TREINO = 6;
 
     /** Cores que dá para escolher para o time (e que os times sorteados usam). */
     public static final int[] COLORS = {0x2D5BE0, 0xE03030, 0x2E8B3A, 0xF0D020, 0xF0F0F0, 0x202020, 0x8E24AA, 0xE66A10, 0x10B0C8, 0xFF6FA8, 0x6D4C2F, 0x8A0E1E};

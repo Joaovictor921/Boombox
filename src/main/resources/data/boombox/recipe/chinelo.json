@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "L L",
+    "S S"
+  ],
+  "key": {
+    "L": "minecraft:green_dye",
+    "S": "minecraft:white_wool"
+  },
+  "result": {
+    "id": "boombox:chinelo",
+    "count": 2
+  }
+}

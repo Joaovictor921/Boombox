@@ -109,5 +109,7 @@
   "block.boombox.quadro_chaveamento": "Quadro do Chaveamento",
   "key.boombox.tabela": "Tabela / chaveamento (copa e sinuca)",
   "block.boombox.quadro_ranking": "Quadro do Ranking",
-  "item.boombox.mapa_vila": "Mapa da Vila"
+  "item.boombox.mapa_vila": "Mapa da Vila",
+  "item.boombox.medalha_craque": "Medalha de Craque",
+  "block.boombox.chinelo": "Chinelo"
 }

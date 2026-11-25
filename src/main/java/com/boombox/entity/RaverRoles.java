@@ -21,7 +21,9 @@ public final class RaverRoles {
     public static final int NONE = 0, DRUNK = 1, FEIRANTE = 2, TEAM_A = 3, TEAM_B = 4, BARTENDER = 5,
             VOLEI_A = 6, VOLEI_B = 7, LUAU = 8, VIP = 9, ORG_FUT = 10, ORG_VOLEI = 11,
             /** 3.8: narrador do campo e torcida (stall = 100 + time). */
-            NARRADOR = 12, TORCIDA = 13;
+            NARRADOR = 12, TORCIDA = 13,
+            /** 3.9: criança da pelada na rua (stall = 200 + time). */
+            PELADA = 14;
 
     private RaverRoles() {}
 
@@ -40,6 +42,7 @@ public final class RaverRoles {
             case ORG_FUT, ORG_VOLEI -> organizer(r, level);
             case NARRADOR -> narrador(r, level);
             case TORCIDA -> torcida(r, level);
+            case PELADA -> pelada(r, level);
             case DRUNK -> drunk(r, level);
             case FEIRANTE -> feirante(r, level);
             case TEAM_A, TEAM_B -> football(r, level);
@@ -196,6 +199,48 @@ public final class RaverRoles {
         }
     }
 
+    // ------------------------------------------------------------ 3.9: pelada na rua
+    /** Criança da pelada: o mais perto da bola do time vai nela e chuta para os chinelos do outro lado; o outro fica no gol. */
+    private static boolean pelada(Raver r, ServerLevel level) {
+        var g = r.ball == null ? null : com.boombox.server.StreetPelada.gameOf(r.ball);
+        if (g == null) {
+            if (r.tickCount > 40) r.discard(); // pelada que acabou
+            return true;
+        }
+        if (!(level.getEntity(g.ball) instanceof Ball ball) || r.tickCount % 2 != 0) return true;
+        int team = r.stall - 200;
+        Vec3 b = ball.position(), own = g.goal(team), att = g.attack(team);
+        r.getLookControl().setLookAt(b.x, b.y + 0.2, b.z);
+        Raver mate = null;
+        for (java.util.UUID id : g.kids) {
+            if (!id.equals(r.getUUID()) && level.getEntity(id) instanceof Raver k && k.stall == r.stall) mate = k;
+        }
+        Vec3 dirAtt = att.subtract(own).normalize();
+        if (g.pause > 0) {
+            Vec3 home = g.middle().subtract(dirAtt.scale(mate != null && r.getId() < mate.getId() ? 5 : 2));
+            go(r, home.x, home.y, home.z, 0.6);
+            return true;
+        }
+        boolean chaser = mate == null || r.distanceToSqr(ball) <= mate.distanceToSqr(ball) + 0.5;
+        if (!chaser) {
+            double lat = b.subtract(g.g0).dot(g.side);
+            Vec3 keep = own.add(dirAtt.scale(1.2)).add(g.side.scale(Math.max(-0.8, Math.min(0.8, lat))));
+            go(r, keep.x, keep.y, keep.z, 0.65);
+            return true;
+        }
+        if (r.distanceTo(ball) < 1.1 && r.settle == 0) {
+            Vec3 aim = att.add(g.side.scale((level.getRandom().nextDouble() - 0.5) * 1.4));
+            Vec3 d = new Vec3(aim.x - b.x, 0, aim.z - b.z);
+            double dist = d.length();
+            double sp = dist < 7 ? 0.5 + level.getRandom().nextDouble() * 0.25 : 0.28 + level.getRandom().nextDouble() * 0.12;
+            com.boombox.server.StreetPelada.kidKick(g, r, ball, d.normalize().scale(sp).add(0, 0.03, 0));
+            r.settle = 10;
+            return true;
+        }
+        go(r, b.x, b.y, b.z, 0.75);
+        return true;
+    }
+
     // ------------------------------------------------------------ futebol de várzea (3.4: bem mais realista)
     /**
      * Cada time joga num 2-1-1 (dois zagueiros, um meia, um atacante) mais o goleiro. O time "anda" junto com a bola
@@ -230,6 +275,13 @@ public final class RaverRoles {
         }
         int team = ball.teamOf(r);
         if (team < 0) return true;
+        if (ball.mode() == Ball.TRAINING) {
+            // 3.9: treino de cobrança: todo mundo assiste da beira do campo (o gol fica vazio)
+            Vec3 watch = ball.fieldPoint(ball.length() / 2 + (r.getId() % 9) - 4, (team == Ball.TEAM_A ? 1 : -1) * (ball.halfWidth() + 1.8));
+            go(r, watch.x, watch.y, watch.z, 0.7);
+            r.getLookControl().setLookAt(ball);
+            return true;
+        }
         Vec3 attack = ball.goal(team == Ball.TEAM_A ? 1 : 0), own = ball.goal(team == Ball.TEAM_A ? 0 : 1);
         Vec3 b = ball.position();
         boolean keeper = r.stall == 1;

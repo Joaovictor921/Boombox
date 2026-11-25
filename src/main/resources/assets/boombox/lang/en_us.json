@@ -109,5 +109,7 @@
   "block.boombox.quadro_chaveamento": "Bracket Board",
   "key.boombox.tabela": "Standings / bracket (cup and pool)",
   "block.boombox.quadro_ranking": "Ranking Board",
-  "item.boombox.mapa_vila": "Village Map"
+  "item.boombox.mapa_vila": "Village Map",
+  "item.boombox.medalha_craque": "Man of the Match Medal",
+  "block.boombox.chinelo": "Flip-Flop"
 }

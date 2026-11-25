@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "boombox:taca_varzea"
+    },
+    "title": "Campeão das Vilas",
+    "description": "Ganhe a Copa das Vilas contra os campeões das vilas vizinhas",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

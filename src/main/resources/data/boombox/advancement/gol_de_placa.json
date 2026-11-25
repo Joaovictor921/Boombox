@@ -1,0 +1,18 @@
+{
+  "parent": "boombox:root",
+  "criteria": {
+    "feito": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:oak_sign"
+    },
+    "title": "Gol de Placa",
+    "description": "Marque um gol de muito longe (ou de voleio) e ganhe uma placa no campo",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  }
+}

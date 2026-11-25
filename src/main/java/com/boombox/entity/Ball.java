@@ -59,12 +59,14 @@ public class Ball extends Entity {
     public static final String[] TEAM_NAMES = {"Azul", "Vermelho"};
     public static final int[] TEAM_COLORS = {0x2D5BE0, 0xE03030};
     public static final int KICKOFF = 0, THROW_IN = 1, GOAL_KICK = 2, CORNER = 3, FREE_KICK = 4, PENALTY = 5;
-    public static final int HALF = 3000, BREAK = 300, AFTER = 400;
+    public static final int HALF = 2100, BREAK = 200, AFTER = 300; // 3.9: jogo mais rápido (era 3000/300/400)
     private static final double GRAVITY = 0.045, ROLL = 0.955, AIR = 0.99, MAX_SPEED = 1.5;
     /** 0 = os aldeões jogando sozinhos, 1 = amistoso marcado por alguém, 2 = campeonato. */
     public static final int AUTO = 0, FRIENDLY = 1, LEAGUE = 2;
     /** 3.8: desafio de pênaltis do Seu Zé (5 cobranças da pessoa, depois 5 contra ela, valendo esmeraldas). */
     public static final int CHALLENGE = 3;
+    /** 3.9: treino de cobrança (alvos no gol, 10 chutes de lugares diferentes). */
+    public static final int TRAINING = 4;
 
     private static final EntityDataAccessor<Integer> SCORE_A = SynchedEntityData.defineId(Ball.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> SCORE_B = SynchedEntityData.defineId(Ball.class, EntityDataSerializers.INT);
@@ -108,7 +110,7 @@ public class Ball extends Entity {
     private Cup cup;
     private final Map<UUID, Set<Integer>> playedFor = new HashMap<>();
     /** Prorrogação do mata-mata: tempo máximo (gol de ouro) e quem ganhou nos pênaltis (-1 = não teve). */
-    public static final int EXTRA = 1200;
+    public static final int EXTRA = 800;
     private int shootout = -1;
     /** 3.7: depois do gol, o time que marcou não passa do meio até o outro tocar na bola (-1 = livre). */
     private int kickoffLock = -1;
@@ -133,6 +135,41 @@ public class Ball extends Entity {
     /** Apostas da copa: pessoa → [time, esmeraldas]. */
     private final Map<UUID, int[]> bets = new java.util.LinkedHashMap<>();
     public static final int FANS = 5;
+
+    // ---- 3.9
+    /** Campo de estádio (molde estadio_N): torcida maior na arquibancada e nome do estádio no placar. */
+    public boolean stadium;
+    /** Nome do estádio (sai da vila; vazio até descobrir). */
+    public String stadiumName = "";
+    /** Pelada na rua (crianças com chinelo de trave): a bola só faz a física; quem cuida do jogo é a StreetPelada. */
+    public boolean street;
+    /** Jogo marcado em outro lugar (final da várzea no estádio = 0, Copa das Vilas = 1); -1 = jogo daqui mesmo. */
+    private int copaKind = -1;
+    private com.boombox.server.CopaVilas.Booking booking;
+    /** A final da várzea foi para o estádio: depois do apito, este campo não continua a copa. */
+    private boolean movedAway;
+    /** Clássico contra a vila rival (nome das duas vilas, para as provocações e o retrospecto). */
+    private boolean classico;
+    private com.boombox.village.Villages.Info homeVillage, awayVillage;
+    /** Craque da partida: pontos de cada um no jogo (gol 3, defesa 2, chute ao gol 1) e o nome. */
+    private final Map<UUID, Integer> craque = new HashMap<>();
+    private final Map<UUID, String> craqueName = new HashMap<>();
+    /** De onde saiu o último chute e se foi com quem chutou no ar (voleio). */
+    private Vec3 lastKickPos;
+    private boolean lastKickAir;
+    /** VAR: tempo do juiz no monitor, time do gol em análise e se o gol vai valer. */
+    private int varTimer, varScorer = -1, varWhich;
+    private boolean varGood, varKickAir;
+    /** Quem fez o gol em análise (o lance é guardado: ninguém mexe na bola enquanto o juiz vê o monitor). */
+    private UUID varKicker;
+    private Vec3 varKickPos;
+    /** Treino de cobrança: quem, chute (0-9), estado, alvo da vez (0-3 = cantos), pontos. */
+    private UUID trPlayer, trKicker;
+    private int trShot, trState, trTimer, trTarget, trPoints, trKickTick, trPause;
+    public static final int TRAINING_SHOTS = 10;
+    /** Chance de VAR em cada gol de jogo marcado (o teste muda). */
+    public float varChance = 0.15f;
+    public float varGoodChance = 0.65f;
 
     public int kickoffLock() {
         return kickoffLock;
@@ -266,7 +303,7 @@ public class Ball extends Entity {
     }
 
     public boolean canKick(int team) {
-        if (goalPause > 0 || phase == 1 || phase == 3) return false;
+        if (goalPause > 0 || varTimer > 0 || phase == 1 || phase == 3) return false;
         return restartKind < 0 || team == restartTeam;
     }
 
@@ -314,6 +351,7 @@ public class Ball extends Entity {
 
     /** 3.8: o goleiro pegou ou espalmou: o narrador fala da defesa. */
     public void noteSave(Entity keeper) {
+        if (tickCount - shotTick < 60) addCraque(keeper, 2);
         if (tickCount - shotTick < 60) {
             narrator.save(nameOf(keeper));
             shotTick = -100;
@@ -367,6 +405,8 @@ public class Ball extends Entity {
         lastKicker = who.getUUID();
         lastTeam = team;
         lastKickTick = tickCount;
+        lastKickPos = position();
+        lastKickAir = !who.onGround() && getY() > groundY() + 0.8;
         playSound(SoundEvents.WOOL_HIT, Math.min(1.2f, 0.5f + (float) sp), 0.7f + random.nextFloat() * 0.2f);
         // 3.8: chute ao gol (o narrador fala, e depois conta se foi defesa ou para fora)
         if (hasGoals() && team >= 0 && (rk < 0 || rk == FREE_KICK || rk == PENALTY)) {
@@ -377,6 +417,7 @@ public class Ball extends Entity {
                 shotTick = tickCount;
                 shotTeam = team;
                 narrator.shot(nameOf(who));
+                addCraque(who, 1);
             }
         }
     }
@@ -428,6 +469,10 @@ public class Ball extends Entity {
             setDeltaMovement(v);
         }
         if (!(level() instanceof ServerLevel sl)) return;
+        if (street) {
+            com.boombox.server.StreetPelada.ballTick(sl, this);
+            return;
+        }
         if (wallTimer > 0) {
             wallTimer--;
             for (UUID id : wall) {
@@ -463,6 +508,15 @@ public class Ball extends Entity {
         if (tickCount % 10 == 5) guard(sl);
         if (mode == CHALLENGE) {
             tickChallenge(sl);
+            return;
+        }
+        if (mode == TRAINING) {
+            tickTraining(sl);
+            return;
+        }
+        if (mode == AUTO && tickCount % 40 == 17) com.boombox.server.CopaVilas.tickVenue(sl, this);
+        if (varTimer > 0) {
+            tickVar(sl);
             return;
         }
         if (tickCount % 20 == 11) cheer(sl);
@@ -871,10 +925,11 @@ public class Ball extends Entity {
             case PENALTY -> "§c§lPÊNALTI! §fFalta dentro da área: pênalti para o " + who + "!";
             default -> "§fSaída de bola do " + who + ".";
         };
-        if (mode != CHALLENGE) announce(msg);
-        narrator.restart(kind, who, !wall.isEmpty());
+        if (mode != CHALLENGE && mode != TRAINING) announce(msg);
+        if (mode != TRAINING) narrator.restart(kind, who, !wall.isEmpty());
+        if (mode == TRAINING) restartTaker = trPlayer;
         for (ServerPlayer h : humansOf(sl, team)) {
-            if (h.position().distanceTo(spot) < 12 && kind != KICKOFF && mode != CHALLENGE) {
+            if (h.position().distanceTo(spot) < 12 && kind != KICKOFF && mode != CHALLENGE && mode != TRAINING) {
                 h.sendOverlayMessage(Component.literal("§eSua cobrança? Chegue na bola e chute (esquerdo) ou passe (direito)."));
             }
         }
@@ -911,7 +966,63 @@ public class Ball extends Entity {
         for (var p : sl.players()) if (p.distanceTo(this) < 56) p.sendSystemMessage(Component.literal(msg));
     }
 
+    /**
+     * 3.9: gol em jogo marcado: às vezes o lance é polêmico e o juiz vai ao monitor (VAR) antes de confirmar ou anular.
+     */
     private void goal(ServerLevel sl, int which) {
+        int scorer = which == 0 ? TEAM_B : TEAM_A;
+        if ((mode == FRIENDLY || mode == LEAGUE) && phase != 4 && random.nextFloat() < varChance) {
+            varTimer = 110;
+            varScorer = scorer;
+            varWhich = which;
+            varGood = random.nextFloat() < varGoodChance;
+            varKicker = lastKicker;
+            varKickPos = lastKickPos;
+            varKickAir = lastKickAir;
+            loseOwner();
+            setDeltaMovement(Vec3.ZERO);
+            whistle(sl, 1);
+            announce("§e§l▣ VAR! §r§fLance polêmico no gol do " + teamName(scorer) + "... o juiz vai ao monitor.");
+            narrator.line(random.nextBoolean() ? "Calma, calma! O juiz pôs a mão no ouvido... vai ao monitor! Coração na mão!"
+                    : "Ihhh, vai ter VAR! A torcida do " + teamName(1 - scorer) + " reclama de impedimento!");
+            for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) {
+                if (f.stall - 100 != scorer && f.onGround()) f.jumpFromGround();
+            }
+            return;
+        }
+        scoreGoal(sl, which);
+    }
+
+    /** Juiz no monitor: a bola fica parada; no fim, confirma o gol ou anula (tiro de meta para quem defendia). */
+    private void tickVar(ServerLevel sl) {
+        setDeltaMovement(Vec3.ZERO);
+        varTimer--;
+        if (varTimer % 30 == 0 && varTimer > 0) {
+            for (ServerPlayer p : sl.players()) if (p.distanceTo(this) < 64) p.sendOverlayMessage(Component.literal("§e▣ O juiz está revendo o lance..."));
+        }
+        if (varTimer > 0) return;
+        int scorer = varScorer;
+        varScorer = -1;
+        if (varGood) {
+            announce("§a§l▣ Gol confirmado! §r§fO juiz voltou do monitor e apontou o meio de campo.");
+            lastKicker = varKicker;
+            lastKickPos = varKickPos;
+            lastKickAir = varKickAir;
+            lastKickTick = tickCount;
+            scoreGoal(sl, varWhich);
+            return;
+        }
+        String why = random.nextBoolean() ? "impedimento" : "falta no começo da jogada";
+        announce("§c§l▣ Gol anulado! §r§fO juiz marcou " + why + ". A torcida do " + teamName(scorer) + " não se conforma!");
+        narrator.line("Anulado! O VAR pegou " + why + ". Que balde de água fria no " + teamName(scorer) + "!");
+        for (Raver f : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) {
+            f.celebrate(f.stall - 100 != scorer);
+        }
+        int defender = varWhich == 0 ? TEAM_A : TEAM_B;
+        setRestart(sl, GOAL_KICK, defender, fieldPoint(varWhich == 0 ? 2.5 : length - 2.5, 2.5), true);
+    }
+
+    private void scoreGoal(ServerLevel sl, int which) {
         int scorer = which == 0 ? TEAM_B : TEAM_A;
         if (scorer == TEAM_A) entityData.set(SCORE_A, scoreA() + 1);
         else entityData.set(SCORE_B, scoreB() + 1);
@@ -930,10 +1041,13 @@ public class Ball extends Entity {
             Cups.give(p, Cups.VARZEA);
             // 3.8: ranking de artilheiros (gols de pessoas em jogo marcado)
             if (mode != AUTO && teamOf(p) == scorer) com.boombox.WorldStats.get(sl.getServer()).add(scorerName, com.boombox.WorldStats.GOALS, 1);
+            if (mode != AUTO && teamOf(p) == scorer) golDePlaca(sl, p, which);
         } else if (lastKicker != null && sl.getEntity(lastKicker) instanceof Raver rk && teamOf(rk) == scorer) {
             scorerName = nameOf(rk);
         }
+        if (lastKicker != null && sl.getEntity(lastKicker) instanceof Entity ke && teamOf(ke) == scorer) addCraque(ke, 3);
         announce("§a§lGOOOOOL do " + teamName(scorer) + "!" + who + " §r§f" + score());
+        if (classico) classicoTaunt(sl, scorer);
         narrator.goal(scorerName, teamName(scorer));
         shotTick = -100;
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) == scorer)) r.celebrate(true);
@@ -964,6 +1078,39 @@ public class Ball extends Entity {
             join(sl, p, position, setupMode == Sports.CONTRA ? TEAM_B : TEAM_A);
             return;
         }
+        if ((setupMode == Sports.TREINO || setupMode == Sports.CLASSICO) && mode != AUTO) {
+            p.sendSystemMessage(Component.literal("§7Tem jogo acontecendo aqui agora. Espere acabar!"));
+            return;
+        }
+        if (setupMode == Sports.TREINO) {
+            startTraining(sl, p);
+            return;
+        }
+        if (setupMode == Sports.CLASSICO) {
+            var pair = com.boombox.server.CopaVilas.rivalry(sl, this);
+            if (pair == null) {
+                p.sendSystemMessage(Component.literal("§7O organizador está ligando para a vila rival... tente de novo em alguns segundos."));
+                return;
+            }
+            if (pair.length == 0) {
+                p.sendSystemMessage(Component.literal("§7Não achei outra vila por perto para ser a rival desta."));
+                return;
+            }
+            humans.clear();
+            humanPos.clear();
+            humanPos.put(p.getUUID(), Math.max(0, Math.min(Sports.POSITIONS.length - 1, position)));
+            loseOwner();
+            mode = FRIENDLY;
+            classico = true;
+            homeVillage = pair[0];
+            awayVillage = pair[1];
+            humans.put(p.getUUID(), TEAM_A);
+            Sports.sendState(p, Sports.FOOTBALL, false, humanPos.get(p.getUUID()));
+            p.sendSystemMessage(Component.literal("§c§l⚔ Clássico! §r§fVocê joga pelo §e" + homeVillage.team() + "§f (" + homeVillage.name() + ") contra o §c"
+                    + awayVillage.team() + "§f, da " + awayVillage.name() + ", a vila rival."));
+            startMatch(sl);
+            return;
+        }
         if (mode != AUTO && !humans.isEmpty() && !humans.containsKey(p.getUUID())) {
             String who = humansOf(sl, TEAM_A).stream().map(h -> h.getName().getString()).findFirst().orElse("alguém");
             p.sendSystemMessage(Component.literal("§7" + who + " já está jogando aqui. Use §e\"Entrar no time do amigo\"§7 ou §c\"Jogar contra o amigo\"§7!"));
@@ -973,6 +1120,9 @@ public class Ball extends Entity {
         humanPos.clear();
         humanPos.put(p.getUUID(), Math.max(0, Math.min(Sports.POSITIONS.length - 1, position)));
         loseOwner();
+        classico = false;
+        copaKind = -1;
+        booking = null;
         if (setupMode == Sports.CAMPEONATO) {
             mode = LEAGUE;
             String n = name == null || name.isBlank() ? p.getName().getString() + " FC" : name.trim();
@@ -1002,6 +1152,11 @@ public class Ball extends Entity {
             b = cup.names[cup.opponent()];
             cb = cup.colors[cup.opponent()];
             if (Sports.similar(ca, cb)) cb = Sports.contrast(ca);
+        } else if (classico && homeVillage != null && awayVillage != null) {
+            a = homeVillage.team();
+            ca = homeVillage.color();
+            b = awayVillage.team();
+            cb = Sports.similar(ca, awayVillage.color()) ? Sports.contrast(ca) : awayVillage.color();
         } else {
             var t = Sports.randomTeams(random, false, 2, List.of(), List.of());
             a = t.get(0)[0];
@@ -1009,6 +1164,9 @@ public class Ball extends Entity {
             b = t.get(1)[0];
             cb = Integer.parseInt(t.get(1)[1]);
         }
+        craque.clear();
+        craqueName.clear();
+        varTimer = 0;
         entityData.set(NAME_A, a);
         entityData.set(NAME_B, b);
         entityData.set(COLOR_A, ca);
@@ -1021,8 +1179,11 @@ public class Ball extends Entity {
         // cada pessoa entra no lugar do aldeão da posição que escolheu
         var all = rebench(sl);
         for (var e : humans.entrySet()) if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) giveShirt(p, e.getValue());
-        String kind = mode == LEAGUE && cup != null ? "§6" + cup.stageName() + ": " : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
-        announce(kind + "§f" + a + " §7x §f" + b);
+        String kind = mode == LEAGUE && cup != null ? "§6" + cup.stageName() + ": " : classico ? "§c§l⚔ CLÁSSICO! §r" : mode == FRIENDLY ? "§eAmistoso: " : "§7Pelada dos aldeões: ";
+        announce(kind + "§f" + a + " §7x §f" + b + (stadium && !stadiumName.isEmpty() && mode != AUTO ? " §7— no §e" + stadiumName : ""));
+        if (classico && mode != AUTO) {
+            narrator.line("É CLÁSSICO, minha gente! " + a + " contra " + b + ", vila contra vila! Aqui ninguém quer perder nem no par ou ímpar!");
+        }
         leagueA = leagueB = null;
         setRestart(sl, KICKOFF, TEAM_A, center, true);
         spawnFans(sl);
@@ -1171,6 +1332,8 @@ public class Ball extends Entity {
         int winner = a > b ? TEAM_A : b > a ? TEAM_B : -1;
         announce("§e§lFIM DE JOGO! §r§f" + score() + " §7— " + (winner < 0 ? "Empate!" : "Vitória do " + teamName(winner) + "!"));
         narrator.end();
+        if (mode != AUTO) chooseCraque(sl);
+        if (classico && homeVillage != null && awayVillage != null) com.boombox.server.CopaVilas.classicoResult(sl, this, homeVillage, awayVillage, a, b);
         for (Raver r : sl.getEntitiesOfClass(Raver.class, getBoundingBox().inflate(60), r -> teamOf(r) >= 0)) r.celebrate(teamOf(r) == winner);
         if (winner >= 0) fansReact(sl, winner);
         if (leagueA != null) {
@@ -1189,7 +1352,8 @@ public class Ball extends Entity {
         resolveBets(sl, a > b ? TEAM_A : b > a ? TEAM_B : cup.knockout() ? tie : -1);
         for (String m : cup.playerResult(a, b, tie, random)) announce(m);
         for (ServerPlayer h : humansOf(sl, TEAM_A)) Sports.sendCup(h, cup, Sports.FOOTBALL);
-        if (cup.champion() == 0) {
+        movedAway = com.boombox.server.CopaVilas.afterCupMatch(sl, this, cup, copaKind, booking, rosterPositions());
+        if (cup.champion() == 0 && !cup.vilas) {
             sl.sendParticles(ParticleTypes.FIREWORK, center.x, center.y + 3, center.z, 120, 3, 2, 3, 0.2);
             for (var e : playedFor.entrySet()) {
                 if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) {
@@ -1236,6 +1400,11 @@ public class Ball extends Entity {
         if (humans.isEmpty()) {
             // ninguém mais jogando: volta a pelada dos aldeões, com times novos
             resolveBets(sl, -1);
+            if (booking != null) com.boombox.server.CopaVilas.cancel(sl, booking, p);
+            booking = null;
+            copaKind = -1;
+            classico = false;
+            if (mode == LEAGUE) cup = null;
             mode = AUTO;
             playedFor.clear();
             startMatch(sl);
@@ -1246,10 +1415,16 @@ public class Ball extends Entity {
 
     /** Depois do apito final: próxima rodada do campeonato, ou volta a pelada dos aldeões. */
     private void nextMatch(ServerLevel sl) {
-        if (mode == LEAGUE && cup != null && !cup.finished()) {
+        if (mode == LEAGUE && cup != null && !cup.finished() && !movedAway && copaKind < 0) {
             startMatch(sl);
             return;
         }
+        // 3.9: jogo marcado em outro lugar (ou Copa das Vilas): quem joga vai para o próximo estádio
+        copaKind = -1;
+        booking = null;
+        movedAway = false;
+        classico = false;
+        if (mode == LEAGUE && cup != null) cup = null;
         for (var e : humans.entrySet()) {
             if (sl.getEntity(e.getKey()) instanceof ServerPlayer p) {
                 Sports.sendState(p, Sports.NONE);
@@ -1326,14 +1501,22 @@ public class Ball extends Entity {
     /** Torcida dos dois times na beira do campo (do lado oposto ao organizador), com camisa e bandeira do time. */
     private void spawnFans(ServerLevel sl) {
         for (Raver r : sl.getEntitiesOfClass(Raver.class, new AABB(center, center).inflate(60, 12, 60), r -> r.role() == RaverRoles.TORCIDA)) r.discard();
-        if (mode == AUTO || mode == CHALLENGE) return;
+        if (mode == AUTO || mode == CHALLENGE || mode == TRAINING) return;
+        int fans = stadium ? 14 : FANS;
         for (int team = 0; team < 2; team++) {
-            for (int i = 0; i < FANS; i++) {
-                double uu = length * (team == TEAM_A ? 0.12 : 0.58) + i * (length * 0.3 / (FANS - 1));
-                double vv = halfWidth + 2.8 + (i % 2) * 1.0;
+            for (int i = 0; i < fans; i++) {
+                double uu, vv;
+                if (stadium) {
+                    // 3.9: no estádio cada torcida tem um lado da arquibancada, em três fileiras
+                    uu = length * 0.1 + (i / 2) * (length * 0.8 / (fans / 2 - 1)) + (i % 2) * 1.5;
+                    vv = (halfWidth + 3.5 + (i % 3) * 1.0) * (team == TEAM_A ? 1 : -1);
+                } else {
+                    uu = length * (team == TEAM_A ? 0.12 : 0.58) + i * (length * 0.3 / (FANS - 1));
+                    vv = halfWidth + 2.8 + (i % 2) * 1.0;
+                }
                 Vec3 at = fieldPoint(uu, vv);
                 int y = sl.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(at.x), (int) Math.floor(at.z));
-                if (Math.abs(y - center.y) > 4) y = (int) Math.floor(center.y);
+                if (Math.abs(y - center.y) > (stadium ? 8 : 4)) y = (int) Math.floor(center.y);
                 Raver f = ModEntities.RAVER.create(sl, net.minecraft.world.entity.EntitySpawnReason.EVENT);
                 if (f == null) continue;
                 Vec3 look = fieldPoint(uu, 0);
@@ -1671,6 +1854,330 @@ public class Ball extends Entity {
         return chState;
     }
 
+    // ------------------------------------------------------------ 3.9: craque da partida
+    private void addCraque(Entity e, int pts) {
+        if (e == null || mode == AUTO) return;
+        craque.merge(e.getUUID(), pts, Integer::sum);
+        craqueName.put(e.getUUID(), nameOf(e));
+    }
+
+    /** Fim do jogo: o narrador elege o craque (quem mais fez gol, defesa e chute ao gol); pessoa ganha a medalha. */
+    private void chooseCraque(ServerLevel sl) {
+        UUID best = null;
+        int bp = 0;
+        for (var e : craque.entrySet()) {
+            // empate: pessoa ganha do aldeão
+            boolean human = sl.getEntity(e.getKey()) instanceof ServerPlayer;
+            int pts = e.getValue() * 2 + (human ? 1 : 0);
+            if (pts > bp) { bp = pts; best = e.getKey(); }
+        }
+        if (best == null) return;
+        String name = craqueName.getOrDefault(best, "alguém");
+        narrator.line("E o craque da partida é... " + name + "! Medalha no peito e foto no jornal da vila!");
+        if (sl.getEntity(best) instanceof ServerPlayer p) {
+            ItemStack medal = new ItemStack(com.boombox.bar.Blocks39.MEDALHA_CRAQUE);
+            medal.set(DataComponents.CUSTOM_NAME, Component.literal("§6Medalha de Craque §7(" + teamName(teamOf(p) < 0 ? TEAM_A : teamOf(p)) + ")"));
+            if (!p.getInventory().add(medal)) net.minecraft.world.Containers.dropItemStack(p.level(), p.getX(), p.getY(), p.getZ(), medal);
+            Achievements.award(p, "craque_da_partida");
+            p.sendSystemMessage(Component.literal("§6★ Você foi o craque da partida e ganhou a Medalha de Craque!"));
+            sl.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, p.getX(), p.getY() + 1, p.getZ(), 40, 0.5, 1, 0.5, 0.3);
+        }
+    }
+
+    /** Para o teste: quem está na frente na disputa de craque. */
+    public String craqueInfo() {
+        return craqueName.toString() + " " + craque;
+    }
+
+    // ------------------------------------------------------------ 3.9: gol de placa
+    /**
+     * Gol de pessoa de muito longe (20 blocos ou mais) ou de voleio (chutou no ar): vira uma placa na beira do campo
+     * com o nome, como foi e o dia.
+     */
+    private void golDePlaca(ServerLevel sl, ServerPlayer p, int which) {
+        if (lastKickPos == null || tickCount - lastKickTick > 120) return;
+        double dist = lastKickPos.distanceTo(goal(which));
+        boolean longe = dist >= 20, voleio = lastKickAir;
+        if (!longe && !voleio) return;
+        String como = longe ? "de " + (int) Math.round(dist) + " blocos" : "de voleio";
+        long day = sl.getOverworldClockTime() / 24000 + 1;
+        announce("§6§l★ GOL DE PLACA! §r§f" + p.getName().getString() + " marcou " + como + ". Esse vai para a placa do campo!");
+        narrator.line("Isso é GOL DE PLACA! " + p.getName().getString() + " marcou " + como + "! Vão eternizar esse lance no muro!");
+        Achievements.award(p, "gol_de_placa");
+        // placas lado a lado na faixa entre a linha lateral e o muro, do lado do organizador
+        for (int k = 0; k < 10; k++) {
+            double uu = 6 + k * 4;
+            if (uu > length - 4) break;
+            Vec3 at = fieldPoint(uu, -(halfWidth + 1.0));
+            BlockPos bp = BlockPos.containing(at.x, center.y + 0.1, at.z);
+            if (!sl.getBlockState(bp).isAir() || sl.getBlockState(bp.below()).isAir()) continue;
+            // de frente para o campo
+            Vec3 to = fieldPoint(uu, 0);
+            float yaw = (float) Math.toDegrees(Math.atan2(-(to.x - at.x), to.z - at.z));
+            int rot = Math.floorMod(Math.round(yaw / 22.5f) + 8, 16);
+            sl.setBlock(bp, net.minecraft.world.level.block.Blocks.OAK_SIGN.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.StandingSignBlock.ROTATION, rot), 3);
+            if (sl.getBlockEntity(bp) instanceof net.minecraft.world.level.block.entity.SignBlockEntity sign) {
+                List<Component> lines = List.of(Component.literal("★ GOL DE PLACA ★"), Component.literal(p.getName().getString()),
+                        Component.literal(como), Component.literal("dia " + day));
+                var text = new net.minecraft.world.level.block.entity.SignText(lines, lines, net.minecraft.world.item.DyeColor.YELLOW, true);
+                sign.setText(text, net.minecraft.world.level.block.entity.SignTextSlot.FRONT);
+                sign.setText(text, net.minecraft.world.level.block.entity.SignTextSlot.BACK);
+                sign.setWaxed(true);
+                sign.setChanged();
+                sl.sendBlockUpdated(bp, sl.getBlockState(bp), sl.getBlockState(bp), 3);
+            }
+            golsDePlaca++;
+            break;
+        }
+    }
+
+    /** Quantos gols de placa viraram placa (para o teste). */
+    public int golsDePlaca;
+
+    // ------------------------------------------------------------ 3.9: clássico
+    private static final String[] TAUNTS = {
+            "Ô, {o}, que fase! Vem pra cá aprender a jogar bola!", "Pode chorar, {o}! Hoje a vila é nossa!",
+            "Silêncio aí, {o}! Cadê aquela torcida barulhenta?", "É freguês! É freguês! A {o} é nossa freguesa!",
+            "Liga pra mãe, {o}, que hoje não vai dar!", "A {m} manda aqui! {o}, volta pra casa!"};
+
+    /** Gol no clássico: a torcida de quem marcou provoca a outra vila. */
+    private void classicoTaunt(ServerLevel sl, int scorer) {
+        var mine = scorer == TEAM_A ? homeVillage : awayVillage;
+        var other = scorer == TEAM_A ? awayVillage : homeVillage;
+        String t = TAUNTS[random.nextInt(TAUNTS.length)].replace("{o}", other.name()).replace("{m}", mine.name());
+        for (var p : sl.players()) if (p.distanceTo(this) < 64) p.sendSystemMessage(Component.literal("§7📣 Torcida da " + mine.name() + ": §f" + t));
+    }
+
+    public boolean classicoRunning() {
+        return classico && mode != AUTO;
+    }
+
+    // ------------------------------------------------------------ 3.9: jogo marcado (final no estádio, Copa das Vilas)
+    /** Começa o jogo marcado para este campo: quem está na lista e chegou entra no time A. */
+    public void startBooked(ServerLevel sl, com.boombox.server.CopaVilas.Booking b, List<ServerPlayer> here) {
+        humans.clear();
+        humanPos.clear();
+        playedFor.clear();
+        loseOwner();
+        bets.clear();
+        for (ServerPlayer p : here) {
+            humans.put(p.getUUID(), TEAM_A);
+            humanPos.put(p.getUUID(), b.positionOf(p.getUUID()));
+            Sports.sendState(p, Sports.FOOTBALL, true, humanPos.get(p.getUUID()));
+        }
+        mode = LEAGUE;
+        cup = b.cup;
+        copaKind = b.kind;
+        booking = b;
+        classico = b.classico;
+        homeVillage = b.home;
+        awayVillage = b.away;
+        movedAway = false;
+        startMatch(sl);
+    }
+
+    /** Quem jogou pelo time A (e a posição), para levar o jogo para outro campo. */
+    private Map<UUID, Integer> rosterPositions() {
+        Map<UUID, Integer> r = new java.util.LinkedHashMap<>();
+        for (var e : humans.entrySet()) if (e.getValue() == TEAM_A) r.put(e.getKey(), humanPos.getOrDefault(e.getKey(), 6));
+        for (UUID id : playedFor.keySet()) r.putIfAbsent(id, 6);
+        return r;
+    }
+
+    public boolean bookedRunning() {
+        return booking != null && mode == LEAGUE;
+    }
+
+    // ------------------------------------------------------------ 3.9: treino de cobrança
+    public boolean trainingRunning() {
+        return mode == TRAINING;
+    }
+
+    private static final String[] TARGET_NAMES = {"ângulo de cima à esquerda", "ângulo de cima à direita", "canto de baixo à esquerda", "canto de baixo à direita"};
+
+    public void startTraining(ServerLevel sl, ServerPlayer p) {
+        humans.clear();
+        humanPos.clear();
+        loseOwner();
+        mode = TRAINING;
+        trPlayer = p.getUUID();
+        trShot = 0;
+        trState = 0;
+        trTimer = 0;
+        trPoints = 0;
+        humans.put(p.getUUID(), TEAM_A);
+        humanPos.put(p.getUUID(), 6);
+        entityData.set(NAME_A, p.getName().getString());
+        entityData.set(NAME_B, "Alvos");
+        entityData.set(SCORE_A, 0);
+        entityData.set(SCORE_B, 0);
+        phase = 0;
+        clock = 0;
+        restartKind = -1;
+        keeperHold = null;
+        rebench(sl);
+        giveShirt(p, TEAM_A);
+        spawnFans(sl);
+        Sports.sendState(p, Sports.FOOTBALL, false, 6);
+        p.sendSystemMessage(Component.literal("§b◎ Treino de cobrança! §f10 chutes de lugares diferentes. Acertar o alvo aceso vale §e3§f, "
+                + "outro canto §e2§f e o meio do gol §e1§f. Sem goleiro: capricha na mira!"));
+        setupShot(sl, p);
+    }
+
+    /** Lugar de cada chute do treino (distância do gol e lado). */
+    private static final double[][] SHOTS = {{5, 0}, {9, 0}, {9, 4}, {9, -4}, {14, 0}, {14, 6}, {14, -6}, {18, 2}, {18, -2}, {22, 0}};
+
+    private void setupShot(ServerLevel sl, ServerPlayer p) {
+        trState = 1;
+        trTarget = random.nextInt(4);
+        double[] s = SHOTS[Math.min(trShot, SHOTS.length - 1)];
+        Vec3 spot = fieldPoint(length - s[0], s[1]);
+        setRestart(sl, FREE_KICK, TEAM_A, spot, true);
+        wall.clear();
+        Vec3 g1 = goal(1);
+        Vec3 at = spot.add(new Vec3(spot.x - g1.x, 0, spot.z - g1.z).normalize().scale(2));
+        float yaw = (float) (Math.toDegrees(Math.atan2(g1.z - at.z, g1.x - at.x)) - 90);
+        p.teleportTo(sl, at.x, center.y, at.z, java.util.Set.of(), yaw, 0f, true);
+        p.setDeltaMovement(Vec3.ZERO);
+        p.sendOverlayMessage(Component.literal("§bChute " + (trShot + 1) + "/" + TRAINING_SHOTS + ": §emire no " + TARGET_NAMES[trTarget] + " §7(segure para mais força)"));
+    }
+
+    /** Centro do alvo i na boca do gol que a pessoa ataca (gol 1). */
+    public Vec3 targetPoint(int i) {
+        double lat = (goalHalf - 0.7) * (i % 2 == 0 ? 1 : -1);
+        double h = i < 2 ? goalHeight - 0.6 : 0.5;
+        Vec3 p = fieldPoint(length - 0.2, lat);
+        return new Vec3(p.x, center.y + h, p.z);
+    }
+
+    private void tickTraining(ServerLevel sl) {
+        ServerPlayer p = trPlayer == null ? null : sl.getServer().getPlayerList().getPlayer(trPlayer);
+        if (p == null || !p.isAlive() || p.level() != sl || p.distanceTo(this) > 80) {
+            endTraining(sl, null);
+            return;
+        }
+        if (tickCount % 10 == 0) entityData.set(INFO, "Treino de cobrança: chute " + Math.min(trShot + 1, TRAINING_SHOTS) + "/" + TRAINING_SHOTS + " • " + trPoints + " pontos");
+        // alvos: o aceso pisca em amarelo, os outros em branco
+        if (tickCount % 4 == 0) {
+            for (int i = 0; i < 4; i++) {
+                Vec3 c = targetPoint(i);
+                Vec3 sd = side;
+                int n = i == trTarget ? 10 : 5;
+                for (int k = 0; k < n; k++) {
+                    double a = k * Math.PI * 2 / n + tickCount * 0.05;
+                    double r = 0.45;
+                    sl.sendParticles(new net.minecraft.core.particles.DustParticleOptions(i == trTarget ? 0xFFD020 : 0xFFFFFF, i == trTarget ? 1.2f : 0.7f),
+                            c.x + sd.x * Math.cos(a) * r, c.y + Math.sin(a) * r, c.z + sd.z * Math.cos(a) * r, 1, 0, 0, 0, 0);
+                }
+            }
+        }
+        switch (trState) {
+            case 1 -> {
+                if (restartKind < 0) {
+                    trState = 2;
+                    trKickTick = tickCount;
+                    trKicker = lastKicker;
+                    return;
+                }
+                setPos(restartSpot.x, center.y, restartSpot.z);
+                setDeltaMovement(0, getDeltaMovement().y, 0);
+                if (--restartTimer < -20 * 40) shotResult(sl, p, -1, false);
+            }
+            case 2 -> {
+                Vec3 pos = position();
+                double gu = u(pos);
+                boolean in = gu > length - 0.3 && Math.abs(v(pos)) < goalHalf - 0.1 && pos.y - center.y < goalHeight - 0.1;
+                boolean net = Blocks34.isGoal(sl.getBlockState(blockPosition())) || Blocks34.isGoal(sl.getBlockState(blockPosition().above()));
+                if (in || (net && gu > length / 2)) {
+                    // qual alvo: o canto mais perto de onde a bola entrou
+                    int best = -1;
+                    double bd = 0.95;
+                    for (int i = 0; i < 4; i++) {
+                        Vec3 t = targetPoint(i);
+                        double d = Math.hypot(v(pos) - v(t), pos.y - t.y);
+                        if (d < bd) { bd = d; best = i; }
+                    }
+                    shotResult(sl, p, best, true);
+                    return;
+                }
+                boolean out = gu > length + 0.5 || gu < -0.5 || Math.abs(v(pos)) > halfWidth + 0.3;
+                boolean dead = tickCount - trKickTick > 15 && getDeltaMovement().horizontalDistance() < 0.05;
+                if (owner != null || out || dead || tickCount - trKickTick > 80) shotResult(sl, p, -1, false);
+            }
+            case 3 -> {
+                if (--trPause > 0) return;
+                trShot++;
+                if (trShot >= TRAINING_SHOTS) endTraining(sl, p);
+                else setupShot(sl, p);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void shotResult(ServerLevel sl, ServerPlayer p, int target, boolean goal) {
+        int pts = !goal ? 0 : target == trTarget ? 3 : target >= 0 ? 2 : 1;
+        trPoints += pts;
+        entityData.set(SCORE_A, trPoints);
+        String msg = !goal ? "§cPra fora! §70 pontos" : target == trTarget ? "§a§lNO ALVO! §r§e+3" : target >= 0 ? "§eNo canto! +2" : "§fGol no meio. +1";
+        p.sendOverlayMessage(Component.literal(msg + " §7(total " + trPoints + ")"));
+        if (pts == 3) {
+            Vec3 t = targetPoint(trTarget);
+            sl.sendParticles(ParticleTypes.FIREWORK, t.x, t.y, t.z, 30, 0.3, 0.3, 0.3, 0.1);
+            sl.playSound(null, blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 1f, 1.4f);
+        } else if (goal) {
+            sl.playSound(null, blockPosition(), SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.NEUTRAL, 1f, 1.2f);
+        }
+        trState = 3;
+        trPause = 40;
+        restartKind = -1;
+        loseOwner();
+    }
+
+    private void endTraining(ServerLevel sl, ServerPlayer p) {
+        if (p != null) {
+            int best = com.boombox.server.CopaVilas.get(sl.getServer()).trainingRecord(p.getName().getString(), trPoints);
+            boolean record = trPoints >= best && trPoints > 0;
+            p.sendSystemMessage(Component.literal("§b◎ Fim do treino: §e" + trPoints + " pontos §7de 30." + (record ? " §a§lNovo recorde seu!" : " §7Seu recorde: " + best + ".")));
+            narrator.line(trPoints >= 24 ? "Que pontaria! " + p.getName().getString() + " fez " + trPoints + " pontos no treino. Tá pronto pra seleção!"
+                    : trPoints >= 12 ? p.getName().getString() + " fez " + trPoints + " pontos no treino. Tá melhorando!"
+                    : p.getName().getString() + " fez " + trPoints + " pontos. Treino é treino, jogo é jogo!");
+            lastTraining = trPoints;
+        }
+        for (UUID id : new ArrayList<>(humans.keySet())) {
+            if (sl.getEntity(id) instanceof ServerPlayer hp) {
+                Sports.sendState(hp, Sports.NONE);
+                ItemStack chest = hp.getItemBySlot(EquipmentSlot.CHEST);
+                if (chest.is(Items.LEATHER_CHESTPLATE) && chest.has(DataComponents.CUSTOM_NAME) && chest.getHoverName().getString().startsWith("Camisa do")) {
+                    hp.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+                }
+            }
+        }
+        humans.clear();
+        humanPos.clear();
+        trPlayer = null;
+        trState = 0;
+        restartKind = -1;
+        mode = AUTO;
+        startMatch(sl);
+    }
+
+    /** Pontos do último treino (para o teste) e estado do treino. */
+    public int lastTraining = -1;
+
+    public String trainingInfo() {
+        return "chute=" + trShot + " estado=" + trState + " alvo=" + trTarget + " pontos=" + trPoints;
+    }
+
+    public int trainingTarget() {
+        return trTarget;
+    }
+
+    public int trainingState() {
+        return trState;
+    }
+
     private void findField(ServerLevel sl) {
         List<BlockPos> found = new ArrayList<>();
         for (BlockPos p : BlockPos.betweenClosed(blockPosition().offset(-40, -3, -40), blockPosition().offset(40, 4, 40))) {
@@ -1799,12 +2306,21 @@ public class Ball extends Entity {
     /** Clique direito na bola (fora do jogo): placar e tabela. Para jogar, fale com o organizador. */
     @Override
     public InteractionResult interact(Player player, InteractionHand hand, Vec3 at) {
+        if (street && player instanceof ServerPlayer sp) {
+            var g = com.boombox.server.StreetPelada.gameOf(getUUID());
+            if (g != null) sp.sendOverlayMessage(Component.literal("§e⚽ Pelada da rua: §f" + com.boombox.server.StreetPelada.info(g) + " §7(chute para entrar)"));
+            return InteractionResult.SUCCESS;
+        }
         if (player instanceof ServerPlayer sp && level() instanceof ServerLevel sl && teamOf(sp) < 0) table(sl, sp);
         return InteractionResult.SUCCESS;
     }
 
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (street) {
+            if (source.getEntity() instanceof ServerPlayer p) com.boombox.server.StreetPelada.playerKick(p, this);
+            return false;
+        }
         // quem está jogando usa os botões; quem não está, só dá um toquinho
         if (source.getEntity() instanceof ServerPlayer p && teamOf(p) < 0 && inPlay()) {
             Vec3 look = p.getLookAngle();
@@ -1847,6 +2363,8 @@ public class Ball extends Entity {
         mode = in.getIntOr("Mode", AUTO);
         // ninguém fica "preso" num jogo depois de sair do mundo: volta a pelada dos aldeões
         mode = AUTO;
+        stadium = in.getBooleanOr("Stadium", false);
+        street = in.getBooleanOr("Street", false);
     }
 
     @Override
@@ -1854,5 +2372,7 @@ public class Ball extends Entity {
         out.putInt("ScoreA", scoreA());
         out.putInt("ScoreB", scoreB());
         out.putInt("Mode", mode);
+        out.putBoolean("Stadium", stadium);
+        out.putBoolean("Street", street);
     }
 }

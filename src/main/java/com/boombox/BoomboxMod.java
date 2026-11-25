@@ -40,6 +40,7 @@ public class BoomboxMod implements ModInitializer {
         Payloads.register();
         ServerBoomboxManager.registerReceivers();
         com.boombox.server.Features38.register(); // 3.8: mapa da vila, liga, apostas e ranking
+        com.boombox.bar.Blocks39.init(); // 3.9: medalha de craque e chinelo
         ServerFiles.registerReceivers();
 
         // aba própria do mod no modo criativo
@@ -99,6 +100,7 @@ public class BoomboxMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerBoomboxManager.sendAllTo(handler.getPlayer());
             WorldStats.get(server).onJoin(handler.getPlayer()); // 3.8: esmeraldas de apostas guardadas
+            com.boombox.server.CopaVilas.onJoin(handler.getPlayer()); // 3.9: jogo marcado em outro estádio
         });
         // 3.8: o mundo abriu: apostas de jogos que não acabaram voltam para quem apostou
         ServerLifecycleEvents.SERVER_STARTED.register(server -> WorldStats.get(server).refundOpenBets());
@@ -113,8 +115,11 @@ public class BoomboxMod implements ModInitializer {
             ServerBoomboxManager.tickNewYear(server);
             com.boombox.bar.Birthday.tick(server);
             if (server.getTickCount() % 2400 == 0) com.boombox.entity.Trio.maybeStart(server); // carnaval de vez em quando
+            com.boombox.server.CopaVilas.tickServer(server); // 3.9: busca de vilas e provocação do clássico
+            com.boombox.server.StreetPelada.tick(server); // 3.9: pelada das crianças na rua
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> com.boombox.server.StreetPelada.clear()); // 3.9: chinelo não fica na rua
 
         Watchdog.init();
         LOGGER.info("Boombox carregada!");
