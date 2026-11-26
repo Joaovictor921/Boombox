@@ -22,6 +22,14 @@ Uma boombox que toca músicas para todo mundo por perto, sincronizadas em tempo 
   - **Volume** (0–100%): vale para todos que estão ouvindo essa boombox.
 - O som é 3D: vem da boombox e diminui até sumir a ~48 blocos. Também segue o controle **Jukebox/Discos** das opções de som.
 
+## Novidades da 3.9.2
+
+- **Estádio inteiro**: em algumas vilas o estádio ficava longe demais do centro, e o jogo não montava os pedaços mais
+  distantes (ficava mato, árvore ou rio no lugar do gramado e da arquibancada). Agora o estádio é colocado mais perto
+  quando dá, e o que faltar é montado sozinho quando você chega perto, inclusive nos mundos que já existem.
+- **Gramado firme**: onde o campo fica em cima de rio ou buraco, vai terra embaixo do gramado, que não afunda mais.
+- **Sem neve no campo**: em vila de neve, a neve que cai no gramado some sozinha (a arquibancada continua nevada).
+
 ## Novidades da 3.9.1
 
 - **Estádio maior**: o campo do estádio agora tem 70 x 40 blocos entre as linhas (era 44 x 26), com arquibancada mais

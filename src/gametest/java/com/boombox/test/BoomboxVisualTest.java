@@ -195,6 +195,10 @@ public class BoomboxVisualTest implements FabricClientGameTest {
             vila(ctx);
             return;
         }
+        if ("v392".equals(System.getenv("BOOMBOX_QUICK"))) {
+            v392(ctx);
+            return;
+        }
         if ("vilas39".equals(System.getenv("BOOMBOX_QUICK"))) {
             vilas39(ctx);
             return;
@@ -2406,6 +2410,98 @@ public class BoomboxVisualTest implements FabricClientGameTest {
     }
 
     /** 3.9 (mundo normal): estádio nas vilas, clássico, final da várzea no estádio e Copa das Vilas. */
+    /** 3.9.2: estádio inteiro montado (mesmo fora dos 8 chunks do começo da vila) e sem neve no gramado. */
+    private static String stadiumScan(net.minecraft.server.level.ServerLevel sl, java.util.List<long[]> far) {
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        int villages = 0, stadiums = 0, out = 0;
+        for (int gx = -3; gx <= 3; gx++) for (int gz = -3; gz <= 3; gz++) {
+            var hit = sl.getChunkSource().getGenerator().findNearestMapStructure(sl,
+                    sl.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.tags.StructureTags.VILLAGE),
+                    new BlockPos(gx * 1500, 64, gz * 1500), 20, false);
+            if (hit == null) continue;
+            BlockPos p = hit.getFirst();
+            if (!seen.add(net.minecraft.world.level.ChunkPos.containing(p).pack())) continue;
+            var chunk = sl.getChunk(p.getX() >> 4, p.getZ() >> 4, net.minecraft.world.level.chunk.status.ChunkStatus.STRUCTURE_STARTS);
+            for (var stt : chunk.getAllStarts().values()) {
+                if (!stt.isValid()) continue;
+                villages++;
+                var sc = stt.getChunkPos();
+                for (var pc : stt.getPieces()) {
+                    if (!(pc instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pe) || !pe.getElement().toString().contains("boombox:estadio")) continue;
+                    stadiums++;
+                    var b = pc.getBoundingBox();
+                    int d = Math.max(Math.max(sc.x() - (b.minX() >> 4), (b.maxX() >> 4) - sc.x()), Math.max(sc.z() - (b.minZ() >> 4), (b.maxZ() >> 4) - sc.z()));
+                    if (d > 8) {
+                        out++;
+                        far.add(new long[]{pe.getPosition().getX(), pe.getPosition().getY(), pe.getPosition().getZ(), pe.getRotation().ordinal(), d});
+                    }
+                }
+            }
+        }
+        return "vilas=" + villages + " estádios=" + stadiums + " passando dos 8 chunks=" + out;
+    }
+
+    /** Conta o gramado do estádio (molde: x 9..84, z 10..55, y 0): quantos blocos são do campo e quantos não. */
+    private static String pitchCount(net.minecraft.server.level.ServerLevel sl, long[] f) {
+        BlockPos origin = new BlockPos((int) f[0], (int) f[1], (int) f[2]);
+        var rot = net.minecraft.world.level.block.Rotation.values()[(int) f[3]];
+        int ok = 0, bad = 0, snow = 0, trees = 0;
+        java.util.Map<String, Integer> other = new java.util.TreeMap<>();
+        for (int x = 9; x <= 84; x++) for (int z = 10; z <= 55; z++) {
+            BlockPos q = origin.offset(net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.transform(new BlockPos(x, 0, z), net.minecraft.world.level.block.Mirror.NONE, rot, BlockPos.ZERO));
+            String n = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(sl.getBlockState(q).getBlock()).getPath();
+            if (n.contains("concrete") || n.contains("terracotta") || n.equals("moss_block") || n.contains("red_") || n.contains("spruce") || n.contains("quartz") || n.contains("stone")) ok++;
+            else { bad++; other.merge(n + "@" + (q.getX() >> 4) + "," + (q.getZ() >> 4) + "/y" + q.getY() + "/" + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(sl.getBlockState(q.below()).getBlock()).getPath(), 1, Integer::sum); }
+            for (int dy = 1; dy <= 12; dy++) {
+                var st = sl.getBlockState(q.above(dy));
+                if (st.is(net.minecraft.world.level.block.Blocks.SNOW)) snow++;
+                if (st.is(net.minecraft.tags.BlockTags.LEAVES) || (st.is(net.minecraft.tags.BlockTags.LOGS) && !st.getBlock().toString().contains("stripped"))) trees++;
+            }
+        }
+        return "gramado ok=" + ok + " errado=" + bad + " " + other + " neve=" + snow + " árvore=" + trees;
+    }
+
+    private void v392(ClientGameTestContext ctx) {
+        try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
+            TestServerContext server = sp.getServer();
+            server.runCommand("gamerule spawn_monsters false");
+            server.runCommand("gamemode creative @a");
+            server.runCommand("time set 6000");
+            server.runCommand("gamerule advance_time false");
+            java.util.List<long[]> far = new java.util.ArrayList<>();
+            String r = server.computeOnServer(s -> stadiumScan(s.overworld(), far));
+            System.out.println("[BoomboxTest] v392 " + r);
+            for (int i = 0; i < Math.min(2, far.size()); i++) {
+                long[] f = far.get(i);
+                server.runCommand(String.format(Locale.ROOT, "tp @a %d 160 %d 0 90", f[0] + 40, f[2] + 30));
+                ctx.waitTicks(500);
+                String c = server.computeOnServer(s -> pitchCount(s.overworld(), f) + " montados=" + com.boombox.village.StadiumRepair.repaired);
+                System.out.println("[BoomboxTest] v392 estádio longe " + i + " (" + f[4] + " chunks): " + c);
+                ctx.takeScreenshot("v392_longe_" + i);
+            }
+            // neve no gramado: põe neve em volta da bola de um estádio e espera a bola tirar
+            if (!far.isEmpty()) {
+                String sn = server.computeOnServer(s -> {
+                    var sl = s.overworld();
+                    var balls = sl.getEntitiesOfClass(com.boombox.entity.Ball.class, new net.minecraft.world.phys.AABB(new BlockPos((int) far.get(Math.min(1, far.size() - 1))[0], 60, (int) far.get(Math.min(1, far.size() - 1))[2])).inflate(150, 60, 150), b -> b.stadium && b.hasGoals());
+                    if (balls.isEmpty()) return "sem bola";
+                    var b = balls.get(0);
+                    int put = 0;
+                    BlockPos c0 = BlockPos.containing(b.center());
+                    for (int dx = -10; dx <= 10; dx++) for (int dz = -10; dz <= 10; dz++) {
+                        BlockPos q = c0.offset(dx, 0, dz);
+                        if (sl.getBlockState(q).isAir()) { sl.setBlock(q, net.minecraft.world.level.block.Blocks.SNOW.defaultBlockState(), 3); put++; }
+                    }
+                    return "neve posta=" + put;
+                });
+                System.out.println("[BoomboxTest] v392 " + sn);
+                ctx.waitTicks(260);
+                String after = server.computeOnServer(s -> pitchCount(s.overworld(), far.get(Math.min(1, far.size() - 1))));
+                System.out.println("[BoomboxTest] v392 depois da neve: " + after);
+            }
+        }
+    }
+
     private void vilas39(ClientGameTestContext ctx) {
         try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(st -> st.setSeed("3720")).create()) {
             TestServerContext server = sp.getServer();

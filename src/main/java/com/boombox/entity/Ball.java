@@ -506,6 +506,7 @@ public class Ball extends Entity {
         }
         if (tickCount % 20 == 0) scoreboard(sl);
         if (tickCount % 1200 == 600) clearTrees(sl);
+        else if (tickCount % 200 == 100 && hasGoals()) clearSnow(sl); // 3.9.2: neve que cai no gramado
         if (tickCount % 200 == 40) ensureOrganizer(sl);
         if (tickCount % 10 == 5) guard(sl);
         if (mode == CHALLENGE) {
@@ -2246,6 +2247,7 @@ public class Ball extends Entity {
             if (net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(sl.getBlockState(q).getBlock()).getPath().equals("white_concrete_powder")) { halfWidth = k; break; }
         }
         clearTrees(sl);
+        supportPitch(sl);
         if (stadium) closeTunnel(sl);
         startMatch(sl);
     }
@@ -2321,6 +2323,38 @@ public class Ball extends Entity {
     }
 
     /** Árvore ou mato que nasceu dentro do campo: tira. */
+    /** 3.9.2: terra embaixo do gramado onde está oco (rio, buraco), para o pó de concreto não cair. */
+    private void supportPitch(ServerLevel sl) {
+        int y = (int) Math.floor(center.y) - 1;
+        double hw = halfWidth + 1.5;
+        int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        for (double u : new double[]{-2, length + 2}) for (double w : new double[]{-hw, hw}) {
+            Vec3 p = goal0.add(axis.scale(u)).add(side.scale(w));
+            minX = Math.min(minX, (int) Math.floor(p.x)); maxX = Math.max(maxX, (int) Math.floor(p.x));
+            minZ = Math.min(minZ, (int) Math.floor(p.z)); maxZ = Math.max(maxZ, (int) Math.floor(p.z));
+        }
+        int n = com.boombox.village.StadiumRepair.support(sl, minX, minZ, maxX, maxZ, y);
+        if (n > 0) com.boombox.BoomboxMod.LOGGER.info("Boombox: pus {} blocos de terra embaixo do gramado", n);
+    }
+
+    /** 3.9.2: tira a neve (camada fina) de cima do gramado; em vila de neve ela cobria o campo todo. */
+    private void clearSnow(ServerLevel sl) {
+        int y0 = (int) Math.floor(center.y);
+        double hw = halfWidth + 1.5;
+        BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+        for (double u = -2; u <= length + 2; u += 1) {
+            for (double w = -hw; w <= hw; w += 1) {
+                Vec3 p = goal0.add(axis.scale(u)).add(side.scale(w));
+                q.set(Math.floor(p.x), y0, Math.floor(p.z));
+                if (!sl.isLoaded(q)) continue;
+                if (sl.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SNOW)) sl.setBlock(q, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+            }
+        }
+    }
+
+    /** Quantos blocos de árvore/mato/neve a última limpeza tirou (para o teste). */
+    public int lastCleared;
+
     private void clearTrees(ServerLevel sl) {
         int removed = 0;
         int y0 = (int) Math.floor(center.y);
@@ -2330,11 +2364,13 @@ public class Ball extends Entity {
                 Vec3 p = goal0.add(axis.scale(u)).add(side.scale(w));
                 for (int dy = 0; dy <= 16; dy++) {
                     BlockPos q = BlockPos.containing(p.x, y0 + dy, p.z);
+                    if (!sl.isLoaded(q)) break;
                     var st = sl.getBlockState(q);
                     if (st.isAir() || Blocks34.isGoal(st)) continue;
                     boolean tree = st.is(net.minecraft.tags.BlockTags.LOGS) || st.is(net.minecraft.tags.BlockTags.LEAVES)
                             || st.is(net.minecraft.tags.BlockTags.SAPLINGS) || st.is(net.minecraft.tags.BlockTags.FLOWERS)
-                            || st.is(net.minecraft.tags.BlockTags.REPLACEABLE_BY_TREES) || st.is(net.minecraft.world.level.block.Blocks.BEE_NEST);
+                            || st.is(net.minecraft.tags.BlockTags.REPLACEABLE_BY_TREES) || st.is(net.minecraft.world.level.block.Blocks.BEE_NEST)
+                            || st.is(net.minecraft.world.level.block.Blocks.SNOW) || st.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW);
                     if (tree) {
                         sl.setBlock(q, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
                         removed++;
@@ -2342,7 +2378,8 @@ public class Ball extends Entity {
                 }
             }
         }
-        if (removed > 0) com.boombox.BoomboxMod.LOGGER.info("Boombox: tirei {} blocos de árvore/mato de dentro do campo de várzea", removed);
+        lastCleared = removed;
+        if (removed > 0) com.boombox.BoomboxMod.LOGGER.info("Boombox: tirei {} blocos de árvore/mato/neve de dentro do campo", removed);
     }
 
     private void giveShirt(ServerPlayer sp, int team) {

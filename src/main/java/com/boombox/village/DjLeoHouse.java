@@ -259,6 +259,9 @@ public final class DjLeoHouse {
         var randomState = ctx.randomState();
         Rotation[] rots = {Rotation.NONE, Rotation.CLOCKWISE_90};
         double turn = shuffler.nextDouble() * Math.PI * 2;
+        // 3.9.2: primeiro só lugares a até 8 chunks do começo da vila (o jogo só monta a vila até aí); se não der,
+        // qualquer lugar (o StadiumRepair monta o resto quando alguém chega perto)
+        for (int pass = 0; pass < 2; pass++)
         for (int r = rMin; r <= rMax; r += 10) {
             BoundingBox bestBox = null;
             BlockPos bestOrigin = null;
@@ -274,6 +277,7 @@ public final class DjLeoHouse {
                     BlockPos origin = new BlockPos(2 * x - (b0.minX() + b0.maxX()) / 2, ground, 2 * z - (b0.minZ() + b0.maxZ()) / 2);
                     BoundingBox box = piece.getBoundingBox(manager, origin, rot);
                     if (builder.findCollisionPiece(box) != null) continue;
+                    if (pass == 0 && !inReach(ctx.chunkPos(), box)) continue;
                     int slope = slope(gen, heights, randomState, box, ground);
                     if (slope < 0 || slope >= bestSlope) continue;
                     bestSlope = slope;
@@ -288,6 +292,12 @@ public final class DjLeoHouse {
             }
         }
         return false;
+    }
+
+    /** A peça toda fica a até 8 chunks do começo da vila? */
+    private static boolean inReach(net.minecraft.world.level.ChunkPos start, BoundingBox b) {
+        return (b.minX() >> 4) >= start.x() - 8 && (b.maxX() >> 4) <= start.x() + 8
+                && (b.minZ() >> 4) >= start.z() - 8 && (b.maxZ() >> 4) <= start.z() + 8;
     }
 
     private static double dist(BoundingBox b, BlockPos c) {

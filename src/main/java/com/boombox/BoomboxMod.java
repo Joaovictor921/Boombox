@@ -117,9 +117,10 @@ public class BoomboxMod implements ModInitializer {
             if (server.getTickCount() % 2400 == 0) com.boombox.entity.Trio.maybeStart(server); // carnaval de vez em quando
             com.boombox.server.CopaVilas.tickServer(server); // 3.9: busca de vilas e provocação do clássico
             com.boombox.server.StreetPelada.tick(server); // 3.9: pelada das crianças na rua
+            com.boombox.village.StadiumRepair.tick(server); // 3.9.2: monta o pedaço do estádio que o jogo não montou
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerBoomboxManager.clear());
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> com.boombox.server.StreetPelada.clear()); // 3.9: chinelo não fica na rua
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> { com.boombox.server.StreetPelada.clear(); com.boombox.village.StadiumRepair.clear(); }); // 3.9: chinelo não fica na rua
 
         Watchdog.init();
         LOGGER.info("Boombox carregada!");
